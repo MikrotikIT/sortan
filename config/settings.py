@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from urllib.parse import parse_qs, unquote, urlsplit
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-only-change-this-before-deployment")
@@ -51,12 +52,72 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+def _postgres_database_from_url(database_url):
+    parsed = urlsplit(database_url)
+    if parsed.scheme not in {"postgres", "postgresql"}:
+        raise ValueError("DATABASE_URL must use the postgres or postgresql scheme.")
+
+    database_name = unquote(parsed.path.lstrip("/"))
+    if not database_name:
+        raise ValueError("DATABASE_URL must include a database name.")
+
+    options = {
+        key: values[-1]
+        for key, values in parse_qs(parsed.query, keep_blank_values=True).items()
     }
-}
+    database = {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": database_name,
+        "USER": unquote(parsed.username or ""),
+        "PASSWORD": unquote(parsed.password or ""),
+        "HOST": parsed.hostname or "",
+        "PORT": str(parsed.port or ""),
+        "CONN_MAX_AGE": int(os.environ.get("POSTGRES_CONN_MAX_AGE", "60")),
+    }
+    if options:
+        database["OPTIONS"] = options
+    return database
+
+
+# Keep SQLite as the default; PostgreSQL is selected only when explicitly configured.
+_database_url = os.environ.get("DATABASE_URL", "").strip()
+_postgres_env_keys = (
+    "POSTGRES_DB",
+    "POSTGRES_USER",
+    "POSTGRES_PASSWORD",
+    "POSTGRES_HOST",
+    "POSTGRES_PORT",
+)
+
+if _database_url:
+    _default_database = _postgres_database_from_url(_database_url)
+elif any(key in os.environ for key in _postgres_env_keys):
+    _required_postgres_env = ("POSTGRES_DB", "POSTGRES_USER")
+    _missing_postgres_env = [
+        key for key in _required_postgres_env if not os.environ.get(key)
+    ]
+    if _missing_postgres_env:
+        raise RuntimeError(
+            "PostgreSQL configuration is incomplete; set "
+            + ", ".join(_missing_postgres_env)
+            + "."
+        )
+    _default_database = {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ["POSTGRES_DB"],
+        "USER": os.environ["POSTGRES_USER"],
+        "PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
+        "HOST": os.environ.get("POSTGRES_HOST", "127.0.0.1"),
+        "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+        "CONN_MAX_AGE": int(os.environ.get("POSTGRES_CONN_MAX_AGE", "60")),
+    }
+else:
+    _default_database = {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": os.environ.get("DJANGO_DB_PATH", BASE_DIR / "db.sqlite3"),
+    }
+
+DATABASES = {"default": _default_database}
 
 AUTH_USER_MODEL = "investments.User"
 AUTH_PASSWORD_VALIDATORS = [
