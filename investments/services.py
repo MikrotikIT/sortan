@@ -54,7 +54,7 @@ def settle_due_investments(user=None):
     settings = get_platform_settings()
     settled = 0
     with transaction.atomic():
-        for investment in due.select_for_update().select_related("user__referred_by").order_by("id"):
+        for investment in due.select_for_update(of=("self",)).select_related("user__referred_by").order_by("id"):
             if investment.status != Investment.Status.ACTIVE:
                 continue
             owner = User.objects.select_for_update().get(pk=investment.user_id)
@@ -93,7 +93,7 @@ def settle_due_investments(user=None):
 
 @transaction.atomic
 def approve_deposit(deposit_id):
-    deposit = Deposit.objects.select_for_update().select_related("user__referred_by").get(pk=deposit_id)
+    deposit = Deposit.objects.select_for_update(of=("self",)).select_related("user__referred_by").get(pk=deposit_id)
     if deposit.status != Deposit.Status.PENDING:
         return False
     user = User.objects.select_for_update().get(pk=deposit.user_id)
