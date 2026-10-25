@@ -1,0 +1,21 @@
+{% load static %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#091e27">
+  <title>{% block title %}إدارة CineVest{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/site.css' %}"><link rel="stylesheet" href="{% static 'css/management.css' %}">
+</head>
+<body class="management-body">
+  <header class="management-topbar"><a class="brand" href="{% url 'management_dashboard' %}"><span class="brand-mark">C</span><span>Cine<span class="brand-light">Vest</span></span><b class="admin-tag">الإدارة</b></a><nav class="management-nav"><a href="{% url 'management_dashboard' %}">الرئيسية</a><a href="{% url 'management_customers' %}">العملاء</a><a href="{% url 'management_wallets' %}">المحافظ</a><a href="{% url 'management_finance' %}">المالية</a><a href="{% url 'management_films' %}">الأفلام</a><a href="{% url 'management_vouchers' %}">القسائم</a><a href="{% url 'management_deposits' %}">الإيداعات</a><a href="{% url 'management_internal_credits' %}">الرصيد الداخلي</a><a href="{% url 'management_withdrawals' %}">السحب</a><a href="{% url 'management_settings' %}">الإعدادات</a></nav><div class="management-user"><span>{{ user.phone }}</span><a href="{% url 'admin:index' %}">إدارة Django ↗</a><a href="{% url 'dashboard' %}">موقع العميل ↗</a><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit">خروج</button></form></div></header>
+  <main class="management-main">
+    {% if messages %}<div class="messages">{% for message in messages %}<div class="alert alert-{{ message.tags }}">{{ message }}</div>{% endfor %}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="management-footer">CineVest · لوحة الإدارة الخاصة</footer>
+  <script src="{% static 'js/withdrawal-rules.js' %}"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

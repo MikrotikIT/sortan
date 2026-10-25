@@ -1,0 +1,34 @@
+from django.urls import path
+
+from . import management_views, views
+
+urlpatterns = [
+    path("", views.home, name="home"),
+    path("register/", views.register, name="register"),
+    path("login/", views.sign_in, name="login"),
+    path("logout/", views.sign_out, name="logout"),
+    path("dashboard/", views.dashboard, name="dashboard"),
+    path("invest/", views.create_investment, name="create_investment"),
+    path("withdrawals/", views.withdrawals, name="withdrawals"),
+    path("referrals/", views.referrals, name="referrals"),
+    path("deposit/", views.deposit_wallet, name="deposit_wallet"),
+    path("online-counter/", views.online_counter, name="online_counter"),
+    path("management/", management_views.dashboard, name="management_dashboard"),
+    path("management/films/", management_views.films, name="management_films"),
+    path("management/films/new/", management_views.film_create, name="management_film_create"),
+    path("management/films/<int:pk>/edit/", management_views.film_edit, name="management_film_edit"),
+    path("management/films/<int:pk>/toggle/", management_views.film_toggle, name="management_film_toggle"),
+    path("management/settings/", management_views.platform_settings, name="management_settings"),
+    path("management/vouchers/", management_views.vouchers, name="management_vouchers"),
+    path("management/vouchers/<int:pk>/edit/", management_views.voucher_edit, name="management_voucher_edit"),
+    path("management/vouchers/<int:pk>/revoke/", management_views.voucher_revoke, name="management_voucher_revoke"),
+    path("management/deposits/", management_views.deposits, name="management_deposits"),
+    path("management/internal-credits/", management_views.internal_credits, name="management_internal_credits"),
+    path("management/withdrawals/", management_views.withdrawals, name="management_withdrawals"),
+    path("management/customers/", management_views.customers, name="management_customers"),
+    path("management/customers/<int:pk>/", management_views.customer_detail, name="management_customer_detail"),
+    path("management/wallets/", management_views.wallets, name="management_wallets"),
+    path("management/wallets/sync/", management_views.sync_wallet_balances, name="management_wallet_sync"),
+    path("management/wallets/<int:pk>/private-key/", management_views.reveal_wallet_key, name="management_wallet_reveal"),
+    path("management/finance/", management_views.finance, name="management_finance"),
+]

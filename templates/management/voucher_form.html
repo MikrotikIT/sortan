@@ -1,0 +1,6 @@
+{% extends 'management/base.html' %}
+{% block title %}تعديل القسيمة — CineVest{% endblock %}
+{% block content %}
+<section class="management-heading"><div><span class="eyebrow">قسائم المستثمرين</span><h1>تعديل قيمة القسيمة</h1><p>المستخدم: {{ voucher.user.phone }} · الحالة: {{ voucher.get_status_display }}</p></div><a class="btn btn-quiet" href="{% url 'management_vouchers' %}">← قائمة القسائم</a></section>
+<section class="management-panel form-panel"><form method="post" class="management-form">{% csrf_token %}{% for field in form %}<div class="admin-field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}<div class="form-actions"><button class="btn btn-primary" type="submit">حفظ القيمة</button><a class="btn btn-quiet" href="{% url 'management_vouchers' %}">إلغاء</a></div></form></section>
+{% endblock %}

@@ -1,0 +1,20 @@
+.toast-viewport{position:fixed;z-index:1100;top:82px;inset-inline-start:24px;display:grid;gap:10px;width:min(410px,calc(100vw - 32px));max-height:calc(100vh - 105px);overflow-y:auto;padding:2px 5px 8px;pointer-events:none}
+.app-toast{--toast-accent:#138daf;--toast-surface:#fff;--toast-border:#dcebef;position:relative;display:grid;grid-template-columns:34px minmax(0,1fr) 25px;align-items:start;gap:10px;padding:14px 13px;background:var(--toast-surface);border:1px solid var(--toast-border);border-inline-start:4px solid var(--toast-accent);border-radius:11px;box-shadow:0 12px 34px rgba(9,30,39,.16);color:#28434b;pointer-events:auto;animation:toast-enter .22s ease-out both}
+.app-toast-success{--toast-accent:#168b65;--toast-border:#cbe9d9;--toast-surface:#fbfffc}
+.app-toast-warning{--toast-accent:#bd811d;--toast-border:#f0dfbd;--toast-surface:#fffdf8}
+.app-toast-error{--toast-accent:#c44e46;--toast-border:#f0d0cc;--toast-surface:#fffafa}
+.app-toast-info{--toast-accent:#1686a8;--toast-border:#d2eaf1;--toast-surface:#fbfeff}
+.app-toast-icon{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#e9f6f9;color:var(--toast-accent);font:700 15px/1 "DM Sans","Tajawal",sans-serif}
+.app-toast-success .app-toast-icon{background:#e7f6ee}
+.app-toast-warning .app-toast-icon{background:#fff3dc}
+.app-toast-error .app-toast-icon{background:#fdebe9}
+.app-toast-copy{min-width:0;padding-top:1px}
+.app-toast-copy strong{display:block;margin-bottom:3px;color:#203b43;font-size:12px;font-weight:800}
+.app-toast-copy p{margin:0;color:#60757b;font-size:12px;line-height:1.7;overflow-wrap:anywhere}
+.app-toast-close{display:grid;place-items:center;width:25px;height:25px;padding:0;border:0;border-radius:7px;background:transparent;color:#91a0a4;font:22px/1 "DM Sans",sans-serif;cursor:pointer}
+.app-toast-close:hover{background:#f0f4f5;color:#405960}
+.app-toast.is-leaving{animation:toast-leave .18s ease-in forwards}
+@keyframes toast-enter{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
+@keyframes toast-leave{to{opacity:0;transform:translateX(12px)}}
+@media(max-width:600px){.toast-viewport{top:76px;inset-inline-start:10px;width:calc(100vw - 20px);max-height:calc(100vh - 155px)}.app-toast{padding:12px 11px;grid-template-columns:31px minmax(0,1fr) 24px}.app-toast-icon{width:28px;height:28px}.app-toast-copy p{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.app-toast,.app-toast.is-leaving{animation:none}}

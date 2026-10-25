@@ -1,0 +1,52 @@
+{% load static %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#091e27">
+  <title>{% block title %}CineVest — استثمار في صناعة الأفلام{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/site.css' %}">
+  <link rel="stylesheet" href="{% static 'css/bottom-nav.css' %}">
+  <link rel="stylesheet" href="{% static 'css/online-counter.css' %}">
+  <link rel="stylesheet" href="{% static 'css/toasts.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  {% if messages %}{% include 'includes/toasts.html' %}{% endif %}
+  {% if user.is_authenticated %}
+  <div class="app-shell">
+    <main class="main-area">
+      <header class="topbar"><div class="breadcrumb">منصة الأفلام <span>/</span> {% block breadcrumb %}لوحة الاستثمار{% endblock %}</div><div class="topbar-actions"><div class="online-counter" data-online-counter data-counter-url="{% url 'online_counter' %}" aria-label="عداد تجريبي للمتصلين" hidden><span class="online-counter-dot" aria-hidden="true"></span><span class="online-counter-label">متصلون الآن</span><strong data-online-counter-value dir="ltr">—</strong></div>{% if user.is_staff %}<a class="topbar-management" href="{% url 'management_dashboard' %}">الإدارة</a>{% endif %}<div class="top-user"><span class="user-avatar">{{ user.phone|slice:":1" }}</span><span>{{ user.phone }}</span></div><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="topbar-logout" type="submit">خروج</button></form></div></header>
+      <div class="page-content">
+        {% block content %}{% endblock %}
+      </div>
+      <footer class="site-footer">CineVest <span>•</span> منصة لمتابعة استثمارات صناعة الأفلام</footer>
+    </main>
+    <nav class="bottom-nav" aria-label="التنقل الرئيسي">
+      <a class="bottom-nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}" {% if request.resolver_match.url_name == 'dashboard' %}aria-current="page"{% endif %}>
+        <span class="bottom-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M4 19h16"/><path d="m7 14 3-3 3 2 5-6"/><path d="M16 7h2v2"/></svg></span><span class="bottom-nav-label">استثماراتي</span>
+      </a>
+      <a class="bottom-nav-link {% if request.resolver_match.url_name == 'deposit_wallet' %}active{% endif %}" href="{% url 'deposit_wallet' %}" {% if request.resolver_match.url_name == 'deposit_wallet' %}aria-current="page"{% endif %}>
+        <span class="bottom-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11m0 0 4-4m-4 4-4-4"/><path d="M5 16v4h14v-4"/></svg></span><span class="bottom-nav-label">الإيداع</span>
+      </a>
+      <a class="bottom-nav-link {% if request.resolver_match.url_name == 'withdrawals' %}active{% endif %}" href="{% url 'withdrawals' %}" {% if request.resolver_match.url_name == 'withdrawals' %}aria-current="page"{% endif %}>
+        <span class="bottom-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V10m0 0-4 4m4-4 4 4"/><path d="M5 8V4h14v4"/></svg></span><span class="bottom-nav-label">السحب</span>
+      </a>
+      <a class="bottom-nav-link {% if request.resolver_match.url_name == 'referrals' %}active{% endif %}" href="{% url 'referrals' %}" {% if request.resolver_match.url_name == 'referrals' %}aria-current="page"{% endif %}>
+        <span class="bottom-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l2.12-2.12a5 5 0 0 0-7.07-7.07l-1.22 1.22"/><path d="M14 11a5 5 0 0 0-7.07 0l-2.12 2.12a5 5 0 0 0 7.07 7.07l1.22-1.22"/></svg></span><span class="bottom-nav-label">الدعوة</span>
+      </a>
+    </nav>
+  </div>
+  {% else %}
+    {% block auth_content %}{% endblock %}
+  {% endif %}
+  <script src="{% static 'js/site.js' %}"></script>
+  <script src="{% static 'js/online-counter.js' %}"></script>
+  <script src="{% static 'js/toasts.js' %}"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

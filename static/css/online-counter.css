@@ -1,0 +1,6 @@
+.online-counter{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid #dcecef;border-radius:20px;background:#f5fbfc;color:#527078;white-space:nowrap}
+.online-counter[hidden]{display:none}
+.online-counter-dot{position:relative;width:7px;height:7px;border-radius:50%;background:#24a678;box-shadow:0 0 0 3px #dff3eb;flex:0 0 7px}
+.online-counter-label{font-size:10px}
+.online-counter strong{color:#143a46;font:700 12px "DM Sans","Tajawal",sans-serif;min-width:40px;text-align:left}
+@media(max-width:600px){.online-counter{gap:6px;padding:7px 8px}.online-counter-label{display:none}.online-counter strong{min-width:34px;font-size:11px}}

@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}استثماراتي — CineVest{% endblock %}
+{% block content %}
+<section class="welcome-row">
+  <div><span class="eyebrow">محفظتك السينمائية</span><h1>استثماراتي</h1><p>تابع استثماراتك وأرباحك المتوقعة من مكان واحد.</p></div>
+  <button class="btn btn-primary" type="button" data-open-modal="invest-modal">＋ استثمار جديد</button>
+</section>
+<section class="stats-grid customer-stats">
+  <article class="stat-card"><div class="stat-top"><span>الرصيد</span><span class="stat-icon">◈</span></div><strong>{{ user.balance|floatformat:2 }} <small>USDT</small></strong><div class="stat-foot"><span class="dot dot-blue"></span> يعود أصل الاستثمار بعد اكتماله</div></article>
+  <article class="stat-card"><div class="stat-top"><span>الأرباح المتاحة للسحب</span><span class="stat-icon stat-icon-green">↗</span></div><strong>{{ user.earnings_balance|floatformat:2 }} <small>USDT</small></strong><div class="stat-foot"><span class="dot dot-green"></span> إجمالي الأرباح {{ user.total_earned|floatformat:2 }} USDT</div></article>
+  <article class="stat-card"><div class="stat-top"><span>القسائم المتاحة</span><span class="stat-icon stat-icon-purple">▤</span></div><strong>{{ voucher_count }} <small>قسيمة</small></strong><div class="stat-foot"><span class="dot dot-purple"></span> إجمالي قيمتها {{ voucher_total|floatformat:2 }} USDT</div></article>
+</section>
+<section class="panel investments-panel">
+  <div class="panel-heading"><div><span class="eyebrow">محفظة الأفلام</span><h2>سجل استثماراتي</h2></div><span class="count-pill">{{ investments|length }} استثمار</span></div>
+  {% if investments %}<div class="table-wrap"><table class="data-table"><thead><tr><th>الفيلم</th><th>المبلغ</th><th>الحالة</th><th>الربح</th><th>الاكتمال</th></tr></thead><tbody>{% for item in investments %}<tr><td><div class="film-cell">{% if item.film_image_url %}<img src="{{ item.film_image_url }}" alt="">{% else %}<span class="film-thumb">▶</span>{% endif %}<div><strong>{{ item.film_title }}</strong><small>{{ item.invested_at|date:"Y-m-d" }}</small></div></div></td><td>{{ item.amount|floatformat:2 }} <small>USDT</small></td><td>{% if item.status == 'completed' %}<span class="status status-done">مكتمل</span>{% else %}<span class="status status-pending">قيد الاستثمار</span>{% endif %}</td><td class="profit-cell">{% if item.status == 'completed' %}+{{ item.realized_profit|floatformat:2 }}{% else %}+{{ item.expected_profit|floatformat:2 }}{% endif %} <small>USDT</small></td><td>{% if item.status == 'completed' %}<span class="date-muted">مكتمل</span>{% else %}<span class="date-muted">{{ item.matures_at|date:"Y-m-d" }}</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="empty-state"><span class="empty-icon">▤</span><strong>لا توجد استثمارات حتى الآن</strong><p>أدخل رابط الفيلم وكود الاستثمار للبدء.</p><button class="btn btn-primary btn-small" type="button" data-open-modal="invest-modal">ابدأ استثمارك</button></div>{% endif %}
+</section>
+
+<div class="modal-backdrop" id="invest-modal" aria-hidden="true">
+  <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="invest-title">
+    <button class="modal-close" type="button" data-close-modal aria-label="إغلاق">×</button><span class="modal-symbol">✦</span><span class="eyebrow">استثمار جديد</span><h2 id="invest-title">أدخل بيانات الفيلم</h2>
+    <p class="modal-copy">أدخل رابط الفيلم وكود الاستثمار المعتمد. عند اختيار الرصيد، يطبق الحد الأدنى المحدد للفيلم من الإدارة (100 USDT افتراضياً).</p>
+    <form method="post" action="{% url 'create_investment' %}" class="form-stack investment-form" data-has-vouchers="{% if has_vouchers %}true{% else %}false{% endif %}" data-balance-amount="{{ user.balance }}">
+      {% csrf_token %}
+      <div class="field"><label for="{{ investment_form.film_url.id_for_label }}">{{ investment_form.film_url.label }}</label>{{ investment_form.film_url }}{% for error in investment_form.film_url.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>
+      <div class="field"><label for="{{ investment_form.investment_code.id_for_label }}">{{ investment_form.investment_code.label }}</label>{{ investment_form.investment_code }}{% for error in investment_form.investment_code.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>
+      {% if has_vouchers %}<fieldset class="funding-choice"><legend>{{ investment_form.funding_method.label }}</legend>{% for choice in investment_form.funding_method %}<label class="funding-option">{{ choice.tag }}<span>{{ choice.choice_label }}</span></label>{% endfor %}{% for error in investment_form.funding_method.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</fieldset>{% else %}<input type="hidden" name="funding_method" value="balance">{% endif %}
+      <div class="field investment-amount-field" {% if has_vouchers %}data-balance-only hidden{% endif %}><label for="{{ investment_form.amount.id_for_label }}">{{ investment_form.amount.label }}</label>{{ investment_form.amount }}{% for error in investment_form.amount.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>
+      <button class="btn btn-primary btn-full" type="submit">تأكيد الاستثمار <span>←</span></button>
+    </form>
+    <small class="modal-footnote">{% if has_vouchers %}سيتم استخدام قسيمة واحدة أو خصم المبلغ الذي تحدده من رصيدك.{% else %}سيتم خصم المبلغ الذي تحدده من رصيدك.{% endif %}</small>
+  </section>
+</div>
+{% endblock %}

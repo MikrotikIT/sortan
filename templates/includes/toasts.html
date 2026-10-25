@@ -1,0 +1,12 @@
+<div class="toast-viewport" aria-label="إشعارات المنصة" aria-live="polite" aria-atomic="false">
+  {% for message in messages %}
+  <article class="app-toast app-toast-{{ message.tags|default:'info' }}" data-toast {% if message.tags == 'error' %}data-toast-persistent{% else %}data-toast-delay="{% if message.tags == 'warning' %}12000{% else %}6500{% endif %}"{% endif %} role="{% if message.tags == 'error' %}alert{% else %}status{% endif %}" aria-live="{% if message.tags == 'error' %}assertive{% else %}polite{% endif %}" aria-atomic="true">
+    <span class="app-toast-icon" aria-hidden="true">{% if message.tags == 'success' %}✓{% elif message.tags == 'warning' or message.tags == 'error' %}!{% else %}i{% endif %}</span>
+    <div class="app-toast-copy">
+      <strong>{% if message.tags == 'success' %}تمت العملية{% elif message.tags == 'warning' %}تنبيه{% elif message.tags == 'error' %}تعذر إكمال العملية{% else %}معلومة{% endif %}</strong>
+      <p>{{ message }}</p>
+    </div>
+    <button class="app-toast-close" type="button" data-toast-dismiss aria-label="إغلاق الإشعار">×</button>
+  </article>
+  {% endfor %}
+</div>

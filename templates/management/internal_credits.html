@@ -1,0 +1,54 @@
+{% extends 'management/base.html' %}
+{% block title %}الرصيد الداخلي — CineVest{% endblock %}
+{% block content %}
+<section class="management-heading">
+  <div>
+    <span class="eyebrow">إدارة أرصدة العملاء</span>
+    <h1>إضافة رصيد داخلي</h1>
+    <p>أضف مبلغاً مباشرة إلى رصيد العميل. تفاصيل العملية وملاحظاتها محفوظة للإدارة فقط.</p>
+  </div>
+</section>
+
+<section class="management-panel form-panel">
+  <div class="management-panel-head">
+    <div><span class="eyebrow">عملية جديدة</span><h2>إضافة إلى رصيد العميل</h2></div>
+  </div>
+  <form method="post" class="management-form internal-credit-form">
+    {% csrf_token %}
+    {% for field in form %}
+    <div class="admin-field">
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
+    </div>
+    {% endfor %}
+    <div class="form-actions"><button class="btn btn-primary" type="submit">إضافة الرصيد</button></div>
+  </form>
+</section>
+
+<section class="management-panel">
+  <div class="management-panel-head">
+    <div><span class="eyebrow">سجل خاص بالإدارة</span><h2>آخر إضافات الرصيد الداخلي</h2></div>
+  </div>
+  {% if credits %}
+  <div class="admin-table-wrap">
+    <table class="admin-table">
+      <thead><tr><th>العميل</th><th>المبلغ</th><th>منفذ العملية</th><th>ملاحظة داخلية</th><th>التاريخ</th></tr></thead>
+      <tbody>
+        {% for credit in credits %}
+        <tr>
+          <td dir="ltr">{{ credit.user.phone }}</td>
+          <td>{{ credit.amount|floatformat:6 }} USDT</td>
+          <td dir="ltr">{{ credit.admin.phone }}</td>
+          <td>{{ credit.internal_note|default:"—" }}</td>
+          <td>{{ credit.created_at|date:"Y-m-d H:i" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="admin-empty">لا توجد إضافات رصيد داخلية حتى الآن.</div>
+  {% endif %}
+</section>
+{% endblock %}

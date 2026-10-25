@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+{% block title %}تسجيل الدخول — CineVest{% endblock %}
+{% block auth_content %}
+<main class="auth-layout">
+  <section class="auth-aside"><a class="brand brand-inverse" href="{% url 'login' %}"><span class="brand-mark">C</span><span>Cine<span class="brand-light">Vest</span></span></a><div class="auth-aside-copy"><span class="eyebrow">قصة استثمارية جديدة</span><h1>الأفلام تبدأ<br>بفكرة. <em>وأنت تدعمها.</em></h1><p>تابع مشاريع الأفلام، قسائمك، وأرباحك في مساحة واحدة.</p><div class="film-strip"><div class="strip-poster poster-a">01</div><div class="strip-poster poster-b">02</div><div class="strip-poster poster-c">03</div><span>مشاريع إبداعية<br>تستحق المشاهدة</span></div></div><div class="auth-aside-foot">CineVest <span>© 2026</span></div></section>
+  <section class="auth-panel"><div class="auth-card"><div class="auth-heading"><span class="eyebrow">مرحباً بعودتك</span><h2>تسجيل الدخول</h2><p>أدخل بيانات حسابك للمتابعة.</p></div><form method="post" class="form-stack">{% csrf_token %}{% if form.non_field_errors %}<div class="form-error">{{ form.non_field_errors }}</div>{% endif %}{% for field in form %}<div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}<button class="btn btn-primary btn-full" type="submit">دخول إلى حسابي <span>←</span></button></form><div class="auth-switch">ليس لديك حساب؟ <a href="{% url 'register' %}">أنشئ حساباً جديداً</a></div><div class="secure-note"><span>◇</span> بيانات حسابك محمية</div></div></section>
+</main>
+{% endblock %}
