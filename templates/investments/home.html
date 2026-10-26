@@ -17,10 +17,10 @@
     <div><span class="account-summary-label">رقم الهاتف</span><strong class="account-phone" dir="ltr">{{ user.phone }}</strong></div>
     <span class="account-summary-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 10h18M7 15h3"/></svg></span>
   </div>
-  <div class="account-balance-block">
+  <div class="account-balance-block" data-balance-card>
     <span class="account-summary-label">الرصيد المتاح</span>
     <div class="account-balance-line" dir="ltr">
-      <strong data-balance-display data-balance-value="{{ user.balance|floatformat:2 }}" aria-live="polite">••••••</strong>
+      <strong data-balance-display data-balance-label="الرصيد" data-balance-value="{{ user.balance|floatformat:2 }}" aria-live="polite">••••••</strong>
       <small>USDT</small>
       <button class="balance-visibility-toggle" type="button" data-balance-toggle aria-label="إظهار الرصيد" aria-pressed="false">
         <svg data-eye-open viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -28,6 +28,18 @@
       </button>
     </div>
     <span class="account-summary-note">يمكنك إظهار الرصيد أو إخفاؤه بالضغط على أيقونة العين.</span>
+  </div>
+  <div class="account-balance-block account-earnings-block" data-balance-card>
+    <span class="account-summary-label">الأرباح المتاحة للسحب</span>
+    <div class="account-balance-line" dir="ltr">
+      <strong data-balance-display data-balance-label="الأرباح" data-balance-value="{{ user.earnings_balance|floatformat:2 }}" aria-live="polite">••••••</strong>
+      <small>USDT</small>
+      <button class="balance-visibility-toggle" type="button" data-balance-toggle aria-label="إظهار الأرباح" aria-pressed="false">
+        <svg data-eye-open viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg data-eye-closed viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="m3 3 18 18M10.6 10.6a2 2 0 0 0 2.8 2.8"/><path d="M9.9 5.2A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a14 14 0 0 1-3.1 3.8M6.2 6.2C3.5 8 2 12 2 12s3.6 7 10 7a10 10 0 0 0 4-.8"/></svg>
+      </button>
+    </div>
+    <span class="account-summary-note">الأرباح المكتملة والمتاحة لطلب السحب.</span>
   </div>
 </section>
 

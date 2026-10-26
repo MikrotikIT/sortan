@@ -21,6 +21,8 @@ from .wallet_services import ensure_wallet
 def home(request):
     if not request.user.is_authenticated:
         return redirect("login")
+    settle_due_investments(request.user)
+    request.user.refresh_from_db(fields=("balance", "earnings_balance"))
     return render(request, "investments/home.html", {"platform_settings": get_platform_settings()})
 
 
