@@ -1,67 +1,50 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block title %}الإيداع — CineVest{% endblock %}
-{% block breadcrumb %}إيداع USDT{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/deposit.css' %}"><link rel="stylesheet" href="{% static 'css/deposit-activity.css' %}">{% endblock %}
+{% block breadcrumb %}الإيداع{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/deposit.css' %}">{% endblock %}
 {% block content %}
 <section class="deposit-hero">
   <div>
-    <span class="eyebrow">إضافة رصيد</span>
-    <h1>الإيداع عبر TRON TRC20</h1>
-    <p>حوّل USDT إلى عنوان محفظتك، وسنتابع الإيداع حتى يظهر في رصيد حسابك.</p>
+    <span class="eyebrow">TRON · TRC20</span>
+    <h1>إيداع USDT</h1>
+    <p>أرسل USDT عبر شبكة TRON (TRC20) إلى عنوان محفظتك أدناه.</p>
   </div>
-  <div class="deposit-network-pill"><span aria-hidden="true">₮</span><div><strong>USDT</strong><small>TRON NETWORK</small></div></div>
+  <div class="deposit-network-pill" aria-label="شبكة TRON TRC20"><span aria-hidden="true">₮</span><div><strong>TRON</strong><small>TRC20</small></div></div>
 </section>
 
 <section class="deposit-layout" aria-label="بيانات الإيداع">
   <article class="panel deposit-address-panel">
     <div class="deposit-panel-heading">
-      <div><span class="eyebrow">عنوانك الشخصي</span><h2>أرسل إلى هذه المحفظة</h2></div>
+      <div><h2>عنوان الإيداع</h2></div>
       <span class="deposit-network-tag"><i></i> TRC20</span>
     </div>
 
-    <div class="deposit-address-label"><strong>عنوان محفظة الإيداع</strong><span>خاص بحسابك</span></div>
+    <div class="deposit-address-label"><strong>عنوان محفظتك</strong><span>مخصص لحسابك</span></div>
     <div class="customer-wallet-address" dir="ltr">
       <code id="deposit-wallet-address">{{ wallet.address }}</code>
       <button class="btn btn-primary" type="button" data-copy-target="deposit-wallet-address" aria-label="نسخ عنوان المحفظة">نسخ العنوان</button>
     </div>
 
-    <div class="deposit-steps" aria-label="خطوات الإيداع">
-      <div class="deposit-step"><span>01</span><div><strong>انسخ العنوان</strong><small>استخدم العنوان أعلاه.</small></div></div>
-      <div class="deposit-step"><span>02</span><div><strong>اختر TRC20</strong><small>أرسل USDT على شبكة TRON.</small></div></div>
-      <div class="deposit-step"><span>03</span><div><strong>انتظر التأكيد</strong><small>يظهر الإيداع بعد مزامنته.</small></div></div>
+    <div class="deposit-steps" aria-label="طريقة الإيداع">
+      <div class="deposit-step"><span>01</span><div><strong>انسخ العنوان</strong><small>استخدم زر النسخ أعلاه.</small></div></div>
+      <div class="deposit-step"><span>02</span><div><strong>أرسل USDT</strong><small>اختر شبكة TRON (TRC20).</small></div></div>
+      <div class="deposit-step"><span>03</span><div><strong>انتظر التأكيد</strong><small>يُضاف الرصيد بعد تأكيد المعاملة ومزامنتها.</small></div></div>
     </div>
 
     <div class="deposit-warning" role="note">
       <span class="deposit-warning-icon" aria-hidden="true">!</span>
-      <div><strong>تحقق من الشبكة قبل التحويل</strong><p>أرسل USDT عبر شبكة TRON (TRC20) فقط. التحويل عبر شبكة أخرى أو إرسال TRX قد يؤدي إلى فقدان الأموال.</p></div>
+      <div><strong>أرسل عبر شبكة TRC20 فقط</strong><p>إرسال USDT عبر شبكة أخرى أو إرسال أصل مختلف قد يؤدي إلى فقدان الأموال.</p></div>
     </div>
   </article>
 
-  <aside class="deposit-balance-stack" aria-label="ملخص الأرصدة">
+  <aside class="deposit-balance-stack" aria-label="رصيد الحساب ومعلومات التأكيد">
     <article class="deposit-account-balance">
-      <span>رصيد حسابك في المنصة</span>
+      <span>رصيدك الحالي</span>
       <strong dir="ltr">{{ user.balance|floatformat:2 }} <small>USDT</small></strong>
-      <p>يُضاف الإيداع هنا بعد تأكيده ومزامنته.</p>
+      <p>الرصيد المتاح في حسابك.</p>
     </article>
-    <div class="deposit-processing-note"><span aria-hidden="true">◷</span><p>قد يستغرق ظهور الإيداع بضع دقائق بعد تأكيد التحويل على الشبكة.</p></div>
+    <div class="deposit-processing-note"><span aria-hidden="true">◷</span><p>قد يستغرق تحديث الرصيد عدة دقائق.</p></div>
   </aside>
 </section>
-
-<aside class="deposit-activity-toast" data-deposit-activity role="status" aria-live="polite" aria-atomic="true" aria-label="إشعار إيداع تجريبي" hidden>
-  <span class="deposit-activity-icon" aria-hidden="true">₮</span>
-  <div class="deposit-activity-content">
-    <div class="deposit-activity-heading"><span>محاكاة بحثية</span><strong>أودع الآن مبلغ وقدره</strong><b class="deposit-activity-amount" data-activity-amount dir="ltr"></b></div>
-    <div class="deposit-activity-details">
-      <span class="deposit-activity-flag" data-activity-flag="syria" aria-hidden="true" hidden><svg viewBox="0 0 30 20"><rect width="30" height="6.67" fill="#007a3d"/><rect y="6.67" width="30" height="6.66" fill="#fff"/><rect y="13.33" width="30" height="6.67" fill="#000"/><g fill="#ce1126"><polygon points="5,7.4 5.8,9.1 7.7,9.3 6.3,10.5 6.7,12.4 5,11.4 3.3,12.4 3.7,10.5 2.3,9.3 4.2,9.1"/><polygon points="15,7.4 15.8,9.1 17.7,9.3 16.3,10.5 16.7,12.4 15,11.4 13.3,12.4 13.7,10.5 12.3,9.3 14.2,9.1"/><polygon points="25,7.4 25.8,9.1 27.7,9.3 26.3,10.5 26.7,12.4 25,11.4 23.3,12.4 23.7,10.5 22.3,9.3 24.2,9.1"/></g></svg></span>
-      <span class="deposit-activity-flag" data-activity-flag="iraq" aria-hidden="true" hidden><svg viewBox="0 0 30 20"><rect width="30" height="6.67" fill="#ce1126"/><rect y="6.67" width="30" height="6.66" fill="#fff"/><rect y="13.33" width="30" height="6.67" fill="#000"/><text x="15" y="11.7" fill="#007a3d" font-size="4.6" text-anchor="middle" font-family="Arial,sans-serif" direction="rtl">الله أكبر</text></svg></span>
-      <span class="deposit-activity-flag" data-activity-flag="jordan" aria-hidden="true" hidden><svg viewBox="0 0 30 20"><rect width="30" height="6.67" fill="#000"/><rect y="6.67" width="30" height="6.66" fill="#fff"/><rect y="13.33" width="30" height="6.67" fill="#007a3d"/><path d="M0 0 13 10 0 20Z" fill="#ce1126"/><polygon points="5,7 5.7,8.6 7.4,8.8 6.2,9.9 6.5,11.6 5,10.8 3.5,11.6 3.8,9.9 2.6,8.8 4.3,8.6" fill="#fff"/></svg></span>
-      <span class="deposit-activity-flag" data-activity-flag="sudan" aria-hidden="true" hidden><svg viewBox="0 0 30 20"><rect width="30" height="6.67" fill="#d21034"/><rect y="6.67" width="30" height="6.66" fill="#fff"/><rect y="13.33" width="30" height="6.67" fill="#000"/><path d="M0 0 13 10 0 20Z" fill="#007229"/></svg></span>
-      <span class="deposit-activity-flag" data-activity-flag="lebanon" aria-hidden="true" hidden><svg viewBox="0 0 30 20"><rect width="30" height="5" fill="#ed1c24"/><rect y="5" width="30" height="10" fill="#fff"/><rect y="15" width="30" height="5" fill="#ed1c24"/><path d="M15 6.5 13.8 8.5 14.6 8.5 12.8 10.3 13.9 10.2 12.5 12 14.3 11.4 14.5 13.2 15 12.4 15.5 13.2 15.7 11.4 17.5 12 16.1 10.2 17.2 10.3 15.4 8.5 16.2 8.5Z" fill="#007a3d"/><rect x="14.6" y="12.4" width=".8" height="1.1" fill="#007a3d"/></svg></span>
-      <span data-activity-country></span><code data-activity-phone dir="ltr"></code>
-    </div>
-  </div>
-  <button class="deposit-activity-close" type="button" data-activity-close aria-label="إغلاق الإشعار">×</button>
-</aside>
 {% endblock %}
-{% block extra_js %}<script src="{% static 'js/deposit-activity.js' %}"></script>{% endblock %}
