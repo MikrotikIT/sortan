@@ -1,9 +1,11 @@
 {% extends 'base.html' %}
+{% load static %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/investment-dashboard.css' %}">{% endblock %}
 {% block title %}استثماراتي — CineVest{% endblock %}
 {% block content %}
 <section class="welcome-row">
   <div><span class="eyebrow">محفظتك السينمائية</span><h1>استثماراتي</h1><p>تابع استثماراتك وأرباحك المتوقعة من مكان واحد.</p></div>
-  <button class="btn btn-primary" type="button" data-open-modal="invest-modal">＋ استثمار جديد</button>
+  <button class="btn btn-primary investment-launch-button" type="button" data-open-modal="invest-modal" aria-controls="invest-modal" aria-haspopup="dialog">＋ استثمار جديد</button>
 </section>
 <section class="stats-grid customer-stats">
   <article class="stat-card"><div class="stat-top"><span>الرصيد</span><span class="stat-icon">◈</span></div><strong>{{ user.balance|floatformat:2 }} <small>USDT</small></strong><div class="stat-foot"><span class="dot dot-blue"></span> يعود أصل الاستثمار بعد اكتماله</div></article>
