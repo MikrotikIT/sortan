@@ -92,6 +92,7 @@ def platform_settings(request):
     settings = get_platform_settings()
     form = PlatformSettingsForm(request.POST or None, instance=settings)
     setting_sections = [
+        ("الدعم الفني", [form["support_url"]]),
         ("قسائم التسجيل", [form["default_voucher_count"], form["default_voucher_amount"]]),
         ("فترة السحب والضريبة", [
             form["withdrawal_cooldown_enabled"], form["withdrawal_interval_days"],

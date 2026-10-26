@@ -70,6 +70,7 @@ class User(AbstractUser):
 
 class PlatformSettings(models.Model):
     id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    support_url = models.URLField("رابط الدعم الفني", max_length=500, blank=True, default="")
     default_voucher_count = models.PositiveIntegerField("القسائم المجانية عند التسجيل", default=3)
     default_voucher_amount = models.DecimalField("قيمة القسيمة الافتراضية", max_digits=12, decimal_places=2, default=100, validators=[MinValueValidator(0.01)])
     withdrawal_cooldown_enabled = models.BooleanField("تفعيل فترة الانتظار للسحب", default=True)

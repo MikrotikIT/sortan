@@ -19,31 +19,33 @@ from .wallet_services import ensure_wallet
 
 
 def home(request):
-    return redirect("dashboard" if request.user.is_authenticated else "login")
+    if not request.user.is_authenticated:
+        return redirect("login")
+    return render(request, "investments/home.html", {"platform_settings": get_platform_settings()})
 
 
 def register(request):
     if request.user.is_authenticated:
-        return redirect("dashboard")
+        return redirect("home")
     form = RegistrationForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         user = form.create_user()
         login(request, user, backend="django.contrib.auth.backends.ModelBackend")
         messages.success(request, "تم إنشاء حسابك وإضافة قسائم الاستثمار المجانية.")
-        return redirect("dashboard")
+        return redirect("home")
     return render(request, "investments/register.html", {"form": form})
 
 
 def sign_in(request):
     if request.user.is_authenticated:
-        return redirect("dashboard")
+        return redirect("home")
     form = LoginForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         phone = form.cleaned_data["phone"].strip()
         user = authenticate(request, phone=phone, password=form.cleaned_data["password"])
         if user is not None:
             login(request, user)
-            return redirect("management_dashboard" if user.is_staff else "dashboard")
+            return redirect("management_dashboard" if user.is_staff else "home")
         form.add_error(None, "رقم الهاتف أو كلمة المرور غير صحيحة.")
     return render(request, "investments/login.html", {"form": form})
 
