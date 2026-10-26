@@ -36,11 +36,17 @@
     root.querySelectorAll('.investment-form').forEach((form) => {
       const amountField = form.querySelector('[data-balance-only]');
       if (!amountField) return;
-      const selected = form.querySelector('input[name="funding_method"]:checked');
-      amountField.hidden = !selected || selected.value !== 'balance';
-      if (selected && selected.value === 'balance') {
-        const amountInput = amountField.querySelector('input[name="amount"]');
-        if (amountInput) amountInput.value = form.dataset.balanceAmount;
+      const selected = form.querySelector('input[name="funding_method"]:checked')
+        || form.querySelector('input[name="funding_method"][type="hidden"]');
+      const usesBalance = Boolean(selected && selected.value === 'balance');
+      amountField.hidden = !usesBalance;
+      const amountInput = amountField.querySelector('input[name="amount"]');
+      if (amountInput) {
+        amountInput.disabled = !usesBalance;
+        amountInput.required = usesBalance;
+        if (usesBalance && !amountInput.value) {
+          amountInput.value = form.dataset.balanceAmount;
+        }
       }
     });
   };
