@@ -36,9 +36,6 @@
       <a class="bottom-nav-link {% if request.resolver_match.url_name == 'deposit_wallet' %}active{% endif %}" href="{% url 'deposit_wallet' %}" {% if request.resolver_match.url_name == 'deposit_wallet' %}aria-current="page"{% endif %}>
         <span class="bottom-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11m0 0 4-4m-4 4-4-4"/><path d="M5 16v4h14v-4"/></svg></span><span class="bottom-nav-label">الإيداع</span>
       </a>
-      <a class="bottom-nav-link {% if request.resolver_match.url_name == 'withdrawals' %}active{% endif %}" href="{% url 'withdrawals' %}" {% if request.resolver_match.url_name == 'withdrawals' %}aria-current="page"{% endif %}>
-        <span class="bottom-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V10m0 0-4 4m4-4 4 4"/><path d="M5 8V4h14v4"/></svg></span><span class="bottom-nav-label">السحب</span>
-      </a>
       <a class="bottom-nav-link {% if request.resolver_match.url_name == 'referrals' %}active{% endif %}" href="{% url 'referrals' %}" {% if request.resolver_match.url_name == 'referrals' %}aria-current="page"{% endif %}>
         <span class="bottom-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l2.12-2.12a5 5 0 0 0-7.07-7.07l-1.22 1.22"/><path d="M14 11a5 5 0 0 0-7.07 0l-2.12 2.12a5 5 0 0 0 7.07 7.07l1.22-1.22"/></svg></span><span class="bottom-nav-label">الدعوة</span>
       </a>
