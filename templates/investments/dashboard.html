@@ -4,13 +4,11 @@
 {% block title %}استثماراتي — CineVest{% endblock %}
 {% block content %}
 <section class="welcome-row">
-  <div><span class="eyebrow">محفظتك السينمائية</span><h1>استثماراتي</h1><p>تابع استثماراتك وأرباحك المتوقعة من مكان واحد.</p></div>
+  <div><p>تابع استثماراتك وأرباحك المتوقعة من مكان واحد.</p></div>
   <button class="btn btn-primary investment-launch-button" type="button" data-open-modal="invest-modal" aria-controls="invest-modal" aria-haspopup="dialog">＋ استثمار جديد</button>
 </section>
 <section class="stats-grid customer-stats">
-  <article class="stat-card"><div class="stat-top"><span>الرصيد</span><span class="stat-icon">◈</span></div><strong>{{ user.balance|floatformat:2 }} <small>USDT</small></strong><div class="stat-foot"><span class="dot dot-blue"></span> يعود أصل الاستثمار بعد اكتماله</div></article>
   <article class="stat-card"><div class="stat-top"><span>الأرباح المتاحة للسحب</span><span class="stat-icon stat-icon-green">↗</span></div><strong>{{ user.earnings_balance|floatformat:2 }} <small>USDT</small></strong><div class="stat-foot"><span class="dot dot-green"></span> إجمالي الأرباح {{ user.total_earned|floatformat:2 }} USDT</div></article>
-  <article class="stat-card"><div class="stat-top"><span>القسائم المتاحة</span><span class="stat-icon stat-icon-purple">▤</span></div><strong>{{ voucher_count }} <small>قسيمة</small></strong><div class="stat-foot"><span class="dot dot-purple"></span> إجمالي قيمتها {{ voucher_total|floatformat:2 }} USDT</div></article>
 </section>
 <section class="panel investments-panel">
   <div class="panel-heading"><div><span class="eyebrow">محفظة الأفلام</span><h2>سجل استثماراتي</h2></div><span class="count-pill">{{ investments|length }} استثمار</span></div>

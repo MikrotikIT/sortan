@@ -6,14 +6,18 @@
 {% block content %}
 <section class="deposit-hero">
   <div>
-    <span class="eyebrow">TRON · TRC20</span>
-    <h1>إيداع USDT</h1>
     <p>أرسل USDT عبر شبكة TRON (TRC20) إلى عنوان محفظتك أدناه.</p>
   </div>
-  <div class="deposit-network-pill" aria-label="شبكة TRON TRC20"><span aria-hidden="true">₮</span><div><strong>TRON</strong><small>TRC20</small></div></div>
 </section>
-
-<section class="deposit-layout" aria-label="بيانات الإيداع">
+  <aside class="deposit-balance-stack" aria-label="رصيد الحساب ومعلومات التأكيد">
+    <article class="deposit-account-balance">
+      <span>رصيدك الحالي</span>
+      <strong dir="ltr">{{ user.balance|floatformat:2 }} <small>USDT</small></strong>
+      <p>الرصيد المتاح في حسابك.</p>
+    </article>
+    <div class="deposit-processing-note"><span aria-hidden="true">◷</span><p>قد يستغرق تحديث الرصيد عدة دقائق.</p></div>
+  </aside>
+<section class="deposit-layout deposit-layout-single" aria-label="بيانات الإيداع">
   <article class="panel deposit-address-panel">
     <div class="deposit-panel-heading">
       <div><h2>عنوان الإيداع</h2></div>
@@ -38,13 +42,6 @@
     </div>
   </article>
 
-  <aside class="deposit-balance-stack" aria-label="رصيد الحساب ومعلومات التأكيد">
-    <article class="deposit-account-balance">
-      <span>رصيدك الحالي</span>
-      <strong dir="ltr">{{ user.balance|floatformat:2 }} <small>USDT</small></strong>
-      <p>الرصيد المتاح في حسابك.</p>
-    </article>
-    <div class="deposit-processing-note"><span aria-hidden="true">◷</span><p>قد يستغرق تحديث الرصيد عدة دقائق.</p></div>
-  </aside>
+
 </section>
 {% endblock %}

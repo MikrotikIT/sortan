@@ -12,4 +12,14 @@
 .customer-shortcut-disabled{cursor:not-allowed}
 @media(max-width:600px){.customer-shortcuts{gap:8px}.customer-shortcut{align-items:center;gap:8px;min-height:102px;padding:11px 4px}.shortcut-icon{flex-basis:44px;width:44px;height:44px;border-radius:13px}.shortcut-icon svg{width:21px;height:21px}.customer-shortcut strong{font-size:10px}}
 @media(max-width:360px){.customer-shortcuts{gap:5px}.customer-shortcut{min-height:92px;gap:6px;padding:9px 2px}.shortcut-icon{flex-basis:39px;width:39px;height:39px;border-radius:12px}.shortcut-icon svg{width:19px;height:19px}.customer-shortcut strong{font-size:9px}}
-.account-balance-block+.account-earnings-block{margin-top:15px;padding-top:14px;border-top:1px solid rgba(255,255,255,.14)}
+.account-summary-card{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:24px}
+.account-summary-top{grid-column:1/-1}
+.account-balance-block{min-width:0;padding-top:16px}
+.account-balance-line{min-width:0;gap:clamp(4px,1vw,10px)}
+.account-balance-line strong{min-width:0;font-size:clamp(15px,3.2vw,30px);overflow-wrap:anywhere}
+.account-balance-line small{flex:0 0 auto}
+.balance-visibility-toggle{flex:0 0 35px;margin:0}
+.account-summary-note{display:none}
+.account-balance-block+.account-earnings-block{margin:0;padding:16px 0 0 20px;border-top:0;border-right:1px solid rgba(255,255,255,.14)}
+@media(max-width:600px){.account-summary-card{column-gap:12px}.account-balance-block+.account-earnings-block{padding-left:10px}.account-summary-label{font-size:10px;line-height:1.45}.account-balance-line{gap:4px}.account-balance-line strong{font-size:clamp(14px,4vw,22px)}.balance-visibility-toggle{flex-basis:32px;width:32px;height:32px}.balance-visibility-toggle svg{width:17px;height:17px}}
+@media(max-width:380px){.account-summary-card{padding:17px 12px;column-gap:8px}.account-balance-block+.account-earnings-block{padding-left:7px}.account-balance-line strong{font-size:clamp(13px,3.8vw,16px)}.account-balance-line small{font-size:9px}.balance-visibility-toggle{flex-basis:28px;width:28px;height:28px}}
