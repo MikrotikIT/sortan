@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block title %}وثيقة طلب الانضمام والتسجيل — Kodi TV{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/account-review.css' %}">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/account-review.css' %}?v=20261027-upload1">{% endblock %}
 {% block content %}
 <main class="join-application-page">
   {% if was_rejected %}
@@ -62,4 +62,4 @@
   <form class="application-logout-form" method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="btn btn-quiet" type="submit">تسجيل الخروج</button></form>
 </main>
 {% endblock %}
-{% block extra_js %}<script src="{% static 'js/join-application-upload.js' %}"></script>{% endblock %}
+{% block extra_js %}<script src="{% static 'js/join-application-upload.js' %}?v=20261027-upload1"></script>{% endblock %}
