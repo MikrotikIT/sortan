@@ -13,6 +13,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.safestring import mark_safe
 from django.db.models import Max, Q, Sum
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
 from .forms import InvestmentForm, LoginForm, RegistrationForm, WithdrawalForm
@@ -133,6 +134,7 @@ def notifications_mark_all_read(request):
 
 @login_required
 @require_GET
+@never_cache
 def notification_unread_count(request):
     count = UserNotification.objects.filter(recipient=request.user, is_read=False).count()
     return JsonResponse({"count": count})
