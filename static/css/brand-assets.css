@@ -1,0 +1,9 @@
+.brand-logo-image{display:block;width:32px;height:32px;flex:0 0 32px;object-fit:contain}
+.management-topbar .brand-logo-image{width:30px;height:30px;flex-basis:30px}
+.auth-aside .brand-logo-image{width:38px;height:38px;flex-basis:38px}
+.site-topbar-brand{display:flex;align-items:center;gap:8px;flex:0 0 auto;color:#14343e;font:700 13px "DM Sans","Tajawal",sans-serif;direction:ltr;white-space:nowrap}
+.site-topbar-brand img{display:block;width:29px;height:29px;object-fit:contain}
+.site-topbar-brand:hover{color:#087f9f}
+.customer-referral-copy{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin-top:7px}
+.customer-referral-copy code{max-width:100%;overflow-wrap:anywhere;white-space:normal}
+@media(max-width:600px){.site-topbar-brand{gap:0}.site-topbar-brand span{display:none}.site-topbar-brand img{width:26px;height:26px}}

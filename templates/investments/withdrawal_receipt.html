@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}تفاصيل السحب #{{ withdrawal.pk }} — Kodi TV{% endblock %}
+{% block breadcrumb %}تفاصيل السحب{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/withdrawal-receipt.css' %}">{% endblock %}
+{% block content %}
+<section class="withdrawal-receipt-page">
+  <div class="withdrawal-receipt-card">
+    <div class="withdrawal-complete-mark" aria-label="تم إكمال السحب">
+      <svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="24" cy="24" r="22"/><path d="m14 24 7 7 14-15"/></svg>
+    </div>
+    <span class="eyebrow">إيصال السحب رقم #{{ withdrawal.pk }}</span>
+    <h1>اكتمل السحب بنجاح</h1>
+    <p class="withdrawal-receipt-intro">تم تأكيد إتمام طلب السحب. احتفظ بهذه الصفحة لمراجعة تفاصيل العملية.</p>
+
+    <div class="withdrawal-receipt-net">
+      <span>صافي المبلغ المدفوع</span>
+      <strong>{{ withdrawal.net_amount|floatformat:2 }} <small>USDT</small></strong>
+    </div>
+
+    <dl class="withdrawal-receipt-details">
+      <div><dt>حالة السحب</dt><dd><span class="receipt-paid-badge"><i></i>مدفوع ومكتمل</span></dd></div>
+      <div><dt>المبلغ قبل الضريبة</dt><dd>{{ withdrawal.amount|floatformat:2 }} USDT</dd></div>
+      <div><dt>نسبة الضريبة</dt><dd>{{ withdrawal.tax_percent|floatformat:2 }}%</dd></div>
+      <div><dt>قيمة الضريبة</dt><dd>{{ withdrawal.tax_amount|floatformat:2 }} USDT</dd></div>
+      <div class="receipt-address-row"><dt>محفظة الاستلام · TRC20</dt><dd><code dir="ltr">{{ withdrawal.wallet_address }}</code></dd></div>
+      <div><dt>تاريخ طلب السحب</dt><dd>{{ withdrawal.requested_at|date:"Y-m-d H:i:s" }}</dd></div>
+      <div><dt>تاريخ إتمام الدفع</dt><dd>{% if withdrawal.processed_at %}{{ withdrawal.processed_at|date:"Y-m-d H:i:s" }}{% else %}—{% endif %}</dd></div>
+    </dl>
+
+    <div class="withdrawal-receipt-actions">
+      <a class="btn btn-primary" href="{% url 'notifications' %}">العودة إلى الإشعارات</a>
+      <a class="btn btn-outline" href="{% url 'withdrawals' %}">صفحة السحوبات</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

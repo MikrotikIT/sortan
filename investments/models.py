@@ -76,6 +76,14 @@ class UserNotification(models.Model):
         on_delete=models.CASCADE,
         related_name="notifications",
     )
+    related_withdrawal = models.OneToOneField(
+        "WithdrawalRequest",
+        verbose_name="طلب السحب المرتبط",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="completion_notification",
+    )
     sender = models.ForeignKey(
         User,
         verbose_name="المرسل من الإدارة",
@@ -161,6 +169,7 @@ class PlatformSettings(models.Model):
 
 class Film(models.Model):
     class DurationUnit(models.TextChoices):
+        SECONDS = "seconds", "ثوانٍ"
         MINUTES = "minutes", "دقائق"
         HOURS = "hours", "ساعات"
         DAYS = "days", "أيام"
@@ -174,7 +183,7 @@ class Film(models.Model):
     description = models.TextField("نبذة", blank=True)
     image_url = models.URLField("رابط صورة الفيلم", max_length=500, blank=True)
     external_url = models.URLField("رابط الفيلم المطلوب للاستثمار", max_length=500)
-    investment_code = models.CharField("كود الاستثمار", max_length=48, unique=True)
+    investment_code = models.CharField("كود الاستثمار", max_length=48)
     waiting_duration = models.PositiveIntegerField("مدة الاستثمار", default=10, validators=[MinValueValidator(1)])
     waiting_unit = models.CharField("وحدة مدة الاستثمار", max_length=8, choices=DurationUnit.choices, default=DurationUnit.DAYS)
     profit_percent = models.DecimalField("نسبة الربح (%)", max_digits=6, decimal_places=2, default=3, validators=[MinValueValidator(0), MaxValueValidator(100)])

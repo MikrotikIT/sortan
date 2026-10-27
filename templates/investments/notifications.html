@@ -12,9 +12,10 @@
   <article class="notification-card{% if not notification.is_read %} is-unread{% endif %}">
     <span class="notification-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="9"/></svg></span>
     <div class="notification-card-copy">
-      <h2 class="notification-card-title">{{ notification.title }}{% if not notification.is_read %}<span class="notification-unread-pill">جديد</span>{% endif %}</h2>
+      <h2 class="notification-card-title">{% if notification.related_withdrawal_id %}<a class="notification-open-title" href="{% url 'notification_open' notification.pk %}">{{ notification.title }}</a>{% else %}{{ notification.title }}{% endif %}{% if not notification.is_read %}<span class="notification-unread-pill">جديد</span>{% endif %}</h2>
       <time datetime="{{ notification.created_at|date:'c' }}">{{ notification.created_at|date:"Y-m-d H:i" }}</time>
       <div class="notification-card-body">{{ notification.rendered_html }}</div>
+      {% if notification.related_withdrawal_id %}<a class="notification-open-action" href="{% url 'notification_open' notification.pk %}">عرض تفاصيل السحب <span aria-hidden="true">←</span></a>{% endif %}
     </div>
     {% if notification.is_read %}<span class="notification-read-state">مقروء</span>{% else %}<form class="notification-read-form" method="post" action="{% url 'notification_mark_read' notification.pk %}">{% csrf_token %}<button class="notification-read-button" type="submit">تحديد كمقروء</button></form>{% endif %}
   </article>

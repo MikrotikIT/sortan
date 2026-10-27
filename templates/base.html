@@ -5,6 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#091e27">
+  <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon-32x32.png' %}">
   <title>{% block title %}Kodi TV — استثمار في صناعة الأفلام{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,6 +16,7 @@
   <link rel="stylesheet" href="{% static 'css/topbar.css' %}">
   <link rel="stylesheet" href="{% static 'css/toasts.css' %}">
   <link rel="stylesheet" href="{% static 'css/notifications.css' %}">
+  <link rel="stylesheet" href="{% static 'css/brand-assets.css' %}">
   {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -22,7 +24,7 @@
   {% if user.is_authenticated %}
   <div class="app-shell">
     <main class="main-area">
-      <header class="topbar"><div class="online-counter" data-online-counter data-counter-url="{% url 'online_counter' %}" aria-label="عداد تجريبي للمتصلين" hidden><span class="online-counter-dot" aria-hidden="true"></span><span class="online-counter-label">متصلون الآن</span><strong data-online-counter-value dir="ltr">—</strong></div><div class="topbar-actions">{% if user.is_staff %}<a class="topbar-management" href="{% url 'management_dashboard' %}">الإدارة</a>{% endif %}<a class="notification-bell" href="{% url 'notifications' %}" data-notification-bell data-count-url="{% url 'notification_unread_count' %}" aria-label="الإشعارات" title="الإشعارات"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg><span class="notification-bell-count" data-notification-count aria-live="polite" aria-atomic="true" {% if not unread_notification_count %}hidden{% endif %}>{% if unread_notification_count > 99 %}99+{% else %}{{ unread_notification_count }}{% endif %}</span></a><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="topbar-logout" type="submit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/></svg><span>خروج</span></button></form></div></header>
+      <header class="topbar"><a class="site-topbar-brand" href="{% url 'home' %}" aria-label="Kodi TV - الرئيسية"><img src="{% static 'img/kodi-logo.svg' %}" alt=""><span>Kodi TV</span></a><div class="online-counter" data-online-counter data-counter-url="{% url 'online_counter' %}" aria-label="عداد تجريبي للمتصلين" hidden><span class="online-counter-dot" aria-hidden="true"></span><span class="online-counter-label">متصلون الآن</span><strong data-online-counter-value dir="ltr">—</strong></div><div class="topbar-actions">{% if user.is_staff %}<a class="topbar-management" href="{% url 'management_dashboard' %}">الإدارة</a>{% endif %}<a class="notification-bell" href="{% url 'notifications' %}" data-notification-bell data-count-url="{% url 'notification_unread_count' %}" aria-label="الإشعارات" title="الإشعارات"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg><span class="notification-bell-count" data-notification-count aria-live="polite" aria-atomic="true" {% if not unread_notification_count %}hidden{% endif %}>{% if unread_notification_count > 99 %}99+{% else %}{{ unread_notification_count }}{% endif %}</span></a><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="topbar-logout" type="submit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/></svg><span>خروج</span></button></form></div></header>
       <div class="page-content">
         {% block content %}{% endblock %}
       </div>

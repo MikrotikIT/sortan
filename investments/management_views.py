@@ -1,6 +1,7 @@
 import csv
 from functools import wraps
 from datetime import timedelta
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -12,6 +13,7 @@ from django.db.models import Count, DateTimeField, F, Max, Q, Sum
 from django.db.models.functions import Coalesce, TruncDate
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_POST
@@ -485,6 +487,9 @@ def customer_detail(request, pk):
         "management/customer_detail.html",
         {
             "customer": customer,
+            "referral_link": request.build_absolute_uri(
+                f"{reverse('register')}?{urlencode({'ref': customer.referral_code})}"
+            ),
             "wallet": wallet,
             "investments": customer.investments.all()[:50],
             "deposits": customer.deposits.all()[:50],

@@ -99,8 +99,12 @@ class InvestmentForm(forms.Form):
         cleaned = super().clean()
         url = (cleaned.get("film_url") or "").rstrip("/")
         code = (cleaned.get("investment_code") or "").strip()
-        film = Film.objects.filter(investment_code=code).first()
-        if film and film.external_url.rstrip("/") == url and film.active:
+        matching_films = Film.objects.filter(investment_code=code, active=True).order_by("pk")
+        film = next(
+            (candidate for candidate in matching_films if candidate.external_url.rstrip("/") == url),
+            None,
+        )
+        if film:
             if film.is_expired:
                 self.add_error("film_url", "انتهت صلاحية رابط هذا الفيلم، ولا يمكن الاستثمار فيه.")
             else:

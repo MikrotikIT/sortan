@@ -1,0 +1,22 @@
+.withdrawal-receipt-page{max-width:760px;margin:22px auto}
+.withdrawal-receipt-card{padding:34px;background:#fff;border:1px solid #e6edef;border-radius:18px;box-shadow:0 16px 44px rgba(18,48,59,.07);text-align:center}
+.withdrawal-complete-mark{display:grid;place-items:center;width:68px;height:68px;margin:0 auto 17px;border-radius:50%;background:#e7f7ef}
+.withdrawal-complete-mark svg{width:43px;height:43px;stroke:#15956a;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.withdrawal-complete-mark circle{fill:none;stroke:#9cdec0;stroke-width:2}
+.withdrawal-complete-mark path{fill:none}
+.withdrawal-receipt-card h1{margin:0;color:#123640;font-size:25px}
+.withdrawal-receipt-intro{max-width:470px;margin:9px auto 22px;color:#71838a;font-size:13px;line-height:1.8}
+.withdrawal-receipt-net{padding:18px;border:1px solid #dcefe5;border-radius:12px;background:#f5fbf7}
+.withdrawal-receipt-net span{display:block;color:#678279;font-size:12px}
+.withdrawal-receipt-net strong{display:block;margin-top:6px;color:#14855e;font:700 29px/1.3 "DM Sans","Tajawal",sans-serif;direction:ltr}
+.withdrawal-receipt-net small{font:600 12px "Tajawal",sans-serif}
+.withdrawal-receipt-details{display:grid;grid-template-columns:1fr 1fr;margin:20px 0 0;text-align:right}
+.withdrawal-receipt-details>div{display:flex;flex-direction:column;gap:7px;padding:13px 10px;border-bottom:1px solid #edf1f2}
+.withdrawal-receipt-details dt{color:#849398;font-size:11px}
+.withdrawal-receipt-details dd{margin:0;color:#2c454c;font-size:13px;font-weight:700}
+.withdrawal-receipt-details .receipt-address-row{grid-column:1/-1}
+.receipt-address-row code{overflow-wrap:anywhere;color:#476168;font-size:11px}
+.receipt-paid-badge{display:inline-flex;align-items:center;gap:6px;color:#16835f}
+.receipt-paid-badge i{width:8px;height:8px;border-radius:50%;background:#22a572}
+.withdrawal-receipt-actions{display:flex;justify-content:center;flex-wrap:wrap;gap:9px;margin-top:23px}
+@media(max-width:560px){.withdrawal-receipt-page{margin:8px auto}.withdrawal-receipt-card{padding:22px 15px}.withdrawal-receipt-card h1{font-size:21px}.withdrawal-receipt-details{grid-template-columns:1fr}.withdrawal-receipt-details .receipt-address-row{grid-column:auto}.withdrawal-receipt-actions{flex-direction:column}.withdrawal-receipt-actions .btn{width:100%}}

@@ -35,7 +35,8 @@ def home(request):
 def register(request):
     if request.user.is_authenticated:
         return redirect("home")
-    form = RegistrationForm(request.POST or None)
+    referral_code = (request.GET.get("ref") or "").strip().upper()[:12]
+    form = RegistrationForm(request.POST or None, initial={"invitation_code": referral_code})
     if request.method == "POST" and form.is_valid():
         user = form.create_user()
         login(request, user, backend="django.contrib.auth.backends.ModelBackend")
@@ -68,12 +69,38 @@ def sign_out(request):
 @login_required
 def notification_list(request):
     page = Paginator(
-        UserNotification.objects.filter(recipient=request.user).order_by("-created_at", "-pk"),
+        UserNotification.objects.filter(recipient=request.user)
+        .select_related("related_withdrawal")
+        .order_by("-created_at", "-pk"),
         30,
     ).get_page(request.GET.get("page"))
     for notification in page.object_list:
         notification.rendered_html = mark_safe(sanitize_notification_html(notification.body_html))
     return render(request, "investments/notifications.html", {"notification_page": page})
+
+
+@login_required
+def notification_open(request, pk):
+    notification = get_object_or_404(UserNotification, pk=pk, recipient=request.user)
+    if not notification.is_read:
+        notification.is_read = True
+        notification.read_at = timezone.now()
+        notification.save(update_fields=("is_read", "read_at"))
+    if notification.related_withdrawal_id:
+        return redirect("withdrawal_receipt", pk=notification.related_withdrawal_id)
+    return redirect("notifications")
+
+
+@login_required
+def withdrawal_receipt(request, pk):
+    withdrawal = get_object_or_404(
+        WithdrawalRequest.objects.filter(
+            user=request.user,
+            status=WithdrawalRequest.Status.PAID,
+        ),
+        pk=pk,
+    )
+    return render(request, "investments/withdrawal_receipt.html", {"withdrawal": withdrawal})
 
 
 @login_required

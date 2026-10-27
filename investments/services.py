@@ -1,6 +1,7 @@
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django.db import transaction
+from django.utils.html import format_html
 from django.utils import timezone
 
 from .models import (
@@ -9,6 +10,7 @@ from .models import (
     PlatformSettings,
     ReferralCommission,
     User,
+    UserNotification,
     WithdrawalRequest,
 )
 
@@ -172,12 +174,32 @@ def reject_deposit(deposit_id):
 
 @transaction.atomic
 def pay_withdrawal(withdrawal_id):
-    withdrawal = WithdrawalRequest.objects.select_for_update().get(pk=withdrawal_id)
+    withdrawal = WithdrawalRequest.objects.select_for_update().select_related("user").get(pk=withdrawal_id)
     if withdrawal.status != WithdrawalRequest.Status.PENDING:
         return False
     withdrawal.status = WithdrawalRequest.Status.PAID
     withdrawal.processed_at = timezone.now()
     withdrawal.save(update_fields=("status", "processed_at"))
+    UserNotification.objects.get_or_create(
+        related_withdrawal=withdrawal,
+        defaults={
+            "recipient": withdrawal.user,
+            "title": "تم إتمام السحب بنجاح",
+            "body_html": format_html(
+                "<p>اكتمل طلب السحب رقم <strong>#{}</strong>.</p>"
+                "<p>المبلغ قبل الضريبة: {} USDT<br>"
+                "الضريبة: {} USDT<br>"
+                "صافي المبلغ المدفوع: <strong>{} USDT</strong></p>"
+                "<p>عنوان محفظة الاستلام: <code dir=\"ltr\">{}</code></p>"
+                "<p>اضغط على عرض تفاصيل السحب للاطلاع على الإيصال الكامل.</p>",
+                withdrawal.pk,
+                withdrawal.amount,
+                withdrawal.tax_amount,
+                withdrawal.net_amount,
+                withdrawal.wallet_address,
+            ),
+        },
+    )
     return True
 
 
