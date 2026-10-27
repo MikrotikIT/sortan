@@ -204,8 +204,10 @@ def _record_incoming_transfer(wallet, transfer):
         return False
     if not transaction_id or raw_value <= 0 or not 0 <= decimals <= 18:
         return False
-    amount = Decimal(raw_value) / (Decimal(10) ** decimals)
+    amount = (Decimal(raw_value) / (Decimal(10) ** decimals)).quantize(Decimal("0.000001"))
     occurred_at = datetime.fromtimestamp(timestamp / 1000, tz=datetime_timezone.utc) if timestamp else timezone.now()
+    from .services import approve_deposit, deposit_status_for_amount
+
     try:
         with transaction.atomic():
             deposit, created = Deposit.objects.get_or_create(
@@ -213,16 +215,14 @@ def _record_incoming_transfer(wallet, transfer):
                 defaults={
                     "user": wallet.user,
                     "wallet": wallet,
-                    "amount": amount.quantize(Decimal("0.000001")),
+                    "amount": amount,
                     "reference": transaction_id,
                     "source": Deposit.Source.TRON,
-                    "status": Deposit.Status.PENDING,
+                    "status": deposit_status_for_amount(amount),
                     "occurred_at": occurred_at,
                 },
             )
-            if created:
-                from .services import approve_deposit
-
+            if created and deposit.status == Deposit.Status.PENDING:
                 approve_deposit(deposit.pk)
             return created
     except IntegrityError:

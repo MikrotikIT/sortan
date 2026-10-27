@@ -37,6 +37,7 @@ class PlatformSettingsForm(forms.ModelForm):
         model = PlatformSettings
         fields = (
             "support_url",
+            "minimum_deposit_amount",
             "default_voucher_count", "default_voucher_amount",
             "withdrawal_cooldown_enabled", "withdrawal_interval_days",
             "withdrawal_referral_gate_enabled", "withdrawal_referral_rules",
@@ -49,6 +50,7 @@ class PlatformSettingsForm(forms.ModelForm):
 
         widgets = {
             "support_url": forms.URLInput(attrs={"dir": "ltr", "placeholder": "https://wa.me/..."}),
+            "minimum_deposit_amount": forms.NumberInput(attrs={"min": "0.000001", "step": "0.000001"}),
             "withdrawal_referral_rules": forms.Textarea(attrs={"rows": 3, "dir": "ltr", "placeholder": "3:2, 5:4, 9:6"}),
             "online_counter_min": forms.NumberInput(attrs={"min": "0", "step": "1"}),
             "online_counter_max": forms.NumberInput(attrs={"min": "0", "step": "1"}),
@@ -59,6 +61,7 @@ class PlatformSettingsForm(forms.ModelForm):
         }
         help_texts = {
             "support_url": "أدخل رابط الدعم الكامل، مثل رابط واتساب أو تيليجرام. اتركه فارغاً لإخفاء زر التواصل مؤقتاً.",
+            "minimum_deposit_amount": "أي تحويل أقل من هذا الحد يبقى في محفظة الاستقبال ويظهر في سجل الإيداعات كرصيد غير متوقع، من دون إضافته إلى رصيد العميل.",
             "withdrawal_referral_rules": "أضف مرحلة لكل عدد من السحوبات، وحدد إجمالي عدد المدعوين المطلوب عندها. مثال: بعد 3 سحوبات يلزم مدعوان، وبعد 5 يلزم 4 مدعوين إجمالاً.",
             "online_counter_enabled": "عداد تجريبي يتغير عشوائياً ضمن النطاق المحدد؛ لا يمثل عدد الزوار الحقيقي.",
             "online_counter_min": "يبدأ العداد من قيمة عشوائية بين هذا الحد والحد الأعلى.",

@@ -15,7 +15,7 @@ from django.views.decorators.http import require_POST
 
 from .management_forms import FilmForm, InternalBalanceCreditForm, ManualDepositForm, NotificationForm, PlatformSettingsForm, VoucherAmountForm, VoucherIssueForm
 from .models import Deposit, Film, InternalBalanceCredit, Investment, InvestmentVoucher, User, UserNotification, Wallet, WithdrawalRequest
-from .services import approve_deposit, get_platform_settings, pay_withdrawal, reject_deposit, reject_withdrawal
+from .services import approve_deposit, deposit_status_for_amount, get_platform_settings, pay_withdrawal, reject_deposit, reject_withdrawal
 from .wallet_services import decrypt_private_key, ensure_wallet, sync_all_wallets
 
 
@@ -39,7 +39,9 @@ def dashboard(request):
             "user_count": User.objects.filter(is_staff=False).count(),
             "film_count": Film.objects.count(),
             "active_investment_count": Investment.objects.filter(status=Investment.Status.ACTIVE).count(),
-            "pending_deposit_count": Deposit.objects.filter(status=Deposit.Status.PENDING).count(),
+            "pending_deposit_count": Deposit.objects.filter(
+                status__in=(Deposit.Status.PENDING, Deposit.Status.UNEXPECTED)
+            ).count(),
             "pending_withdrawal_count": WithdrawalRequest.objects.filter(status=WithdrawalRequest.Status.PENDING).count(),
             "wallet_count": Wallet.objects.count(),
             "wallet_total": Wallet.objects.aggregate(total=Sum("usdt_balance"))["total"] or 0,
@@ -119,6 +121,7 @@ def platform_settings(request):
     form = PlatformSettingsForm(request.POST or None, instance=settings)
     setting_sections = [
         ("الدعم الفني", [form["support_url"]]),
+        ("حد الإيداع", [form["minimum_deposit_amount"]]),
         ("قسائم التسجيل", [form["default_voucher_count"], form["default_voucher_amount"]]),
         ("فترة السحب والضريبة", [
             form["withdrawal_cooldown_enabled"], form["withdrawal_interval_days"],
@@ -213,22 +216,41 @@ def deposits(request):
                     user=form.cleaned_data["target_user"],
                     amount=form.cleaned_data["amount"],
                     reference=form.cleaned_data["reference"],
+                    status=deposit_status_for_amount(form.cleaned_data["amount"]),
                 )
-                messages.success(request, f"تم تسجيل الإيداع #{deposit.pk} بانتظار المراجعة.")
+                if deposit.status == Deposit.Status.UNEXPECTED:
+                    messages.warning(
+                        request,
+                        f"تم تسجيل الإيداع #{deposit.pk} كرصيد غير متوقع لأنه أقل من الحد الأدنى، ولم يضف إلى رصيد العميل.",
+                    )
+                else:
+                    messages.success(request, f"تم تسجيل الإيداع #{deposit.pk} بانتظار المراجعة.")
                 return redirect("management_deposits")
-        elif action in {"approve", "reject"}:
+        elif action in {"approve", "approve_unexpected", "reject"}:
             deposit_id = request.POST.get("deposit_id")
             deposit = get_object_or_404(Deposit, pk=deposit_id)
-            changed = approve_deposit(deposit.pk) if action == "approve" else reject_deposit(deposit.pk)
+            if action in {"approve", "approve_unexpected"}:
+                changed = approve_deposit(deposit.pk, allow_unexpected=action == "approve_unexpected")
+            else:
+                changed = reject_deposit(deposit.pk)
             if changed:
                 messages.success(request, "تم تحديث حالة الإيداع.")
+            elif action == "approve" and (
+                deposit.status == Deposit.Status.UNEXPECTED
+                or deposit.amount < get_platform_settings().minimum_deposit_amount
+            ):
+                messages.warning(request, "المبلغ أقل من حد الإيداع الحالي. راجعه واستخدم الاعتماد الاستثنائي إذا رغبت بإضافته إلى رصيد العميل.")
             else:
                 messages.info(request, "تمت معالجة هذا الإيداع سابقاً.")
             return redirect("management_deposits")
     return render(
         request,
         "management/deposits.html",
-        {"form": form, "deposits": Deposit.objects.select_related("user").order_by("-created_at")[:100]},
+        {
+            "form": form,
+            "deposits": Deposit.objects.select_related("user").order_by("-created_at")[:100],
+            "minimum_deposit_amount": get_platform_settings().minimum_deposit_amount,
+        },
     )
 
 

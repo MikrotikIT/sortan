@@ -56,6 +56,13 @@ def get_platform_settings():
     return settings
 
 
+def deposit_status_for_amount(amount, settings=None):
+    settings = settings or get_platform_settings()
+    if amount < settings.minimum_deposit_amount:
+        return Deposit.Status.UNEXPECTED
+    return Deposit.Status.PENDING
+
+
 def withdraw_available_at(user, settings=None):
     settings = settings or get_platform_settings()
     if not settings.withdrawal_cooldown_enabled:
@@ -113,14 +120,20 @@ def settle_due_investments(user=None):
 
 
 @transaction.atomic
-def approve_deposit(deposit_id):
+def approve_deposit(deposit_id, *, allow_unexpected=False):
     deposit = Deposit.objects.select_for_update(of=("self",)).select_related("user__referred_by").get(pk=deposit_id)
-    if deposit.status != Deposit.Status.PENDING:
+    if deposit.status not in {Deposit.Status.PENDING, Deposit.Status.UNEXPECTED}:
+        return False
+    settings = get_platform_settings()
+    is_below_minimum = deposit.amount < settings.minimum_deposit_amount
+    if (deposit.status == Deposit.Status.UNEXPECTED or is_below_minimum) and not allow_unexpected:
+        if is_below_minimum and deposit.status != Deposit.Status.UNEXPECTED:
+            deposit.status = Deposit.Status.UNEXPECTED
+            deposit.save(update_fields=("status",))
         return False
     user = User.objects.select_for_update().get(pk=deposit.user_id)
     user.balance += deposit.amount
     user.save(update_fields=("balance",))
-    settings = get_platform_settings()
     if user.referred_by_id and settings.referral_deposit_percent > 0:
         amount = (deposit.amount * settings.referral_deposit_percent / Decimal("100")).quantize(CENT, rounding=ROUND_HALF_UP)
         if amount > 0:
@@ -149,7 +162,7 @@ def approve_deposit(deposit_id):
 @transaction.atomic
 def reject_deposit(deposit_id):
     deposit = Deposit.objects.select_for_update().get(pk=deposit_id)
-    if deposit.status != Deposit.Status.PENDING:
+    if deposit.status not in {Deposit.Status.PENDING, Deposit.Status.UNEXPECTED}:
         return False
     deposit.status = Deposit.Status.REJECTED
     deposit.processed_at = timezone.now()

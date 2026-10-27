@@ -329,6 +329,7 @@ def deposit_wallet(request):
         "investments/deposit.html",
         {
             "wallet": wallet,
+            "minimum_deposit_amount": platform_settings.minimum_deposit_amount,
             "direct_deposits": direct_deposits,
             "latest_direct_deposit_id": latest_direct_deposit_id,
             "recent_direct_deposit": recent_direct_deposit,

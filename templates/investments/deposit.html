@@ -21,7 +21,7 @@
       <strong dir="ltr">{{ user.balance|floatformat:2 }} <small>USDT</small></strong>
       <p>الرصيد المتاح في حسابك.</p>
     </article>
-    <div class="deposit-processing-note"><span aria-hidden="true">◷</span><p>قد يستغرق تحديث الرصيد عدة دقائق.</p></div>
+    <div class="deposit-processing-note" style="margin-bottom: 1rem;"><span aria-hidden="true">◷</span><p>قد يستغرق تحديث الرصيد عدة دقائق.</p></div>
   </aside>
 <section class="deposit-layout deposit-layout-single" aria-label="بيانات الإيداع">
   <article class="panel deposit-address-panel">
@@ -38,13 +38,17 @@
 
     <div class="deposit-steps" aria-label="طريقة الإيداع">
       <div class="deposit-step"><span>01</span><div><strong>انسخ العنوان</strong><small>استخدم زر النسخ أعلاه.</small></div></div>
-      <div class="deposit-step"><span>02</span><div><strong>أرسل USDT</strong><small>اختر شبكة TRON (TRC20).</small></div></div>
-      <div class="deposit-step"><span>03</span><div><strong>انتظر التأكيد</strong><small>يُضاف الرصيد بعد تأكيد المعاملة ومزامنتها.</small></div></div>
+      <div class="deposit-step"><span>02</span><div><strong>أرسل USDT</strong><small>أرسل {{ minimum_deposit_amount|floatformat:2 }} USDT أو أكثر عبر TRON (TRC20).</small></div></div>
+      <div class="deposit-step"><span>03</span><div><strong>انتظر التأكيد</strong><small>يضاف إلى رصيدك بعد التأكيد إذا بلغ الحد الأدنى.</small></div></div>
     </div>
 
     <div class="deposit-warning" role="note">
       <span class="deposit-warning-icon" aria-hidden="true">!</span>
       <div><strong>أرسل عبر شبكة TRC20 فقط</strong><p>إرسال USDT عبر شبكة أخرى أو إرسال أصل مختلف قد يؤدي إلى فقدان الأموال.</p></div>
+    </div>
+    <div class="deposit-processing-note deposit-minimum-note" role="note">
+      <span aria-hidden="true">ⓘ</span>
+      <p><strong>الحد الأدنى للإيداع {{ minimum_deposit_amount|floatformat:2 }} USDT.</strong> المبالغ الأقل من ذلك تظهر في سجل الإيداعات كرصيد غير متوقع، ولا تضاف تلقائياً إلى رصيدك المتاح.</p>
     </div>
   </article>
 
@@ -63,7 +67,7 @@
       <div class="deposit-history-main">
         <div class="deposit-history-topline">
           <strong>{{ item.amount|floatformat:2 }} USDT</strong>
-          {% if item.status == 'approved' %}<span class="status status-done">أضيف إلى الرصيد</span>{% elif item.status == 'rejected' %}<span class="status status-rejected">مرفوض</span>{% else %}<span class="status status-pending">قيد المعالجة</span>{% endif %}
+          {% if item.status == 'approved' %}<span class="status status-done">أضيف إلى الرصيد</span>{% elif item.status == 'rejected' %}<span class="status status-rejected">مرفوض</span>{% elif item.status == 'unexpected' %}<span class="status status-pending">أقل من الحد الأدنى · للمراجعة</span>{% else %}<span class="status status-pending">قيد المعالجة</span>{% endif %}
         </div>
         <div class="deposit-history-meta">
           <time>{% if item.occurred_at %}{{ item.occurred_at|date:"Y-m-d H:i" }}{% else %}{{ item.created_at|date:"Y-m-d H:i" }}{% endif %}</time>

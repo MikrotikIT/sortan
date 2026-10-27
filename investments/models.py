@@ -105,6 +105,14 @@ class UserNotification(models.Model):
 class PlatformSettings(models.Model):
     id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
     support_url = models.URLField("رابط الدعم الفني", max_length=500, blank=True, default="")
+    minimum_deposit_amount = models.DecimalField(
+        "الحد الأدنى للإيداع (USDT)",
+        max_digits=20,
+        decimal_places=6,
+        default=100,
+        validators=[MinValueValidator(0.000001)],
+        help_text="الإيداعات الأقل من هذا المبلغ تسجل كرصيد غير متوقع ولا تضاف تلقائياً إلى رصيد العميل.",
+    )
     default_voucher_count = models.PositiveIntegerField("القسائم المجانية عند التسجيل", default=3)
     default_voucher_amount = models.DecimalField("قيمة القسيمة الافتراضية", max_digits=12, decimal_places=2, default=100, validators=[MinValueValidator(0.01)])
     withdrawal_cooldown_enabled = models.BooleanField("تفعيل فترة الانتظار للسحب", default=True)
@@ -304,6 +312,7 @@ class Deposit(models.Model):
 
     class Status(models.TextChoices):
         PENDING = "pending", "قيد المراجعة"
+        UNEXPECTED = "unexpected", "أقل من الحد الأدنى — رصيد غير متوقع"
         APPROVED = "approved", "مقبول"
         REJECTED = "rejected", "مرفوض"
 
