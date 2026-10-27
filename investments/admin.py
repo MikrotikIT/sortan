@@ -10,6 +10,7 @@ from .models import (
     InvestmentVoucher,
     PlatformSettings,
     ReferralCommission,
+    SupportOption,
     User,
     WithdrawalRequest,
 )
@@ -89,6 +90,14 @@ class FilmAdmin(admin.ModelAdmin):
         return initial
 
 
+@admin.register(SupportOption)
+class SupportOptionAdmin(admin.ModelAdmin):
+    list_display = ("title", "url", "sort_order", "is_active")
+    list_filter = ("is_active",)
+    search_fields = ("title", "url")
+    ordering = ("sort_order", "pk")
+
+
 @admin.register(InvestmentVoucher)
 class InvestmentVoucherAdmin(admin.ModelAdmin):
     list_display = ("user", "amount", "status", "created_at", "used_at")
@@ -107,6 +116,7 @@ class InvestmentAdmin(admin.ModelAdmin):
 @admin.register(PlatformSettings)
 class PlatformSettingsAdmin(admin.ModelAdmin):
     list_display = ("id", "default_voucher_count", "default_voucher_amount", "withdrawal_interval_days", "withdrawal_tax_percent")
+    exclude = ("support_url",)
 
 
 @admin.register(Deposit)

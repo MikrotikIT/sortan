@@ -18,8 +18,8 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_POST
 
-from .management_forms import FilmForm, InternalBalanceCreditForm, ManualDepositForm, NotificationForm, PlatformSettingsForm, VoucherAmountForm, VoucherIssueForm
-from .models import Deposit, Film, InternalBalanceCredit, Investment, InvestmentVoucher, ServiceHeartbeat, User, UserNotification, Wallet, WalletSyncRun, WithdrawalRequest
+from .management_forms import FilmForm, InternalBalanceCreditForm, ManualDepositForm, NotificationForm, PlatformSettingsForm, SupportOptionForm, VoucherAmountForm, VoucherIssueForm
+from .models import Deposit, Film, InternalBalanceCredit, Investment, InvestmentVoucher, ServiceHeartbeat, SupportOption, User, UserNotification, Wallet, WalletSyncRun, WithdrawalRequest
 from .services import approve_deposit, deposit_status_for_amount, get_platform_settings, pay_withdrawal, reject_deposit, reject_withdrawal
 from .wallet_services import decrypt_private_key, ensure_wallet, sync_all_wallets
 from config.celery import app as celery_app
@@ -169,7 +169,6 @@ def platform_settings(request):
     settings = get_platform_settings()
     form = PlatformSettingsForm(request.POST or None, instance=settings)
     setting_sections = [
-        ("الدعم الفني", [form["support_url"]]),
         ("حد الإيداع", [form["minimum_deposit_amount"]]),
         ("قسائم التسجيل", [form["default_voucher_count"], form["default_voucher_amount"]]),
         ("فترة السحب والضريبة", [
@@ -195,6 +194,44 @@ def platform_settings(request):
         messages.success(request, "تم حفظ إعدادات المنصة.")
         return redirect("management_settings")
     return render(request, "management/settings.html", {"form": form, "setting_sections": setting_sections})
+
+
+@staff_required
+def support_options(request):
+    form = SupportOptionForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "تمت إضافة خيار الدعم الفني.")
+        return redirect("management_support_options")
+    return render(
+        request,
+        "management/support_options.html",
+        {"form": form, "options": SupportOption.objects.order_by("sort_order", "pk")},
+    )
+
+
+@staff_required
+def support_option_edit(request, pk):
+    option = get_object_or_404(SupportOption, pk=pk)
+    form = SupportOptionForm(request.POST or None, instance=option)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "تم حفظ خيار الدعم الفني.")
+        return redirect("management_support_options")
+    return render(
+        request,
+        "management/support_option_form.html",
+        {"form": form, "option": option, "heading": "تعديل خيار الدعم"},
+    )
+
+
+@staff_required
+@require_POST
+def support_option_delete(request, pk):
+    option = get_object_or_404(SupportOption, pk=pk)
+    option.delete()
+    messages.success(request, "تم حذف خيار الدعم الفني.")
+    return redirect("management_support_options")
 
 
 @staff_required

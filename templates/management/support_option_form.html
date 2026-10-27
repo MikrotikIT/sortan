@@ -1,0 +1,6 @@
+{% extends 'management/base.html' %}
+{% block title %}{{ heading }} — Kodi TV{% endblock %}
+{% block content %}
+<section class="management-heading"><div><span class="eyebrow">خيارات الدعم الفني</span><h1>{{ heading }}</h1><p>عدّل الاسم أو الرابط أو الصورة وترتيب ظهوره للعميل.</p></div><a class="btn btn-quiet" href="{% url 'management_support_options' %}">قائمة الخيارات</a></section>
+<section class="management-panel form-panel"><form method="post" class="management-form support-option-form">{% csrf_token %}{% for field in form %}<div class="admin-field {% if field.field.widget.input_type == 'checkbox' %}admin-check-field{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}<div class="form-actions"><button class="btn btn-primary" type="submit">حفظ التغييرات</button><a class="btn btn-quiet" href="{% url 'management_support_options' %}">إلغاء</a></div></form></section>
+{% endblock %}

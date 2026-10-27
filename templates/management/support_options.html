@@ -1,0 +1,38 @@
+{% extends 'management/base.html' %}
+{% block title %}خيارات الدعم الفني — Kodi TV{% endblock %}
+{% block content %}
+<section class="management-heading">
+  <div><span class="eyebrow">التواصل مع العملاء</span><h1>خيارات الدعم الفني</h1><p>أضف أكثر من وسيلة، مثل واتساب أو صفحة الاستثمارات. تظهر الخيارات المفعّلة عند ضغط العميل على زر الدعم.</p></div>
+</section>
+<section class="management-panel form-panel support-option-create-panel">
+  <div class="management-panel-head"><div><h2>إضافة خيار</h2><p>أدخل رابط الوجهة ورابط صورة اختياري لعرضها بجانب الاسم.</p></div></div>
+  <form method="post" class="management-form support-option-form">
+    {% csrf_token %}
+    {% for field in form %}
+    <div class="admin-field {% if field.field.widget.input_type == 'checkbox' %}admin-check-field{% endif %}">
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}
+      {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+      {% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
+    </div>
+    {% endfor %}
+    <div class="form-actions"><button class="btn btn-primary" type="submit">إضافة خيار الدعم</button></div>
+  </form>
+</section>
+<section class="management-panel support-options-admin-list">
+  <div class="management-panel-head"><div><h2>الخيارات المضافة</h2></div><span class="count-pill">{{ options|length }} خيار</span></div>
+  {% if options %}
+  <div class="support-admin-list">
+    {% for option in options %}
+    <article class="support-admin-item {% if not option.is_active %}is-disabled{% endif %}">
+      {% if option.image_url %}<img src="{{ option.image_url }}" alt="" loading="lazy">{% else %}<span class="support-admin-placeholder" aria-hidden="true">✦</span>{% endif %}
+      <div class="support-admin-details"><strong>{{ option.title }}</strong><a href="{{ option.url }}" target="_blank" rel="noopener noreferrer" dir="ltr">{{ option.url }}</a><small>الترتيب: {{ option.sort_order }} · {% if option.is_active %}مفعّل{% else %}متوقف{% endif %}</small></div>
+      <div class="row-actions">
+        <a class="table-action" href="{% url 'management_support_option_edit' option.pk %}">تعديل</a>
+        <form method="post" action="{% url 'management_support_option_delete' option.pk %}" onsubmit="return confirm('هل تريد حذف خيار الدعم هذا؟')">{% csrf_token %}<button class="table-action support-delete-action" type="submit">حذف</button></form>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}<div class="admin-empty">لم تتم إضافة خيارات بعد. أضف وسيلة الدعم الأولى من النموذج أعلاه.</div>{% endif %}
+</section>
+{% endblock %}

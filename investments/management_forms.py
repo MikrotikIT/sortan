@@ -4,7 +4,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.html import strip_tags
 
-from .models import Film, InvestmentVoucher, PlatformSettings, User
+from .models import Film, InvestmentVoucher, PlatformSettings, SupportOption, User
 from .notification_services import sanitize_notification_html
 from .services import parse_deposit_activity_examples, parse_withdrawal_referral_rules
 
@@ -36,7 +36,6 @@ class PlatformSettingsForm(forms.ModelForm):
     class Meta:
         model = PlatformSettings
         fields = (
-            "support_url",
             "minimum_deposit_amount",
             "default_voucher_count", "default_voucher_amount",
             "withdrawal_cooldown_enabled", "withdrawal_interval_days",
@@ -49,7 +48,6 @@ class PlatformSettingsForm(forms.ModelForm):
         )
 
         widgets = {
-            "support_url": forms.URLInput(attrs={"dir": "ltr", "placeholder": "https://wa.me/..."}),
             "minimum_deposit_amount": forms.NumberInput(attrs={"min": "0.000001", "step": "0.000001"}),
             "withdrawal_referral_rules": forms.Textarea(attrs={"rows": 3, "dir": "ltr", "placeholder": "3:2, 5:4, 9:6"}),
             "online_counter_min": forms.NumberInput(attrs={"min": "0", "step": "1"}),
@@ -60,7 +58,6 @@ class PlatformSettingsForm(forms.ModelForm):
             "deposit_activity_interval_seconds": forms.NumberInput(attrs={"min": "5", "max": "120", "step": "1"}),
         }
         help_texts = {
-            "support_url": "أدخل رابط الدعم الكامل، مثل رابط واتساب أو تيليجرام. اتركه فارغاً لإخفاء زر التواصل مؤقتاً.",
             "minimum_deposit_amount": "أي تحويل أقل من هذا الحد يبقى في محفظة الاستقبال ويظهر في سجل الإيداعات كرصيد غير متوقع، من دون إضافته إلى رصيد العميل.",
             "withdrawal_referral_rules": "أضف مرحلة لكل عدد من السحوبات، وحدد إجمالي عدد المدعوين المطلوب عندها. مثال: بعد 3 سحوبات يلزم مدعوان، وبعد 5 يلزم 4 مدعوين إجمالاً.",
             "online_counter_enabled": "عداد تجريبي يتغير عشوائياً ضمن النطاق المحدد؛ لا يمثل عدد الزوار الحقيقي.",
@@ -113,6 +110,21 @@ class PlatformSettingsForm(forms.ModelForm):
         if self.cleaned_data.get("deposit_activity_enabled") and not examples:
             raise ValidationError("أضف مثالاً واحداً على الأقل أو أوقف إشعارات النشاط التجريبي.")
         return raw_examples.strip()
+
+
+class SupportOptionForm(forms.ModelForm):
+    class Meta:
+        model = SupportOption
+        fields = ("title", "url", "image_url", "sort_order", "is_active")
+        widgets = {
+            "url": forms.URLInput(attrs={"dir": "ltr", "placeholder": "https://wa.me/..."}),
+            "image_url": forms.URLInput(attrs={"dir": "ltr", "placeholder": "https://example.com/image.png"}),
+            "sort_order": forms.NumberInput(attrs={"min": "0", "step": "1"}),
+        }
+        help_texts = {
+            "image_url": "رابط صورة كامل. اتركه فارغاً لاستخدام الأيقونة الافتراضية.",
+            "sort_order": "الأرقام الأصغر تظهر أولاً.",
+        }
 
 
 class VoucherIssueForm(forms.Form):

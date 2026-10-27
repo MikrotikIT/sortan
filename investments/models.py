@@ -167,6 +167,23 @@ class PlatformSettings(models.Model):
         return "إعدادات المنصة"
 
 
+class SupportOption(models.Model):
+    title = models.CharField("اسم العرض", max_length=100)
+    url = models.URLField("الرابط", max_length=500)
+    image_url = models.URLField("رابط الصورة", max_length=500, blank=True)
+    sort_order = models.PositiveIntegerField("ترتيب العرض", default=0)
+    is_active = models.BooleanField("مفعّل", default=True)
+    created_at = models.DateTimeField("تاريخ الإضافة", auto_now_add=True)
+
+    class Meta:
+        ordering = ("sort_order", "pk")
+        verbose_name = "خيار دعم فني"
+        verbose_name_plural = "خيارات الدعم الفني"
+
+    def __str__(self):
+        return self.title
+
+
 class Film(models.Model):
     class DurationUnit(models.TextChoices):
         SECONDS = "seconds", "ثوانٍ"

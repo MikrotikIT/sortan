@@ -12,7 +12,8 @@
       const urlInput = modal.querySelector('input[name="film_url"]');
       if (filmUrl && urlInput) urlInput.value = filmUrl;
       const firstInput = modal.querySelector('input:not([type="hidden"])');
-      if (firstInput) firstInput.focus();
+      const initialFocusTarget = firstInput || modal.querySelector('[data-modal-autofocus]');
+      if (initialFocusTarget) initialFocusTarget.focus();
       updateInvestmentAmount(modal);
     });
   });

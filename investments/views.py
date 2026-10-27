@@ -16,7 +16,7 @@ from django.db.models import Max, Q, Sum
 from django.views.decorators.http import require_GET, require_POST
 
 from .forms import InvestmentForm, LoginForm, RegistrationForm, WithdrawalForm
-from .models import Deposit, Film, Investment, InvestmentVoucher, PlatformSettings, UserNotification, WithdrawalRequest
+from .models import Deposit, Film, Investment, InvestmentVoucher, PlatformSettings, SupportOption, UserNotification, WithdrawalRequest
 from .notification_services import sanitize_notification_html
 from .services import get_platform_settings, parse_deposit_activity_examples, parse_withdrawal_referral_rules, settle_due_investments, withdraw_available_at
 from .wallet_services import ensure_wallet
@@ -29,7 +29,14 @@ def home(request):
         return redirect("login")
     settle_due_investments(request.user)
     request.user.refresh_from_db(fields=("balance", "earnings_balance"))
-    return render(request, "investments/home.html", {"platform_settings": get_platform_settings()})
+    return render(
+        request,
+        "investments/home.html",
+        {
+            "platform_settings": get_platform_settings(),
+            "support_options": SupportOption.objects.filter(is_active=True),
+        },
+    )
 
 
 def register(request):
