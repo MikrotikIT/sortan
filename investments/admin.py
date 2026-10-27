@@ -78,9 +78,15 @@ class UserAdmin(BaseUserAdmin):
 
 @admin.register(Film)
 class FilmAdmin(admin.ModelAdmin):
-    list_display = ("title", "investment_code", "waiting_duration", "waiting_unit", "profit_percent", "minimum_investment_amount", "active")
-    list_filter = ("active", "waiting_unit")
+    list_display = ("title", "investment_code", "waiting_duration", "waiting_unit", "link_expiry_duration", "link_expiry_unit", "link_expires_at", "profit_percent", "minimum_investment_amount", "active")
+    list_filter = ("active", "waiting_unit", "link_expiry_unit")
     search_fields = ("title", "investment_code")
+
+    def get_changeform_initial_data(self, request):
+        initial = super().get_changeform_initial_data(request)
+        initial.setdefault("link_expiry_duration", 1)
+        initial.setdefault("link_expiry_unit", Film.ExpiryUnit.DAYS)
+        return initial
 
 
 @admin.register(InvestmentVoucher)

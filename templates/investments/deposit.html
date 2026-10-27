@@ -4,11 +4,17 @@
 {% block breadcrumb %}الإيداع{% endblock %}
 {% block extra_head %}<link rel="stylesheet" href="{% static 'css/deposit.css' %}">{% endblock %}
 {% block content %}
-<section class="deposit-hero">
+<section class="deposit-hero" data-deposit-notifications data-notifications-url="{% url 'deposit_notifications' %}" data-after-id="{{ latest_direct_deposit_id }}">
   <div>
     <p>أرسل USDT عبر شبكة TRON (TRC20) إلى عنوان محفظتك أدناه.</p>
   </div>
 </section>
+{% if recent_direct_deposit %}
+<div class="deposit-new-deposit" role="status" aria-live="polite">
+  <strong>تم استلام إيداع مباشر</strong>
+  <span>أُضيف {{ recent_direct_deposit.amount|floatformat:2 }} USDT إلى رصيدك في {% if recent_direct_deposit.occurred_at %}{{ recent_direct_deposit.occurred_at|date:"Y-m-d H:i" }}{% else %}{{ recent_direct_deposit.created_at|date:"Y-m-d H:i" }}{% endif %}.</span>
+</div>
+{% endif %}
   <aside class="deposit-balance-stack" aria-label="رصيد الحساب ومعلومات التأكيد">
     <article class="deposit-account-balance">
       <span>رصيدك الحالي</span>
@@ -44,4 +50,35 @@
 
 
 </section>
+<section class="panel deposit-history-panel">
+  <div class="panel-heading deposit-history-heading">
+    <div><span class="eyebrow">TRON · TRC20</span><h2>الإيداعات المباشرة</h2></div>
+    <span class="deposit-history-limit">آخر {{ direct_deposits|length }} عملية</span>
+  </div>
+  {% if direct_deposits %}
+  <div class="deposit-history-list">
+    {% for item in direct_deposits %}
+    <article class="deposit-history-item">
+      <span class="deposit-history-icon" aria-hidden="true">↓</span>
+      <div class="deposit-history-main">
+        <div class="deposit-history-topline">
+          <strong>{{ item.amount|floatformat:2 }} USDT</strong>
+          {% if item.status == 'approved' %}<span class="status status-done">أضيف إلى الرصيد</span>{% elif item.status == 'rejected' %}<span class="status status-rejected">مرفوض</span>{% else %}<span class="status status-pending">قيد المعالجة</span>{% endif %}
+        </div>
+        <div class="deposit-history-meta">
+          <time>{% if item.occurred_at %}{{ item.occurred_at|date:"Y-m-d H:i" }}{% else %}{{ item.created_at|date:"Y-m-d H:i" }}{% endif %}</time>
+          <span>TRON · TRC20</span>
+        </div>
+      </div>
+      <div class="deposit-history-transaction">
+        {% if item.transaction_id %}<a class="deposit-tx-link" href="https://tronscan.org/#/transaction/{{ item.transaction_id }}" target="_blank" rel="noopener noreferrer">تفاصيل التحويل <span>↗</span></a>{% else %}<small class="deposit-no-tx">—</small>{% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="deposit-empty-state"><span aria-hidden="true">↓</span><strong>لا توجد إيداعات مباشرة بعد</strong><p>ستظهر هنا تحويلات USDT المؤكدة على شبكة TRC20.</p></div>
+  {% endif %}
+</section>
 {% endblock %}
+{% block extra_js %}<script src="{% static 'js/deposit-notifications.js' %}"></script>{% endblock %}

@@ -10,7 +10,8 @@ from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.db.models import Sum
+from django.db.models import Max, Sum
+from django.views.decorators.http import require_GET
 
 from .forms import InvestmentForm, LoginForm, RegistrationForm, WithdrawalForm
 from .models import Deposit, Film, Investment, InvestmentVoucher, PlatformSettings, WithdrawalRequest
@@ -102,6 +103,9 @@ def create_investment(request):
         film = Film.objects.select_for_update().filter(pk=form.cleaned_data["film"].pk, active=True).first()
         if film is None:
             messages.error(request, "هذا الفيلم لم يعد متاحاً للاستثمار.")
+            return redirect("dashboard")
+        if film.is_expired:
+            messages.error(request, "انتهت صلاحية رابط هذا الفيلم، ولا يمكن الاستثمار فيه.")
             return redirect("dashboard")
         if Investment.objects.filter(user_id=owner.pk, film_url=film.external_url).exists():
             messages.error(request, "سبق لك الاستثمار في هذا الرابط، ويمكن الاستثمار فيه مرة واحدة فقط.")
@@ -244,7 +248,54 @@ def referrals(request):
 @login_required
 def deposit_wallet(request):
     wallet, _ = ensure_wallet(request.user)
-    return render(request, "investments/deposit.html", {"wallet": wallet})
+    recent_direct_deposit = request.user.deposits.filter(
+        source=Deposit.Source.TRON,
+        status=Deposit.Status.APPROVED,
+        created_at__gte=timezone.now() - timedelta(hours=24),
+    ).order_by("-created_at").first()
+    direct_deposits = request.user.deposits.filter(
+        source=Deposit.Source.TRON,
+    ).order_by("-created_at")[:20]
+    latest_direct_deposit_id = request.user.deposits.filter(
+        source=Deposit.Source.TRON,
+    ).aggregate(latest_id=Max("pk"))["latest_id"] or 0
+    return render(
+        request,
+        "investments/deposit.html",
+        {
+            "wallet": wallet,
+            "direct_deposits": direct_deposits,
+            "latest_direct_deposit_id": latest_direct_deposit_id,
+            "recent_direct_deposit": recent_direct_deposit,
+        },
+    )
+
+
+@login_required
+@require_GET
+def deposit_notifications(request):
+    try:
+        after_id = min(max(int(request.GET.get("after", "0")), 0), 2**63 - 1)
+    except (TypeError, ValueError):
+        return JsonResponse({"error": "رقم الإيداع غير صالح."}, status=400)
+
+    deposits = request.user.deposits.filter(
+        source=Deposit.Source.TRON,
+        status=Deposit.Status.APPROVED,
+        pk__gt=after_id,
+    ).order_by("pk")[:20]
+    response = JsonResponse({
+        "deposits": [
+            {
+                "id": deposit.pk,
+                "amount": format(deposit.amount, "f"),
+                "transaction_id": deposit.transaction_id or "",
+            }
+            for deposit in deposits
+        ],
+    })
+    response["Cache-Control"] = "no-store"
+    return response
 
 
 @login_required

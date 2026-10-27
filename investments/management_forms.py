@@ -8,17 +8,25 @@ from .services import parse_withdrawal_referral_rules
 
 
 class FilmForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.instance.pk:
+            self.fields["link_expiry_duration"].initial = 1
+            self.fields["link_expiry_unit"].initial = Film.ExpiryUnit.DAYS
+
     class Meta:
         model = Film
         fields = (
             "title", "description", "image_url", "external_url", "investment_code",
-            "waiting_duration", "waiting_unit", "profit_percent", "minimum_investment_amount", "active",
+            "waiting_duration", "waiting_unit", "profit_percent", "minimum_investment_amount",
+            "link_expiry_duration", "link_expiry_unit", "active",
         )
         widgets = {
             "description": forms.Textarea(attrs={"rows": 3}),
             "waiting_duration": forms.NumberInput(attrs={"min": "1", "step": "1"}),
             "profit_percent": forms.NumberInput(attrs={"min": "0", "max": "100", "step": "0.01"}),
             "minimum_investment_amount": forms.NumberInput(attrs={"min": "0.01", "step": "0.01"}),
+            "link_expiry_duration": forms.NumberInput(attrs={"min": "1", "step": "1"}),
         }
 
 

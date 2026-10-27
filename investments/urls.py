@@ -12,6 +12,7 @@ urlpatterns = [
     path("withdrawals/", views.withdrawals, name="withdrawals"),
     path("referrals/", views.referrals, name="referrals"),
     path("deposit/", views.deposit_wallet, name="deposit_wallet"),
+    path("deposit/notifications/", views.deposit_notifications, name="deposit_notifications"),
     path("online-counter/", views.online_counter, name="online_counter"),
     path("management/", management_views.dashboard, name="management_dashboard"),
     path("management/films/", management_views.films, name="management_films"),

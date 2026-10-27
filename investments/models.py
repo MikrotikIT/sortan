@@ -1,5 +1,6 @@
 import secrets
 import string
+from datetime import timedelta
 
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
@@ -112,6 +113,11 @@ class Film(models.Model):
         HOURS = "hours", "ساعات"
         DAYS = "days", "أيام"
 
+    class ExpiryUnit(models.TextChoices):
+        MINUTES = "minutes", "دقائق"
+        HOURS = "hours", "ساعات"
+        DAYS = "days", "أيام"
+
     title = models.CharField("اسم الفيلم", max_length=180)
     description = models.TextField("نبذة", blank=True)
     image_url = models.URLField("رابط صورة الفيلم", max_length=500, blank=True)
@@ -128,6 +134,15 @@ class Film(models.Model):
         validators=[MinValueValidator(0.01)],
         help_text="يُطبّق عند اختيار الاستثمار من الرصيد. القيمة الافتراضية 100 USDT.",
     )
+    link_expiry_duration = models.PositiveIntegerField(
+        "مدة صلاحية الرابط",
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1)],
+        help_text="اتركها فارغة ليبقى الرابط صالحاً دون انتهاء محدد.",
+    )
+    link_expiry_unit = models.CharField("وحدة صلاحية الرابط", max_length=8, choices=ExpiryUnit.choices, default=ExpiryUnit.DAYS)
+    link_expires_at = models.DateTimeField("انتهاء صلاحية الرابط", null=True, blank=True, editable=False)
     active = models.BooleanField("متاح للاستثمار", default=True)
     created_at = models.DateTimeField("تاريخ الإضافة", auto_now_add=True)
 
@@ -138,6 +153,32 @@ class Film(models.Model):
 
     def __str__(self):
         return self.title
+
+    @property
+    def is_expired(self):
+        return self.link_expires_at is not None and timezone.now() >= self.link_expires_at
+
+    def save(self, *args, **kwargs):
+        expiry_changed = self._state.adding
+        if not expiry_changed and self.pk:
+            previous = type(self).objects.filter(pk=self.pk).values(
+                "link_expiry_duration", "link_expiry_unit"
+            ).first()
+            expiry_changed = previous is not None and (
+                previous["link_expiry_duration"] != self.link_expiry_duration
+                or previous["link_expiry_unit"] != self.link_expiry_unit
+            )
+        if expiry_changed:
+            if self.link_expiry_duration:
+                self.link_expires_at = timezone.now() + timedelta(
+                    **{self.link_expiry_unit: self.link_expiry_duration}
+                )
+            else:
+                self.link_expires_at = None
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None:
+                kwargs["update_fields"] = set(update_fields) | {"link_expires_at"}
+        super().save(*args, **kwargs)
 
 
 class InvestmentVoucher(models.Model):

@@ -99,20 +99,23 @@ class InvestmentForm(forms.Form):
         cleaned = super().clean()
         url = (cleaned.get("film_url") or "").rstrip("/")
         code = (cleaned.get("investment_code") or "").strip()
-        film = Film.objects.filter(active=True, investment_code=code).first()
-        if film and film.external_url.rstrip("/") == url:
-            cleaned["film"] = film
-            if self.user and Investment.objects.filter(
-                user_id=self.user.pk,
-                film_url=film.external_url,
-            ).exists():
-                self.add_error("film_url", "سبق لك الاستثمار في هذا الرابط، ويمكن الاستثمار فيه مرة واحدة فقط.")
-            amount = cleaned.get("amount")
-            if cleaned.get("funding_method") == "balance" and amount is not None and amount < film.minimum_investment_amount:
-                self.add_error(
-                    "amount",
-                    f"الحد الأدنى للاستثمار من الرصيد في هذا الفيلم هو {film.minimum_investment_amount:.2f} USDT.",
-                )
+        film = Film.objects.filter(investment_code=code).first()
+        if film and film.external_url.rstrip("/") == url and film.active:
+            if film.is_expired:
+                self.add_error("film_url", "انتهت صلاحية رابط هذا الفيلم، ولا يمكن الاستثمار فيه.")
+            else:
+                cleaned["film"] = film
+                if self.user and Investment.objects.filter(
+                    user_id=self.user.pk,
+                    film_url=film.external_url,
+                ).exists():
+                    self.add_error("film_url", "سبق لك الاستثمار في هذا الرابط، ويمكن الاستثمار فيه مرة واحدة فقط.")
+                amount = cleaned.get("amount")
+                if cleaned.get("funding_method") == "balance" and amount is not None and amount < film.minimum_investment_amount:
+                    self.add_error(
+                        "amount",
+                        f"الحد الأدنى للاستثمار من الرصيد في هذا الفيلم هو {film.minimum_investment_amount:.2f} USDT.",
+                    )
         else:
             raise ValidationError("الرابط أو كود الاستثمار غير صحيح، أو أن الفيلم لم يعد متاحاً.")
         if cleaned.get("funding_method") == "balance" and not cleaned.get("amount"):
