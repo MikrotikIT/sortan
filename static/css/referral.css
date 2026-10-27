@@ -8,3 +8,12 @@
 .referral-page-panel .referral-code-large code{color:#0b5264;font-size:18px;letter-spacing:2px}
 .referral-page-panel .referral-code-large .copy-code{padding:9px 13px;border-radius:8px;background:#0d829b;color:#fff;font-size:12px;transition:background .15s,transform .15s}
 .referral-page-panel .referral-code-large .copy-code:hover{background:#086d83;transform:translateY(-1px)}
+.referral-benefits{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:16px 0 0;padding:0;list-style:none}
+.referral-benefits li{position:relative;display:flex;align-items:center;gap:10px;min-width:0;padding:13px 12px;border:1px solid rgba(168,226,235,.2);border-radius:12px;background:rgba(235,251,253,.08);color:#fff}
+.referral-benefit-icon{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border-radius:11px;background:rgba(80,204,222,.17);color:#8be6f0}
+.referral-benefit-icon svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.referral-benefit-check{position:absolute;top:7px;left:7px;display:grid;place-items:center;width:17px;height:17px;border:2px solid #123d47;border-radius:50%;background:#67d9a3;color:#073b36;font:800 10px/1 "DM Sans",sans-serif}
+.referral-benefit-text{display:grid;gap:4px;min-width:0;padding-inline-start:2px}
+.referral-benefit-text strong{color:#f4fdff;font-size:12px;font-weight:700;line-height:1.4}
+.referral-benefit-text small{color:#c1dce2;font-size:10px;line-height:1.6}
+@media(max-width:700px){.referral-benefits{grid-template-columns:1fr;gap:8px}.referral-benefits li{padding:11px 12px}.referral-benefit-text small{font-size:11px}}
