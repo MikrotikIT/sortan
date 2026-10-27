@@ -22,6 +22,12 @@
 .application-form-field input:focus,.application-form-field select:focus{border-color:#149ecc;box-shadow:0 0 0 3px rgba(20,158,204,.1)}
 .application-form-field small{color:#71838a;font-size:11px;line-height:1.6}
 .application-form-field .field-error,.application-form-error{color:#b33e43}
+.application-upload-progress{grid-column:1/-1;padding:12px 14px;border:1px solid #d9ebef;border-radius:10px;background:#f5fbfc}
+.application-upload-progress-track{height:9px;overflow:hidden;border-radius:99px;background:#dfebee}
+.application-upload-progress-track>span{display:block;width:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,#149ecc,#19ad91);transition:width .15s ease}
+.application-upload-progress[data-state="processing"] .application-upload-progress-track>span{width:38%;animation:application-upload-indeterminate 1.2s ease-in-out infinite alternate}
+@keyframes application-upload-indeterminate{from{transform:translateX(130%)}to{transform:translateX(-130%)}}
+.application-upload-progress p{margin:7px 0 0;color:#55727a;font-size:12px}
 .application-image-field,.application-checklist,.join-application-form>.btn,.application-form-error{grid-column:1/-1}
 .application-image-field input{padding:8px;height:auto;background:#f9fbfb}
 .application-checklist{padding:16px 18px;border-radius:11px;background:#f5f8f8;color:#4b6269;font-size:12px;line-height:1.9}

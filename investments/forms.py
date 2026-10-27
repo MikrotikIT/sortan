@@ -1,9 +1,13 @@
 import re
+import warnings
+from io import BytesIO
 from decimal import Decimal
 
 from django import forms
 from django.contrib.auth import password_validation
 from django.core.exceptions import ValidationError
+from django.core.files.base import ContentFile
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 from .models import Film, Investment, JoinApplication, User
 from .countries import COUNTRY_FORM_CHOICES, clean_phone_input, normalize_phone_number
@@ -102,9 +106,50 @@ class JoinApplicationForm(forms.ModelForm):
 
     def clean_profile_image(self):
         image = self.cleaned_data.get("profile_image")
-        if image and image.size > 5 * 1024 * 1024:
-            raise ValidationError("حجم الصورة يجب ألا يتجاوز 5 ميغابايت.")
-        return image
+        if not image:
+            return image
+        if getattr(image, "_committed", False):
+            return image
+        if image.size > 12 * 1024 * 1024:
+            raise ValidationError("حجم الصورة الأصلية يجب ألا يتجاوز 12 ميغابايت.")
+
+        try:
+            image.seek(0)
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", Image.DecompressionBombWarning)
+                with Image.open(image) as source:
+                    width, height = source.size
+                    if width <= 0 or height <= 0 or width * height > 40_000_000:
+                        raise ValidationError("أبعاد الصورة كبيرة جداً. اختر صورة أصغر.")
+                    source = ImageOps.exif_transpose(source)
+                    source.load()
+                    if "A" in source.getbands() or "transparency" in source.info:
+                        rgba = source.convert("RGBA")
+                        optimized = Image.new("RGB", rgba.size, (255, 255, 255))
+                        optimized.paste(rgba, mask=rgba.getchannel("A"))
+                    else:
+                        optimized = source.convert("RGB")
+
+                    optimized_payload = None
+                    for dimension in (1400, 1200, 1000, 850):
+                        resized = optimized.copy()
+                        resized.thumbnail((dimension, dimension), Image.Resampling.LANCZOS)
+                        for quality in (84, 76, 68, 60, 52, 46):
+                            output = BytesIO()
+                            resized.save(output, format="JPEG", quality=quality, optimize=True, progressive=True)
+                            if output.tell() <= 700 * 1024:
+                                optimized_payload = output.getvalue()
+                                break
+                        if optimized_payload:
+                            break
+                    if not optimized_payload:
+                        raise ValidationError("تعذر ضغط الصورة إلى الحجم المناسب. جرّب صورة أخرى.")
+        except ValidationError:
+            raise
+        except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
+            raise ValidationError("تعذر قراءة الصورة. اختر ملف صورة صالحاً بصيغة JPG أو PNG أو WEBP.") from exc
+
+        return ContentFile(optimized_payload, name="profile.jpg")
 
 
 class LoginForm(forms.Form):

@@ -31,17 +31,21 @@
       <p>يرجى إرفاق صورة شخصية واضحة بعد استكمال الإجابة عن جميع الأسئلة والبيانات المذكورة أعلاه.</p>
     </section>
 
-    <form method="post" enctype="multipart/form-data" class="join-application-form">
+    <form method="post" enctype="multipart/form-data" class="join-application-form" data-join-application-upload>
       {% csrf_token %}
       {% if form.non_field_errors %}<div class="application-form-error">{{ form.non_field_errors }}</div>{% endif %}
       {% for field in form %}
       <div class="application-form-field{% if field.name == 'profile_image' %} application-image-field{% endif %}">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {% if field.name == 'profile_image' %}<small>صورة واضحة بصيغة JPG أو PNG أو WEBP، حتى 5 ميغابايت.</small>{% endif %}
+        {% if field.name == 'profile_image' %}<small>صورة واضحة بصيغة JPG أو PNG أو WEBP، حتى 12 ميغابايت قبل الضغط. سيُقلّص حجمها تلقائياً.</small>{% endif %}
         {% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
       </div>
       {% endfor %}
+      <div class="application-upload-progress" data-upload-progress hidden aria-live="polite">
+        <div class="application-upload-progress-track"><span data-upload-progress-bar role="progressbar" aria-label="تقدم رفع الطلب" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></span></div>
+        <p data-upload-progress-label>جارٍ تجهيز الطلب...</p>
+      </div>
       <section class="application-checklist">
         <h2>✅ تعليمات إكمال الطلب</h2>
         <ul>
@@ -58,3 +62,4 @@
   <form class="application-logout-form" method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="btn btn-quiet" type="submit">تسجيل الخروج</button></form>
 </main>
 {% endblock %}
+{% block extra_js %}<script src="{% static 'js/join-application-upload.js' %}"></script>{% endblock %}
