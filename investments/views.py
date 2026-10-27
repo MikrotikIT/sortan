@@ -10,13 +10,15 @@ from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.db.models import Max, Sum
+from django.db.models import Max, Q, Sum
 from django.views.decorators.http import require_GET
 
 from .forms import InvestmentForm, LoginForm, RegistrationForm, WithdrawalForm
 from .models import Deposit, Film, Investment, InvestmentVoucher, PlatformSettings, WithdrawalRequest
 from .services import get_platform_settings, parse_deposit_activity_examples, parse_withdrawal_referral_rules, settle_due_investments, withdraw_available_at
 from .wallet_services import ensure_wallet
+
+MIN_REFERRAL_DEPOSIT_FOR_WITHDRAWAL = Decimal("100.00")
 
 
 def home(request):
@@ -162,7 +164,17 @@ def withdrawals(request):
     pending_request = request.user.withdrawals.filter(status=WithdrawalRequest.Status.PENDING).exists()
     cooldown_passed = available_at is None or timezone.now() >= available_at
     paid_withdrawal_count = request.user.withdrawals.filter(status=WithdrawalRequest.Status.PAID).count()
-    referral_count = request.user.referrals.filter(is_active=True).count()
+    referral_count = (
+        request.user.referrals.filter(is_active=True)
+        .annotate(
+            approved_deposit_total=Sum(
+                "deposits__amount",
+                filter=Q(deposits__status=Deposit.Status.APPROVED),
+            )
+        )
+        .filter(approved_deposit_total__gte=MIN_REFERRAL_DEPOSIT_FOR_WITHDRAWAL)
+        .count()
+    )
     active_referral_rule = None
     if settings.withdrawal_referral_gate_enabled:
         try:

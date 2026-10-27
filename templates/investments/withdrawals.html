@@ -13,16 +13,16 @@
     <div class="referral-gate-copy">
       <span class="referral-gate-label">تنبيه بخصوص السحب</span>
       <h2 id="referral-gate-title">السحب متوقف مؤقتاً</h2>
-      <p>لإرسال طلب السحب، يلزم دعوة {{ active_referral_rule.1 }} مستخدمين نشطين على الأقل بعد إتمام {{ active_referral_rule.0 }} سحوبات مدفوعة.</p>
+      <p>لا يُحتسب المدعو إلا بعد أن يبلغ مجموع إيداعاته المقبولة 100 USDT على الأقل. يلزم {{ active_referral_rule.1 }} مدعوين مستوفين لهذا الشرط بعد إتمام {{ active_referral_rule.0 }} سحوبات مدفوعة.</p>
     </div>
   </div>
   <div class="referral-progress-section">
-    <div class="referral-progress-label"><span>تقدم الدعوات</span><strong>{{ referral_count }} من {{ active_referral_rule.1 }}</strong></div>
-    <div class="referral-progress-track" role="progressbar" aria-label="تقدم عدد الدعوات المطلوبة للسحب" aria-valuemin="0" aria-valuemax="{{ active_referral_rule.1 }}" aria-valuenow="{{ referral_count }}">
+    <div class="referral-progress-label"><span>المدعوون المستوفون لشرط الإيداع</span><strong>{{ referral_count }} من {{ active_referral_rule.1 }}</strong></div>
+    <div class="referral-progress-track" role="progressbar" aria-label="تقدم عدد المدعوين المستوفين لشرط الإيداع المطلوب للسحب" aria-valuemin="0" aria-valuemax="{{ active_referral_rule.1 }}" aria-valuenow="{{ referral_count }}">
       <span class="referral-progress-fill" style="width: {{ referral_progress_percent }}%"></span>
     </div>
     <div class="referral-progress-footer">
-      <strong>{% if remaining_referrals == 1 %}باقي دعوة واحدة لفتح السحب{% elif remaining_referrals == 2 %}باقي دعوتان لفتح السحب{% else %}باقي {{ remaining_referrals }} دعوات لفتح السحب{% endif %}</strong>
+      <strong>{% if remaining_referrals == 1 %}باقي مدعو واحد مستوفٍ للشرط لفتح السحب{% elif remaining_referrals == 2 %}باقي مدعوين اثنين مستوفين للشرط لفتح السحب{% else %}باقي {{ remaining_referrals }} مدعوين مستوفين للشرط لفتح السحب{% endif %}</strong>
       <a href="{% url 'referrals' %}">مشاركة كود الدعوة <span aria-hidden="true">←</span></a>
     </div>
   </div>
