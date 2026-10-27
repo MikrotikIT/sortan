@@ -19,7 +19,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_POST
 
-from .management_forms import FilmForm, InternalBalanceCreditForm, JoinApplicationDecisionForm, ManualDepositForm, NotificationForm, PlatformSettingsForm, SupportOptionForm, VoucherAmountForm, VoucherIssueForm
+from .management_forms import CustomerBlockForm, FilmForm, InternalBalanceCreditForm, JoinApplicationDecisionForm, ManualDepositForm, NotificationForm, PlatformSettingsForm, SupportOptionForm, VoucherAmountForm, VoucherIssueForm
 from .models import Deposit, Film, InternalBalanceCredit, Investment, InvestmentVoucher, JoinApplication, ServiceHeartbeat, SupportOption, User, UserNotification, Wallet, WalletSyncRun, WithdrawalRequest
 from .services import approve_deposit, deposit_status_for_amount, get_platform_settings, pay_withdrawal, reject_deposit, reject_withdrawal
 from .wallet_services import decrypt_private_key, ensure_wallet, sync_all_wallets
@@ -106,7 +106,7 @@ def join_applications(request):
     status = request.GET.get("status", "pending")
     query = request.GET.get("q", "").strip()[:100]
     applications = JoinApplication.objects.select_related("user", "reviewed_by").order_by("-updated_at", "-pk")
-    if status in {"pending", "approved", "rejected"}:
+    if status in {"pending", "approved", "rejected", "blocked"}:
         applications = applications.filter(user__approval_status=status)
     elif status != "all":
         status = "pending"
@@ -146,11 +146,18 @@ def join_application_detail(request, pk):
             if user.approval_status != "pending":
                 messages.warning(request, "تمت مراجعة هذا الطلب مسبقاً.")
             else:
+                previous_status = user.approval_status
                 user.approval_status = decision
-                user.save(update_fields=("approval_status",))
+                if decision == "blocked":
+                    user.is_active = False
+                    user.blocked_from_status = previous_status
+                    user.block_reason = reason
+                    user.save(update_fields=("approval_status", "is_active", "blocked_from_status", "block_reason"))
+                else:
+                    user.save(update_fields=("approval_status",))
                 application.reviewed_by = request.user
                 application.reviewed_at = timezone.now()
-                application.rejection_reason = reason if decision == "rejected" else ""
+                application.rejection_reason = reason if decision in {"rejected", "blocked"} else ""
                 application.save(update_fields=("reviewed_by", "reviewed_at", "rejection_reason", "updated_at"))
 
                 if decision == "approved":
@@ -159,17 +166,22 @@ def join_application_detail(request, pk):
                         "<p>نبارك لك، تمت الموافقة على طلب انضمامك إلى منصة KODI العالمية.</p>"
                         "<p>أصبح بإمكانك الآن تسجيل الدخول واستخدام المنصة.</p>"
                     )
-                else:
+                elif decision == "rejected":
                     title = "تم رفض طلب انضمامك"
                     body = (
                         "<p>نأسف لإبلاغك بأنه تم رفض طلب الانضمام.</p>"
                         f"<p><strong>سبب الرفض:</strong> {escape(reason)}</p>"
                         f'<p><a href="{reverse("join_application")}">افتح وثيقة طلب الانضمام وعدّل بياناتك ثم أعد الإرسال.</a></p>'
                     )
-                UserNotification.objects.create(recipient=user, sender=request.user, title=title, body_html=body)
+                if decision != "blocked":
+                    UserNotification.objects.create(recipient=user, sender=request.user, title=title, body_html=body)
                 messages.success(
                     request,
-                    "تمت الموافقة على الطلب وإشعار العميل." if decision == "approved" else "تم رفض الطلب وإرسال السبب إلى العميل.",
+                    {
+                        "approved": "تمت الموافقة على الطلب وإشعار العميل.",
+                        "rejected": "تم رفض الطلب وإرسال السبب إلى العميل.",
+                        "blocked": "تم حظر الحساب وتعطيل تسجيل الدخول، وحُفظ السبب في سجل الطلب.",
+                    }[decision],
                 )
         return redirect("management_join_applications")
 
@@ -567,9 +579,11 @@ def customers(request):
     if query:
         items = items.filter(Q(phone__icontains=query) | Q(referral_code__icontains=query))
     if status == "active":
-        items = items.filter(is_active=True)
+        items = items.filter(is_active=True, approval_status="approved")
     elif status == "inactive":
         items = items.filter(is_active=False)
+    elif status == "blocked":
+        items = items.filter(approval_status="blocked")
     date_from, date_to = _date_filters(request)
     items = _apply_date_range(items, "date_joined", date_from, date_to)
     page_obj, pagination_query = _paginate(request, items)
@@ -586,6 +600,60 @@ def customers(request):
             "date_to": date_to,
         },
     )
+
+
+@staff_required
+@require_POST
+def block_customer(request, pk):
+    form = CustomerBlockForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "اكتب سبب الحظر ثم أعد المحاولة.")
+        return redirect("management_customers")
+
+    with transaction.atomic():
+        customer = get_object_or_404(User.objects.select_for_update(), pk=pk, is_staff=False)
+        if not customer.is_active or customer.approval_status != "approved":
+            messages.info(request, "يمكن حظر العملاء النشطين المقبولين فقط.")
+        else:
+            customer.blocked_from_status = customer.approval_status
+            customer.approval_status = "blocked"
+            customer.block_reason = form.cleaned_data["reason"]
+            customer.is_active = False
+            customer.save(update_fields=("approval_status", "blocked_from_status", "block_reason", "is_active"))
+            messages.success(request, f"تم حظر حساب العميل {customer.phone} وتعطيل تسجيل دخوله.")
+    return redirect("management_customers")
+
+
+@staff_required
+@require_POST
+def unblock_customer(request, pk):
+    with transaction.atomic():
+        customer = get_object_or_404(User.objects.select_for_update(), pk=pk, is_staff=False)
+        if customer.approval_status != "blocked":
+            messages.info(request, "هذا الحساب غير محظور.")
+        else:
+            previous_status = customer.blocked_from_status
+            if previous_status not in {"approved", "pending", "rejected"}:
+                previous_status = "approved"
+            customer.approval_status = previous_status
+            customer.blocked_from_status = ""
+            customer.is_active = True
+            customer.save(update_fields=("approval_status", "blocked_from_status", "is_active"))
+
+            if previous_status == "approved":
+                title = "تم رفع الحظر عن حسابك"
+                body = "<p>تم رفع الحظر عن حسابك، ويمكنك الآن تسجيل الدخول واستخدام المنصة.</p>"
+            else:
+                title = "تم رفع الحظر عن حسابك"
+                body = f"<p>تم رفع الحظر عن حسابك. حالة طلب الانضمام الحالية: {customer.get_approval_status_display()}.</p>"
+            UserNotification.objects.create(
+                recipient=customer,
+                sender=request.user,
+                title=title,
+                body_html=body,
+            )
+            messages.success(request, f"تم رفع الحظر عن العميل {customer.phone} وإعادة حالة حسابه السابقة.")
+    return redirect("management_customers")
 
 
 @staff_required

@@ -1,3 +1,4 @@
+from django.contrib.auth import logout
 from django.shortcuts import redirect
 from django.urls import Resolver404, resolve
 
@@ -24,6 +25,15 @@ class ApprovalRequiredMiddleware:
 
     def __call__(self, request):
         user = getattr(request, "user", None)
+        if (
+            user is not None
+            and user.is_authenticated
+            and not user.is_staff
+            and user.approval_status == "blocked"
+        ):
+            logout(request)
+            return redirect("login")
+
         if (
             user is not None
             and user.is_authenticated

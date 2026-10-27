@@ -1,20 +1,34 @@
 {% extends 'management/base.html' %}
+{% load static %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/management-customer-actions.css' %}">{% endblock %}
 {% block title %}العملاء — Kodi TV{% endblock %}
 {% block content %}
-<section class="management-heading"><div><span class="eyebrow">الحسابات</span><h1>العملاء</h1><p>ابحث برقم الهاتف أو كود الدعوة، وصفِّ النتائج حسب حالة الحساب وتاريخ التسجيل.</p></div></section>
+<section class="management-heading"><div><span class="eyebrow">الحسابات</span><h1>العملاء</h1><p>ابحث برقم الهاتف أو كود الدعوة، وصفِّ النتائج حسب الحالة وتاريخ التسجيل. يمكنك حظر العميل النشط أو رفع الحظر عنه.</p></div></section>
 <section class="management-panel">
   <form method="get" class="admin-filter-bar">
     <div class="admin-field"><label for="customer-q">بحث</label><input id="customer-q" name="q" value="{{ query }}" placeholder="رقم الهاتف أو كود الدعوة"></div>
-    <div class="admin-field"><label for="customer-status">حالة الحساب</label><select id="customer-status" name="status"><option value="">كل الحالات</option><option value="active" {% if filter_status == 'active' %}selected{% endif %}>نشط</option><option value="inactive" {% if filter_status == 'inactive' %}selected{% endif %}>موقوف</option></select></div>
+    <div class="admin-field"><label for="customer-status">حالة الحساب</label><select id="customer-status" name="status"><option value="">كل الحالات</option><option value="active" {% if filter_status == 'active' %}selected{% endif %}>نشط</option><option value="inactive" {% if filter_status == 'inactive' %}selected{% endif %}>موقوف</option><option value="blocked" {% if filter_status == 'blocked' %}selected{% endif %}>محظور</option></select></div>
     <div class="admin-field"><label for="customer-from">التسجيل من</label><input id="customer-from" type="date" name="date_from" value="{{ date_from|date:'Y-m-d' }}"></div>
     <div class="admin-field"><label for="customer-to">التسجيل إلى</label><input id="customer-to" type="date" name="date_to" value="{{ date_to|date:'Y-m-d' }}"></div>
     <div class="admin-filter-actions"><button class="btn btn-primary" type="submit">تصفية</button><a href="{% url 'management_customers' %}">مسح</a></div>
   </form>
   {% if customers %}
-  <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>العميل</th><th>كود الدعوة</th><th>الرصيد</th><th>الأرباح</th><th>الاستثمارات</th><th>الإيداعات</th><th>القسائم المتاحة</th><th>التسجيل</th><th>الملف</th></tr></thead><tbody>
-    {% for item in customers %}<tr><td dir="ltr"><strong>{{ item.phone }}</strong></td><td><code>{{ item.referral_code }}</code></td><td>{{ item.balance|floatformat:2 }} USDT</td><td>{{ item.earnings_balance|floatformat:2 }} USDT</td><td>{{ item.investment_count }}</td><td>{{ item.deposit_count }}</td><td>{{ item.available_voucher_count }}</td><td>{{ item.date_joined|date:"Y-m-d" }}</td><td><a class="table-action" href="{% url 'management_customer_detail' item.pk %}">عرض التفاصيل ←</a></td></tr>{% endfor %}
+  <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>العميل</th><th>الحالة</th><th>كود الدعوة</th><th>الرصيد</th><th>الأرباح</th><th>الاستثمارات</th><th>الإيداعات</th><th>القسائم المتاحة</th><th>التسجيل</th><th>الإجراءات</th></tr></thead><tbody>
+    {% for item in customers %}<tr><td dir="ltr"><strong>{{ item.phone }}</strong></td><td>{% if item.approval_status == 'blocked' %}<span class="customer-state customer-state-blocked">محظور</span>{% elif not item.is_active %}<span class="customer-state customer-state-inactive">موقوف</span>{% elif item.approval_status == 'approved' %}<span class="customer-state customer-state-active">نشط</span>{% else %}<span class="customer-state customer-state-inactive">{{ item.get_approval_status_display }}</span>{% endif %}</td><td><code>{{ item.referral_code }}</code></td><td>{{ item.balance|floatformat:2 }} USDT</td><td>{{ item.earnings_balance|floatformat:2 }} USDT</td><td>{{ item.investment_count }}</td><td>{{ item.deposit_count }}</td><td>{{ item.available_voucher_count }}</td><td>{{ item.date_joined|date:"Y-m-d" }}</td><td><div class="customer-row-actions"><a class="table-action" href="{% url 'management_customer_detail' item.pk %}">التفاصيل</a>{% if item.approval_status == 'blocked' %}<form method="post" action="{% url 'management_customer_unblock' item.pk %}" class="customer-unblock-form" data-customer-phone="{{ item.phone }}">{% csrf_token %}<button class="customer-action-button customer-unblock-button" type="submit">رفع الحظر</button></form>{% elif item.is_active and item.approval_status == 'approved' %}<button class="customer-action-button customer-block-button" type="button" data-customer-block-open data-block-url="{% url 'management_customer_block' item.pk %}" data-customer-phone="{{ item.phone }}">حظر</button>{% endif %}</div></td></tr>{% endfor %}
   </tbody></table></div>
   {% include 'management/includes/pagination.html' %}
   {% else %}<div class="admin-empty">{% if query %}لا توجد نتائج لهذا البحث أو لهذه المرشحات.{% else %}لا يوجد عملاء بهذه المرشحات.{% endif %}</div>{% endif %}
 </section>
+<dialog class="customer-block-dialog" data-customer-block-dialog aria-labelledby="customer-block-dialog-title">
+  <form method="post" data-customer-block-form>
+    {% csrf_token %}
+    <span class="eyebrow">إجراء إداري</span>
+    <h2 id="customer-block-dialog-title">حظر حساب العميل</h2>
+    <p>سيُمنع <strong data-customer-block-name></strong> من تسجيل الدخول. اكتب سبب الحظر ليُحفظ في سجل العميل.</p>
+    <label for="customer-block-reason">سبب الحظر</label>
+    <textarea id="customer-block-reason" name="reason" rows="4" maxlength="1200" required></textarea>
+    <div class="customer-block-dialog-actions"><button class="customer-action-button customer-block-button" type="submit">تأكيد الحظر</button><button class="customer-action-button customer-cancel-button" type="button" data-customer-block-cancel>إلغاء</button></div>
+  </form>
+</dialog>
 {% endblock %}
+{% block extra_js %}<script src="{% static 'js/management-customer-actions.js' %}"></script>{% endblock %}

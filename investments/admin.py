@@ -29,7 +29,8 @@ class UserCreationForm(forms.ModelForm):
     class Meta:
         model = User
         fields = (
-            "phone", "country_code", "balance", "earnings_balance", "is_active", "is_staff",
+            "phone", "country_code", "approval_status", "blocked_from_status", "block_reason",
+            "balance", "earnings_balance", "is_active", "is_staff",
             "is_superuser", "groups", "user_permissions",
         )
 
@@ -53,14 +54,15 @@ class UserCreationForm(forms.ModelForm):
 class UserAdmin(BaseUserAdmin):
     form = UserChangeForm
     add_form = UserCreationForm
-    list_display = ("phone", "country_code", "balance", "earnings_balance", "is_staff", "is_superuser", "is_active")
-    list_filter = ("is_staff", "is_superuser", "is_active")
+    list_display = ("phone", "country_code", "approval_status", "balance", "earnings_balance", "is_staff", "is_superuser", "is_active")
+    list_filter = ("approval_status", "is_staff", "is_superuser", "is_active")
     search_fields = ("phone", "referral_code")
     ordering = ("phone",)
     filter_horizontal = ("groups", "user_permissions")
     readonly_fields = ("last_login", "date_joined")
     fieldsets = (
-        (None, {"fields": ("phone", "country_code", "password")}),
+        (None, {"fields": ("phone", "country_code", "approval_status", "password")}),
+        ("الحظر", {"fields": ("blocked_from_status", "block_reason")}),
         ("الأرصدة", {"fields": ("balance", "earnings_balance", "total_earned")}),
         ("الدعوة", {"fields": ("referral_code", "referred_by")}),
         ("الصلاحيات", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
@@ -70,7 +72,8 @@ class UserAdmin(BaseUserAdmin):
         (None, {
             "classes": ("wide",),
             "fields": (
-                "phone", "country_code", "password1", "password2", "balance", "earnings_balance",
+                "phone", "country_code", "approval_status", "blocked_from_status", "block_reason",
+                "password1", "password2", "balance", "earnings_balance",
                 "is_active", "is_staff", "is_superuser", "groups", "user_permissions",
             ),
         }),

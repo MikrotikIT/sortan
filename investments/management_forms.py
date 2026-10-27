@@ -193,20 +193,39 @@ class NotificationForm(forms.Form):
 class JoinApplicationDecisionForm(forms.Form):
     decision = forms.ChoiceField(
         label="قرار المراجعة",
-        choices=(("", "اختر القرار"), ("approved", "الموافقة على الانضمام"), ("rejected", "رفض الطلب")),
+        choices=(
+            ("", "اختر القرار"),
+            ("approved", "الموافقة على الانضمام"),
+            ("rejected", "رفض الطلب"),
+            ("blocked", "حظر الحساب وتعطيل تسجيل الدخول"),
+        ),
     )
     rejection_reason = forms.CharField(
-        label="سبب الرفض",
+        label="سبب الرفض أو الحظر",
         required=False,
         max_length=1200,
-        widget=forms.Textarea(attrs={"rows": 4, "placeholder": "اكتب سبباً واضحاً ليظهر للمتقدم"}),
+        widget=forms.Textarea(attrs={"rows": 4, "placeholder": "اكتب سبباً واضحاً للرجوع إليه في سجل المراجعة"}),
     )
 
     def clean(self):
         cleaned = super().clean()
-        if cleaned.get("decision") == "rejected" and not cleaned.get("rejection_reason", "").strip():
-            self.add_error("rejection_reason", "اكتب سبب الرفض ليتمكن المتقدم من معرفة المطلوب.")
+        if cleaned.get("decision") in {"rejected", "blocked"} and not cleaned.get("rejection_reason", "").strip():
+            self.add_error("rejection_reason", "اكتب سبب الرفض أو الحظر ليبقى موثقاً في سجل المراجعة.")
         return cleaned
+
+
+class CustomerBlockForm(forms.Form):
+    reason = forms.CharField(
+        label="سبب الحظر",
+        max_length=1200,
+        widget=forms.Textarea(attrs={"rows": 4, "placeholder": "اكتب سبب حظر الحساب"}),
+    )
+
+    def clean_reason(self):
+        reason = self.cleaned_data["reason"].strip()
+        if not reason:
+            raise ValidationError("اكتب سبباً لحظر الحساب.")
+        return reason
 
 
 class ManualDepositForm(forms.Form):

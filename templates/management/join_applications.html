@@ -2,12 +2,12 @@
 {% block title %}طلبات الانضمام — إدارة KODI{% endblock %}
 {% block content %}
 <section class="management-heading">
-  <div><span class="eyebrow">مراجعة الحسابات</span><h1>طلبات الانضمام والتسجيل</h1><p>راجع بيانات المتقدمين وصورهم، ثم وافق على الطلب أو ارفضه مع توضيح السبب.</p></div>
+  <div><span class="eyebrow">مراجعة الحسابات</span><h1>طلبات الانضمام والتسجيل</h1><p>راجع بيانات المتقدمين وصورهم، ثم وافق أو ارفض أو احظر الحساب.</p></div>
   <div class="management-heading-count"><strong>{{ pending_count }}</strong><span>قيد المراجعة</span></div>
 </section>
 <section class="management-panel">
   <form method="get" class="admin-filters">
-    <div class="admin-field"><label for="join-status">الحالة</label><select id="join-status" name="status"><option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>قيد المراجعة</option><option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>مقبول</option><option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>مرفوض</option><option value="all" {% if status_filter == 'all' %}selected{% endif %}>الكل</option></select></div>
+    <div class="admin-field"><label for="join-status">الحالة</label><select id="join-status" name="status"><option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>قيد المراجعة</option><option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>مقبول</option><option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>مرفوض</option><option value="blocked" {% if status_filter == 'blocked' %}selected{% endif %}>محظور</option><option value="all" {% if status_filter == 'all' %}selected{% endif %}>الكل</option></select></div>
     <div class="admin-field"><label for="join-search">بحث بالاسم أو رقم العميل</label><input id="join-search" name="q" value="{{ query }}" placeholder="الاسم أو رقم الهاتف"></div>
     <div class="admin-filter-actions"><button class="btn btn-primary" type="submit">بحث</button><a href="{% url 'management_join_applications' %}">مسح</a></div>
   </form>

@@ -57,8 +57,17 @@ class User(AbstractUser):
         ("approved", "مقبول"),
         ("pending", "قيد المراجعة"),
         ("rejected", "مرفوض"),
+        ("blocked", "محظور"),
     )
     approval_status = models.CharField("حالة طلب الانضمام", max_length=12, choices=APPROVAL_STATUS, default="approved")
+    blocked_from_status = models.CharField(
+        "الحالة قبل الحظر",
+        max_length=12,
+        choices=APPROVAL_STATUS,
+        blank=True,
+        default="",
+    )
+    block_reason = models.TextField("سبب الحظر", blank=True)
     balance = models.DecimalField("الرصيد", max_digits=20, decimal_places=6, default=0)
     earnings_balance = models.DecimalField("الأرباح المتاحة للسحب", max_digits=14, decimal_places=2, default=0)
     total_earned = models.DecimalField("إجمالي الأرباح", max_digits=14, decimal_places=2, default=0)

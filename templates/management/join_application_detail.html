@@ -15,14 +15,15 @@
     <div><dt>الوضع المادي</dt><dd>{{ application.get_financial_status_display }}</dd></div>
     <div><dt>تاريخ إرسال الطلب</dt><dd>{{ application.submitted_at|date:"Y-m-d H:i" }}</dd></div>
     {% if application.reviewed_at %}<div><dt>آخر مراجعة</dt><dd>{{ application.reviewed_at|date:"Y-m-d H:i" }}{% if application.reviewed_by %} — {{ application.reviewed_by.phone }}{% endif %}</dd></div>{% endif %}
-    {% if application.rejection_reason %}<div class="join-review-wide"><dt>سبب الرفض السابق</dt><dd>{{ application.rejection_reason|linebreaksbr }}</dd></div>{% endif %}
+    {% if application.user.approval_status == 'blocked' and application.user.block_reason %}<div class="join-review-wide"><dt>سبب الحظر</dt><dd>{{ application.user.block_reason|linebreaksbr }}</dd></div>{% elif application.user.approval_status == 'rejected' and application.rejection_reason %}<div class="join-review-wide"><dt>سبب الرفض السابق</dt><dd>{{ application.rejection_reason|linebreaksbr }}</dd></div>{% elif application.user.block_reason %}<div class="join-review-wide"><dt>سبب آخر حظر</dt><dd>{{ application.user.block_reason|linebreaksbr }}</dd></div>{% endif %}
   </dl>
   {% if application.user.approval_status == 'pending' %}
   <form method="post" class="management-form join-review-form">{% csrf_token %}
     {% for field in form %}<div class="admin-field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}
-    <div class="join-review-form-note">عند القبول، سيفتح الحساب تلقائياً. عند الرفض، يصل للعميل إشعار يتضمن السبب ورابط تعديل الطلب.</div>
-    <div class="form-actions"><button class="btn btn-primary" type="submit">حفظ قرار المراجعة وإشعار العميل</button></div>
+    <div class="join-review-form-note">القبول يفتح الحساب ويرسل إشعاراً. الرفض يرسل السبب ورابط إعادة التقديم. الحظر يعطّل الحساب ويمنع تسجيل الدخول، ويُحفظ سببه في سجل المراجعة.</div>
+    <div class="form-actions"><button class="btn btn-primary" type="submit">حفظ قرار المراجعة</button></div>
   </form>
+  {% elif application.user.approval_status == 'blocked' %}<div class="notice notice-info">هذا الحساب محظور وتسجيل الدخول معطّل. سبب القرار محفوظ في سجل الطلب.</div>
   {% else %}<div class="notice notice-info">تم اتخاذ القرار وإرسال الإشعار إلى العميل.</div>{% endif %}
 </section>
 {% endblock %}
