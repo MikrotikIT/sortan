@@ -320,9 +320,12 @@ def deposit_wallet(request):
     ).order_by("-created_at").first()
     direct_deposits = request.user.deposits.filter(
         source=Deposit.Source.TRON,
+    ).exclude(
+        status=Deposit.Status.UNEXPECTED,
     ).order_by("-created_at")[:20]
     latest_direct_deposit_id = request.user.deposits.filter(
         source=Deposit.Source.TRON,
+        status=Deposit.Status.APPROVED,
     ).aggregate(latest_id=Max("pk"))["latest_id"] or 0
     return render(
         request,
