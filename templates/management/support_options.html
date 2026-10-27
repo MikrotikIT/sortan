@@ -5,8 +5,8 @@
   <div><span class="eyebrow">التواصل مع العملاء</span><h1>خيارات الدعم الفني</h1><p>أضف أكثر من وسيلة، مثل واتساب أو صفحة الاستثمارات. تظهر الخيارات المفعّلة عند ضغط العميل على زر الدعم.</p></div>
 </section>
 <section class="management-panel form-panel support-option-create-panel">
-  <div class="management-panel-head"><div><h2>إضافة خيار</h2><p>أدخل رابط الوجهة ورابط صورة اختياري لعرضها بجانب الاسم.</p></div></div>
-  <form method="post" class="management-form support-option-form">
+  <div class="management-panel-head"><div><h2>إضافة خيار</h2><p>أدخل رابط الوجهة وارفع صورة اختيارية من جهازك لعرضها بجانب الاسم.</p></div></div>
+  <form method="post" enctype="multipart/form-data" class="management-form support-option-form">
     {% csrf_token %}
     {% for field in form %}
     <div class="admin-field {% if field.field.widget.input_type == 'checkbox' %}admin-check-field{% endif %}">
@@ -24,7 +24,7 @@
   <div class="support-admin-list">
     {% for option in options %}
     <article class="support-admin-item {% if not option.is_active %}is-disabled{% endif %}">
-      {% if option.image_url %}<img src="{{ option.image_url }}" alt="" loading="lazy">{% else %}<span class="support-admin-placeholder" aria-hidden="true">✦</span>{% endif %}
+      {% if option.image %}<img src="{{ option.image.url }}" alt="" loading="lazy">{% elif option.image_url %}<img src="{{ option.image_url }}" alt="" loading="lazy">{% else %}<span class="support-admin-placeholder" aria-hidden="true">✦</span>{% endif %}
       <div class="support-admin-details"><strong>{{ option.title }}</strong><a href="{{ option.url }}" target="_blank" rel="noopener noreferrer" dir="ltr">{{ option.url }}</a><small>الترتيب: {{ option.sort_order }} · {% if option.is_active %}مفعّل{% else %}متوقف{% endif %}</small></div>
       <div class="row-actions">
         <a class="table-action" href="{% url 'management_support_option_edit' option.pk %}">تعديل</a>

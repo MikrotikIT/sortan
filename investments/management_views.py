@@ -198,7 +198,7 @@ def platform_settings(request):
 
 @staff_required
 def support_options(request):
-    form = SupportOptionForm(request.POST or None)
+    form = SupportOptionForm(request.POST or None, request.FILES or None)
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, "تمت إضافة خيار الدعم الفني.")
@@ -213,7 +213,7 @@ def support_options(request):
 @staff_required
 def support_option_edit(request, pk):
     option = get_object_or_404(SupportOption, pk=pk)
-    form = SupportOptionForm(request.POST or None, instance=option)
+    form = SupportOptionForm(request.POST or None, request.FILES or None, instance=option)
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, "تم حفظ خيار الدعم الفني.")

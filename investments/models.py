@@ -170,6 +170,7 @@ class PlatformSettings(models.Model):
 class SupportOption(models.Model):
     title = models.CharField("اسم العرض", max_length=100)
     url = models.URLField("الرابط", max_length=500)
+    image = models.ImageField("الصورة", upload_to="support_options/", blank=True)
     image_url = models.URLField("رابط الصورة", max_length=500, blank=True)
     sort_order = models.PositiveIntegerField("ترتيب العرض", default=0)
     is_active = models.BooleanField("مفعّل", default=True)

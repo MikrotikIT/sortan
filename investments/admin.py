@@ -96,6 +96,7 @@ class SupportOptionAdmin(admin.ModelAdmin):
     list_filter = ("is_active",)
     search_fields = ("title", "url")
     ordering = ("sort_order", "pk")
+    exclude = ("image_url",)
 
 
 @admin.register(InvestmentVoucher)

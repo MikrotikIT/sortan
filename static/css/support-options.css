@@ -23,8 +23,8 @@
 .support-option-create-panel{margin-bottom:18px}
 .support-option-create-panel .management-panel-head p{margin:5px 0 0;color:var(--muted);font-size:11px}
 .support-option-form{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 18px}
-.support-option-form .admin-field:nth-child(3){grid-column:1/-1}
-.support-option-form .admin-field:nth-child(4){max-width:240px}
+.support-option-form .admin-field:nth-of-type(3){grid-column:1/-1}
+.support-option-form .admin-field:nth-of-type(4){max-width:240px}
 .support-option-form .admin-check-field{align-self:center}
 .support-option-form .form-actions{grid-column:1/-1}
-@media(max-width:620px){.support-admin-item{align-items:flex-start;flex-wrap:wrap}.support-admin-details{flex-basis:calc(100% - 60px)}.support-admin-item .row-actions{margin-right:58px}.support-option-form{grid-template-columns:1fr}.support-option-form .admin-field,.support-option-form .form-actions{grid-column:1}.support-option-form .admin-field:nth-child(4){max-width:none}}
+@media(max-width:620px){.support-admin-item{align-items:flex-start;flex-wrap:wrap}.support-admin-details{flex-basis:calc(100% - 60px)}.support-admin-item .row-actions{margin-right:58px}.support-option-form{grid-template-columns:1fr}.support-option-form .admin-field,.support-option-form .form-actions{grid-column:1}.support-option-form .admin-field:nth-of-type(4){max-width:none}}

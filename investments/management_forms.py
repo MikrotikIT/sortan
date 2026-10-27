@@ -115,16 +115,31 @@ class PlatformSettingsForm(forms.ModelForm):
 class SupportOptionForm(forms.ModelForm):
     class Meta:
         model = SupportOption
-        fields = ("title", "url", "image_url", "sort_order", "is_active")
+        fields = ("title", "url", "image", "sort_order", "is_active")
         widgets = {
             "url": forms.URLInput(attrs={"dir": "ltr", "placeholder": "https://wa.me/..."}),
-            "image_url": forms.URLInput(attrs={"dir": "ltr", "placeholder": "https://example.com/image.png"}),
+            "image": forms.ClearableFileInput(attrs={"accept": "image/png,image/jpeg,image/webp,image/gif"}),
             "sort_order": forms.NumberInput(attrs={"min": "0", "step": "1"}),
         }
         help_texts = {
-            "image_url": "رابط صورة كامل. اتركه فارغاً لاستخدام الأيقونة الافتراضية.",
+            "image": "اختر صورة من جهازك (PNG أو JPG أو WebP أو GIF)، بحد أقصى 5 ميغابايت. اتركها فارغة لاستخدام الأيقونة الافتراضية.",
             "sort_order": "الأرقام الأصغر تظهر أولاً.",
         }
+
+    def clean_image(self):
+        image = self.cleaned_data.get("image")
+        if image and image.size > 5 * 1024 * 1024:
+            raise ValidationError("حجم الصورة يجب ألا يتجاوز 5 ميغابايت.")
+        return image
+
+    def save(self, commit=True):
+        option = super().save(commit=False)
+        if "image" in self.changed_data:
+            option.image_url = ""
+        if commit:
+            option.save()
+            self.save_m2m()
+        return option
 
 
 class VoucherIssueForm(forms.Form):
