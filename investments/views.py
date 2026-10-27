@@ -83,7 +83,14 @@ def notification_list(request):
         30,
     ).get_page(request.GET.get("page"))
     for notification in page.object_list:
-        notification.rendered_html = mark_safe(sanitize_notification_html(notification.body_html))
+        body_html = notification.body_html
+        if notification.related_withdrawal_id:
+            withdrawal = notification.related_withdrawal
+            body_html = body_html.replace(
+                f"#{withdrawal.pk}",
+                f"#{withdrawal.display_number}",
+            )
+        notification.rendered_html = mark_safe(sanitize_notification_html(body_html))
     return render(request, "investments/notifications.html", {"notification_page": page})
 
 

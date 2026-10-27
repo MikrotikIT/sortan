@@ -446,9 +446,12 @@ def withdrawals(request):
     query = request.GET.get("q", "").strip()
     status = request.GET.get("status", "")
     if query:
-        withdrawal_items = withdrawal_items.filter(
-            Q(user__phone__icontains=query) | Q(wallet_address__icontains=query)
-        )
+        search_filter = Q(user__phone__icontains=query) | Q(wallet_address__icontains=query)
+        if query.isdecimal():
+            internal_id = int(query) - WithdrawalRequest.DISPLAY_NUMBER_OFFSET
+            if internal_id > 0:
+                search_filter |= Q(pk=internal_id)
+        withdrawal_items = withdrawal_items.filter(search_filter)
     if status in WithdrawalRequest.Status.values:
         withdrawal_items = withdrawal_items.filter(status=status)
     date_from, date_to = _date_filters(request)

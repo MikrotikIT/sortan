@@ -192,7 +192,7 @@ def pay_withdrawal(withdrawal_id):
                 "صافي المبلغ المدفوع: <strong>{} USDT</strong></p>"
                 "<p>عنوان محفظة الاستلام: <code dir=\"ltr\">{}</code></p>"
                 "<p>اضغط على عرض تفاصيل السحب للاطلاع على الإيصال الكامل.</p>",
-                withdrawal.pk,
+                withdrawal.display_number,
                 withdrawal.amount,
                 withdrawal.tax_amount,
                 withdrawal.net_amount,

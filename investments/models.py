@@ -468,6 +468,8 @@ class ReferralCommission(models.Model):
 
 
 class WithdrawalRequest(models.Model):
+    DISPLAY_NUMBER_OFFSET = 34262
+
     class Status(models.TextChoices):
         PENDING = "pending", "قيد المراجعة"
         PAID = "paid", "مدفوع"
@@ -493,5 +495,9 @@ class WithdrawalRequest(models.Model):
         verbose_name = "طلب سحب"
         verbose_name_plural = "طلبات السحب"
 
+    @property
+    def display_number(self):
+        return self.pk + self.DISPLAY_NUMBER_OFFSET if self.pk else None
+
     def __str__(self):
-        return f"{self.user.phone} — {self.amount} USDT ({self.get_status_display()})"
+        return f"#{self.display_number} — {self.user.phone} — {self.amount} USDT ({self.get_status_display()})"

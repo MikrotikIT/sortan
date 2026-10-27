@@ -138,6 +138,6 @@ class ReferralCommissionAdmin(admin.ModelAdmin):
 
 @admin.register(WithdrawalRequest)
 class WithdrawalRequestAdmin(admin.ModelAdmin):
-    list_display = ("user", "amount", "tax_amount", "net_amount", "status", "requested_at", "processed_at")
+    list_display = ("display_number", "user", "amount", "tax_amount", "net_amount", "status", "requested_at", "processed_at")
     list_filter = ("status",)
     search_fields = ("user__phone", "wallet_address")

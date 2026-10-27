@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
-{% block title %}تفاصيل السحب #{{ withdrawal.pk }} — Kodi TV{% endblock %}
+{% block title %}تفاصيل السحب #{{ withdrawal.display_number }} — Kodi TV{% endblock %}
 {% block breadcrumb %}تفاصيل السحب{% endblock %}
 {% block extra_head %}<link rel="stylesheet" href="{% static 'css/withdrawal-receipt.css' %}">{% endblock %}
 {% block content %}
@@ -9,7 +9,7 @@
     <div class="withdrawal-complete-mark" aria-label="تم إكمال السحب">
       <svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="24" cy="24" r="22"/><path d="m14 24 7 7 14-15"/></svg>
     </div>
-    <span class="eyebrow">إيصال السحب رقم #{{ withdrawal.pk }}</span>
+    <span class="eyebrow">إيصال السحب رقم #{{ withdrawal.display_number }}</span>
     <h1>اكتمل السحب بنجاح</h1>
     <p class="withdrawal-receipt-intro">تم تأكيد إتمام طلب السحب. احتفظ بهذه الصفحة لمراجعة تفاصيل العملية.</p>
 
