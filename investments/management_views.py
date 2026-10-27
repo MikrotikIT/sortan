@@ -733,6 +733,7 @@ def _reconciliation_data(request):
     deposits = _apply_deposit_date_range(Deposit.objects.select_related("user", "wallet"), date_from, date_to)
     approved_tron = deposits.filter(status=Deposit.Status.APPROVED, source=Deposit.Source.TRON)
     approved_manual = deposits.filter(status=Deposit.Status.APPROVED, source=Deposit.Source.MANUAL)
+    approved_deposits = deposits.filter(status=Deposit.Status.APPROVED)
     unexpected = deposits.filter(status=Deposit.Status.UNEXPECTED)
     pending = deposits.filter(status=Deposit.Status.PENDING)
 
@@ -742,6 +743,8 @@ def _reconciliation_data(request):
         date_from,
         date_to,
     )
+    inflow_total = approved_deposits.aggregate(total=Sum("amount"))["total"] or 0
+    outflow_total = paid_withdrawals.aggregate(total=Sum("net_amount"))["total"] or 0
     wallet_queryset = Wallet.objects.select_related("user").order_by("pk")
     stale_before = timezone.now() - timedelta(seconds=max(settings.TRON_DEPOSIT_SYNC_INTERVAL_SECONDS * 2, 600))
     wallet_totals = wallet_queryset.aggregate(
@@ -784,6 +787,9 @@ def _reconciliation_data(request):
     return {
         "date_from": date_from,
         "date_to": date_to,
+        "inflow_total": inflow_total,
+        "outflow_total": outflow_total,
+        "net_flow_total": inflow_total - outflow_total,
         "metrics": metrics,
         "wallets": wallet_queryset,
         "wallet_total": wallet_totals["total"] or 0,
@@ -796,14 +802,146 @@ def _reconciliation_data(request):
     }
 
 
+def _reconciliation_chart_data(report):
+    date_to = report["date_to"] or timezone.localdate()
+    deposits = report["deposits"].filter(status=Deposit.Status.APPROVED)
+    deposit_day = TruncDate(
+        Coalesce("occurred_at", "created_at", output_field=DateTimeField()),
+        tzinfo=timezone.get_current_timezone(),
+    )
+    daily_inflows = {
+        row["day"]: row["amount"] or 0
+        for row in deposits.order_by().annotate(day=deposit_day)
+        .values("day")
+        .annotate(amount=Sum("amount"))
+    }
+    daily_outflows = {
+        row["day"]: row["amount"] or 0
+        for row in report["paid_withdrawals"].order_by().annotate(
+            day=TruncDate("processed_at", tzinfo=timezone.get_current_timezone())
+        )
+        .values("day")
+        .annotate(amount=Sum("net_amount"))
+    }
+    activity_days = set(daily_inflows) | set(daily_outflows)
+    date_from = report["date_from"] or min(
+        activity_days,
+        default=date_to - timedelta(days=29),
+    )
+    if date_from > date_to:
+        date_to = date_from
+
+    days_in_period = (date_to - date_from).days + 1
+    weekly = days_in_period > 90
+    if weekly:
+        cursor = date_from - timedelta(days=date_from.weekday())
+        last_bucket = date_to - timedelta(days=date_to.weekday())
+        bucket_starts = []
+        while cursor <= last_bucket:
+            bucket_starts.append(cursor)
+            cursor += timedelta(days=7)
+    else:
+        bucket_starts = [date_from + timedelta(days=offset) for offset in range(days_in_period)]
+
+    bucketed_inflows = {}
+    bucketed_outflows = {}
+    for day in activity_days:
+        bucket_start = day - timedelta(days=day.weekday()) if weekly else day
+        bucketed_inflows[bucket_start] = bucketed_inflows.get(bucket_start, 0) + daily_inflows.get(day, 0)
+        bucketed_outflows[bucket_start] = bucketed_outflows.get(bucket_start, 0) + daily_outflows.get(day, 0)
+
+    bucket_values = []
+    for bucket_start in bucket_starts:
+        inflow = bucketed_inflows.get(bucket_start, 0)
+        outflow = bucketed_outflows.get(bucket_start, 0)
+        bucket_values.append(
+            {
+                "day": bucket_start,
+                "inflow": inflow,
+                "outflow": outflow,
+                "net": inflow - outflow,
+            }
+        )
+
+    width, height = 900, 320
+    left, right, top, bottom = 68, 18, 20, 46
+    plot_width = width - left - right
+    plot_height = height - top - bottom
+    all_values = [float(row[key]) for row in bucket_values for key in ("inflow", "outflow", "net")]
+    scale_min = min([0.0, *all_values])
+    scale_max = max([0.0, *all_values])
+    if scale_min == scale_max:
+        scale_min, scale_max = -1.0, 1.0
+
+    def point_for(index, value):
+        x = left + (plot_width / 2 if len(bucket_values) == 1 else index * plot_width / max(len(bucket_values) - 1, 1))
+        y = top + (scale_max - float(value)) * plot_height / (scale_max - scale_min)
+        return x, y
+
+    for key in ("inflow", "outflow", "net"):
+        points = [point_for(index, row[key]) for index, row in enumerate(bucket_values)]
+        report[f"chart_{key}_points"] = " ".join(f"{x:.1f},{y:.1f}" for x, y in points)
+
+    tick_values = [scale_min + (scale_max - scale_min) * index / 4 for index in range(5)]
+    report["chart_y_ticks"] = [
+        {
+            "y": top + (scale_max - value) * plot_height / (scale_max - scale_min),
+            "text_y": top + (scale_max - value) * plot_height / (scale_max - scale_min) + 4,
+            "label": f"{value:,.2f}",
+        }
+        for value in tick_values
+    ]
+    report["chart_zero_y"] = top + (scale_max * plot_height / (scale_max - scale_min))
+
+    label_count = min(7, len(bucket_values))
+    label_indices = {
+        round(index * (len(bucket_values) - 1) / max(label_count - 1, 1))
+        for index in range(label_count)
+    }
+    report["chart_x_labels"] = [
+        {
+            "x": point_for(index, 0)[0],
+            "y": height - 10,
+            "label": row["day"].strftime("%d/%m/%y" if weekly else "%d/%m"),
+        }
+        for index, row in enumerate(bucket_values)
+        if index in label_indices
+    ]
+    report["chart_rows"] = [
+        {
+            **row,
+            "label": (
+                f"أسبوع {max(row['day'], date_from).strftime('%Y-%m-%d')}"
+                if weekly
+                else row["day"].strftime("%Y-%m-%d")
+            ),
+        }
+        for row in bucket_values
+    ]
+    report["chart_interval_label"] = "أسبوعي" if weekly else "يومي"
+    report["chart_has_activity"] = bool(activity_days)
+    report["chart_view_box"] = f"0 0 {width} {height}"
+    report["chart_left"] = left
+    report["chart_right"] = width - right
+    report["chart_top"] = top
+    report["chart_bottom"] = top + plot_height
+    return report
+
+
 @staff_required
 def reconciliation(request):
-    return render(request, "management/reconciliation.html", _reconciliation_data(request))
+    report = _reconciliation_data(request)
+    report = _reconciliation_chart_data(report)
+    maximum_flow = max(float(report["inflow_total"]), float(report["outflow_total"]), 0)
+    report["inflow_width"] = float(report["inflow_total"]) / maximum_flow * 100 if maximum_flow else 0
+    report["outflow_width"] = float(report["outflow_total"]) / maximum_flow * 100 if maximum_flow else 0
+    return render(request, "management/reconciliation.html", report)
 
 
 @staff_required
 def reconciliation_export(request):
     report = _reconciliation_data(request)
+    report = _reconciliation_chart_data(report)
     response = HttpResponse(content_type="text/csv; charset=utf-8")
     response.write("\ufeff")
     response["Content-Disposition"] = "attachment; filename=financial-reconciliation.csv"
@@ -811,6 +949,13 @@ def reconciliation_export(request):
     writer.writerow(["نوع البيان", "العدد", "المبلغ USDT", "رقم العميل", "التاريخ", "الحالة", "المصدر", "مرجع / TxID", "عنوان المحفظة"])
     for metric in report["metrics"]:
         writer.writerow([metric["label"], metric["count"], metric["amount"]])
+    writer.writerow(["إجمالي الإيداعات المعتمدة — داخل", "", report["inflow_total"]])
+    writer.writerow(["صافي السحوبات المدفوعة — خارج", "", report["outflow_total"]])
+    writer.writerow(["الفرق — الداخل ناقص الخارج", "", report["net_flow_total"]])
+    writer.writerow([])
+    writer.writerow([f"التدفقات حسب الفترة ({report['chart_interval_label']})", "الإيداعات المعتمدة", "السحوبات المدفوعة", "صافي الحركة"])
+    for row in report["chart_rows"]:
+        writer.writerow([row["label"], row["inflow"], row["outflow"], row["net"]])
     writer.writerow(["الرصيد الفعلي الحالي على الشبكة", report["wallet_count"], report["wallet_total"]])
     writer.writerow([])
     for deposit in report["deposits"]:

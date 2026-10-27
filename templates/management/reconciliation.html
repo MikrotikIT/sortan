@@ -17,6 +17,59 @@
   <div class="management-stat"><span>آخر قراءة للمحافظ</span><strong>{% if latest_wallet_check %}{{ latest_wallet_check|date:"Y-m-d H:i" }}{% else %}—{% endif %}</strong><small>{{ wallets_without_sync }} لم تتم مزامنتها · {{ wallets_stale }} قراءتها قديمة</small></div>
   <div class="management-stat"><span>الفترة المعروضة</span><strong>{{ date_from|date:"Y-m-d" }} — {{ date_to|date:"Y-m-d" }}</strong><small>التدفقات حسب تاريخ التحويل أو المعالجة</small></div>
 </section>
+<section class="flow-summary-grid" aria-label="مقارنة الإيداعات بالسحوبات">
+  <article class="flow-summary-card flow-card-in">
+    <div class="flow-card-heading"><span class="flow-dot"></span><span>إجمالي الإيداعات المعتمدة</span></div>
+    <strong>{{ inflow_total|floatformat:2 }} <small>USDT</small></strong>
+    <p>داخل المنصة من إيداعات TRON والإيداعات اليدوية خلال الفترة.</p>
+    <div class="flow-meter" aria-label="مقارنة حجم الإيداعات بالسحوبات"><span style="width:{{ inflow_width|floatformat:1 }}%"></span></div>
+  </article>
+  <article class="flow-summary-card flow-card-out">
+    <div class="flow-card-heading"><span class="flow-dot"></span><span>السحوبات المدفوعة</span></div>
+    <strong>{{ outflow_total|floatformat:2 }} <small>USDT</small></strong>
+    <p>صافي ما دُفع للعملاء بعد الضريبة المسجلة في طلب السحب.</p>
+    <div class="flow-meter" aria-label="مقارنة حجم السحوبات بالإيداعات"><span style="width:{{ outflow_width|floatformat:1 }}%"></span></div>
+  </article>
+  <article class="flow-summary-card flow-card-net">
+    <div class="flow-card-heading"><span class="flow-dot"></span><span>الفرق بين الداخل والخارج</span></div>
+    <strong>{% if net_flow_total > 0 %}+{% endif %}{{ net_flow_total|floatformat:2 }} <small>USDT</small></strong>
+    <p>الإيداعات المعتمدة ناقص صافي السحوبات المدفوعة؛ لا يشمل حركات أخرى.</p>
+  </article>
+</section>
+<section class="management-panel flow-chart-panel">
+  <div class="management-panel-head">
+    <div><span class="eyebrow">اتجاه التدفقات · {{ chart_interval_label }}</span><h2>الإيداعات والسحوبات وصافي الحركة</h2></div>
+    <span class="date-muted">USDT حسب الفترة المحددة</span>
+  </div>
+  <div class="flow-chart-legend" aria-label="مفتاح المخطط">
+    <span class="legend-in"><i></i>الإيداعات المعتمدة</span>
+    <span class="legend-out"><i></i>السحوبات المدفوعة</span>
+    <span class="legend-net"><i></i>الداخل ناقص الخارج</span>
+  </div>
+  {% if chart_has_activity %}
+  <div class="flow-chart-scroll">
+    <svg class="flow-line-chart" viewBox="{{ chart_view_box }}" role="img" aria-labelledby="flow-chart-title flow-chart-description" dir="ltr">
+      <title id="flow-chart-title">الإيداعات المعتمدة والسحوبات المدفوعة وصافي الحركة</title>
+      <desc id="flow-chart-description">مقارنة يومية للفترات حتى 90 يوماً، وأسبوعية للفترات الأطول. المحور الأفقي للزمن والعمودي للمبلغ بعملة USDT.</desc>
+      {% for tick in chart_y_ticks %}
+      <line class="flow-grid-line" x1="{{ chart_left }}" y1="{{ tick.y|floatformat:1 }}" x2="{{ chart_right }}" y2="{{ tick.y|floatformat:1 }}"></line>
+      <text class="flow-axis-label" x="{{ chart_left|add:'-8' }}" y="{{ tick.text_y|floatformat:1 }}" text-anchor="end">{{ tick.label }}</text>
+      {% endfor %}
+      <line class="flow-zero-line" x1="{{ chart_left }}" y1="{{ chart_zero_y|floatformat:1 }}" x2="{{ chart_right }}" y2="{{ chart_zero_y|floatformat:1 }}"></line>
+      <polyline class="flow-line flow-line-in" points="{{ chart_inflow_points }}"></polyline>
+      <polyline class="flow-line flow-line-out" points="{{ chart_outflow_points }}"></polyline>
+      <polyline class="flow-line flow-line-net" points="{{ chart_net_points }}"></polyline>
+      {% for label in chart_x_labels %}<text class="flow-axis-label flow-date-label" x="{{ label.x|floatformat:1 }}" y="{{ label.y }}" text-anchor="middle">{{ label.label }}</text>{% endfor %}
+    </svg>
+  </div>
+  <details class="flow-chart-data"><summary>عرض قيم المخطط كجدول</summary>
+    <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>الفترة</th><th>الإيداعات</th><th>السحوبات</th><th>صافي الحركة</th></tr></thead><tbody>
+      {% for row in chart_rows %}<tr><td>{{ row.label }}</td><td>{{ row.inflow|floatformat:2 }} USDT</td><td>{{ row.outflow|floatformat:2 }} USDT</td><td>{{ row.net|floatformat:2 }} USDT</td></tr>{% endfor %}
+    </tbody></table></div>
+  </details>
+  {% else %}<div class="admin-empty">لا توجد إيداعات معتمدة أو سحوبات مدفوعة ضمن الفترة المحددة.</div>{% endif %}
+  <p class="flow-chart-note">الإيداع محسوب بتاريخ التحويل المسجل، أو تاريخ إنشاء السجل عند غياب وقت التحويل. السحب محسوب بتاريخ الدفع. الأرصدة غير المتوقعة والمعلقة غير داخلة في خط الإيداعات.</p>
+</section>
 <section class="management-panel">
   <div class="management-panel-head"><div><span class="eyebrow">حركة الفترة</span><h2>الإيداعات والسحوبات</h2></div></div>
   <div class="admin-table-wrap"><table class="admin-table reconciliation-table"><thead><tr><th>النوع</th><th>عدد العمليات</th><th>المجموع USDT</th></tr></thead><tbody>
