@@ -14,6 +14,10 @@
 .withdrawal-receipt-details>div{display:flex;flex-direction:column;gap:7px;padding:13px 10px;border-bottom:1px solid #edf1f2}
 .withdrawal-receipt-details dt{color:#849398;font-size:11px}
 .withdrawal-receipt-details dd{margin:0;color:#2c454c;font-size:13px;font-weight:700}
+.receipt-customer-country{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.receipt-customer-country>bdi{font:700 12px "DM Sans","Tajawal",sans-serif}
+.receipt-customer-country>span:first-child{font-size:17px;line-height:1}
+.receipt-customer-country>span:last-child{color:#71838a;font-size:11px}
 .withdrawal-receipt-details .receipt-address-row{grid-column:1/-1}
 .receipt-address-row code{overflow-wrap:anywhere;color:#476168;font-size:11px}
 .receipt-paid-badge{display:inline-flex;align-items:center;gap:6px;color:#16835f}

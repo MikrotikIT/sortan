@@ -1,0 +1,28 @@
+{% extends 'management/base.html' %}
+{% load static %}
+{% block title %}مراجعة طلب الانضمام — إدارة KODI{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/join-application-admin.css' %}">{% endblock %}
+{% block content %}
+<section class="management-heading"><div><span class="eyebrow">طلب انضمام</span><h1>مراجعة بيانات {{ application.full_name }}</h1><p>رقم العميل: <bdi dir="ltr">{{ application.user.phone }}</bdi> · الحالة: {{ application.user.get_approval_status_display }}</p></div><a class="btn btn-quiet" href="{% url 'management_join_applications' %}">← قائمة الطلبات</a></section>
+<section class="management-panel join-review-panel">
+  <div class="join-review-photo"><a href="{% url 'join_application_photo' application.pk %}" target="_blank" rel="noopener"><img src="{% url 'join_application_photo' application.pk %}" alt="الصورة الشخصية للمتقدم"></a><span>الصورة الشخصية</span></div>
+  <dl class="join-review-details">
+    <div><dt>الاسم والنسبة</dt><dd>{{ application.full_name }}</dd></div>
+    <div><dt>اسم الأب</dt><dd>{{ application.father_name }}</dd></div>
+    <div><dt>اسم الأم</dt><dd>{{ application.mother_name }}</dd></div>
+    <div><dt>الجنس</dt><dd>{{ application.get_gender_display }}</dd></div>
+    <div><dt>الوضع العائلي</dt><dd>{{ application.get_marital_status_display }}</dd></div>
+    <div><dt>الوضع المادي</dt><dd>{{ application.get_financial_status_display }}</dd></div>
+    <div><dt>تاريخ إرسال الطلب</dt><dd>{{ application.submitted_at|date:"Y-m-d H:i" }}</dd></div>
+    {% if application.reviewed_at %}<div><dt>آخر مراجعة</dt><dd>{{ application.reviewed_at|date:"Y-m-d H:i" }}{% if application.reviewed_by %} — {{ application.reviewed_by.phone }}{% endif %}</dd></div>{% endif %}
+    {% if application.rejection_reason %}<div class="join-review-wide"><dt>سبب الرفض السابق</dt><dd>{{ application.rejection_reason|linebreaksbr }}</dd></div>{% endif %}
+  </dl>
+  {% if application.user.approval_status == 'pending' %}
+  <form method="post" class="management-form join-review-form">{% csrf_token %}
+    {% for field in form %}<div class="admin-field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}
+    <div class="join-review-form-note">عند القبول، سيفتح الحساب تلقائياً. عند الرفض، يصل للعميل إشعار يتضمن السبب ورابط تعديل الطلب.</div>
+    <div class="form-actions"><button class="btn btn-primary" type="submit">حفظ قرار المراجعة وإشعار العميل</button></div>
+  </form>
+  {% else %}<div class="notice notice-info">تم اتخاذ القرار وإرسال الإشعار إلى العميل.</div>{% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,12 @@
+<div class="auth-phone-row">
+  <div class="field">
+    <label for="{{ form.country_code.id_for_label }}">{{ form.country_code.label }}</label>
+    {{ form.country_code }}
+    {% for error in form.country_code.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
+  </div>
+  <div class="field">
+    <label for="{{ form.phone.id_for_label }}">{{ form.phone.label }}</label>
+    {{ form.phone }}
+    {% for error in form.phone.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
+  </div>
+</div>

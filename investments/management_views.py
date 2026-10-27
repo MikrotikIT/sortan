@@ -14,12 +14,13 @@ from django.db.models.functions import Coalesce, TruncDate
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.html import escape
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_POST
 
-from .management_forms import FilmForm, InternalBalanceCreditForm, ManualDepositForm, NotificationForm, PlatformSettingsForm, SupportOptionForm, VoucherAmountForm, VoucherIssueForm
-from .models import Deposit, Film, InternalBalanceCredit, Investment, InvestmentVoucher, ServiceHeartbeat, SupportOption, User, UserNotification, Wallet, WalletSyncRun, WithdrawalRequest
+from .management_forms import FilmForm, InternalBalanceCreditForm, JoinApplicationDecisionForm, ManualDepositForm, NotificationForm, PlatformSettingsForm, SupportOptionForm, VoucherAmountForm, VoucherIssueForm
+from .models import Deposit, Film, InternalBalanceCredit, Investment, InvestmentVoucher, JoinApplication, ServiceHeartbeat, SupportOption, User, UserNotification, Wallet, WalletSyncRun, WithdrawalRequest
 from .services import approve_deposit, deposit_status_for_amount, get_platform_settings, pay_withdrawal, reject_deposit, reject_withdrawal
 from .wallet_services import decrypt_private_key, ensure_wallet, sync_all_wallets
 from config.celery import app as celery_app
@@ -97,6 +98,85 @@ def dashboard(request):
             "recent_investments": Investment.objects.select_related("user", "film").order_by("-invested_at")[:6],
             "recent_withdrawals": WithdrawalRequest.objects.select_related("user").order_by("-requested_at")[:5],
         },
+    )
+
+
+@staff_required
+def join_applications(request):
+    status = request.GET.get("status", "pending")
+    query = request.GET.get("q", "").strip()[:100]
+    applications = JoinApplication.objects.select_related("user", "reviewed_by").order_by("-updated_at", "-pk")
+    if status in {"pending", "approved", "rejected"}:
+        applications = applications.filter(user__approval_status=status)
+    elif status != "all":
+        status = "pending"
+        applications = applications.filter(user__approval_status=status)
+    if query:
+        applications = applications.filter(Q(full_name__icontains=query) | Q(user__phone__icontains=query))
+    page_obj, query_string = _paginate(request, applications)
+    return render(
+        request,
+        "management/join_applications.html",
+        {
+            "applications": page_obj,
+            "status_filter": status,
+            "query": query,
+            "query_string": query_string,
+            "pending_count": JoinApplication.objects.filter(user__approval_status="pending", user__is_staff=False).count(),
+        },
+    )
+
+
+@staff_required
+def join_application_detail(request, pk):
+    application = get_object_or_404(
+        JoinApplication.objects.select_related("user", "reviewed_by"),
+        pk=pk,
+    )
+    form = JoinApplicationDecisionForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        decision = form.cleaned_data["decision"]
+        reason = form.cleaned_data["rejection_reason"].strip()
+        with transaction.atomic():
+            application = get_object_or_404(
+                JoinApplication.objects.select_for_update().select_related("user"),
+                pk=pk,
+            )
+            user = User.objects.select_for_update().get(pk=application.user_id)
+            if user.approval_status != "pending":
+                messages.warning(request, "تمت مراجعة هذا الطلب مسبقاً.")
+            else:
+                user.approval_status = decision
+                user.save(update_fields=("approval_status",))
+                application.reviewed_by = request.user
+                application.reviewed_at = timezone.now()
+                application.rejection_reason = reason if decision == "rejected" else ""
+                application.save(update_fields=("reviewed_by", "reviewed_at", "rejection_reason", "updated_at"))
+
+                if decision == "approved":
+                    title = "تم قبول طلب انضمامك"
+                    body = (
+                        "<p>نبارك لك، تمت الموافقة على طلب انضمامك إلى منصة KODI العالمية.</p>"
+                        "<p>أصبح بإمكانك الآن تسجيل الدخول واستخدام المنصة.</p>"
+                    )
+                else:
+                    title = "تم رفض طلب انضمامك"
+                    body = (
+                        "<p>نأسف لإبلاغك بأنه تم رفض طلب الانضمام.</p>"
+                        f"<p><strong>سبب الرفض:</strong> {escape(reason)}</p>"
+                        f'<p><a href="{reverse("join_application")}">افتح وثيقة طلب الانضمام وعدّل بياناتك ثم أعد الإرسال.</a></p>'
+                    )
+                UserNotification.objects.create(recipient=user, sender=request.user, title=title, body_html=body)
+                messages.success(
+                    request,
+                    "تمت الموافقة على الطلب وإشعار العميل." if decision == "approved" else "تم رفض الطلب وإرسال السبب إلى العميل.",
+                )
+        return redirect("management_join_applications")
+
+    return render(
+        request,
+        "management/join_application_detail.html",
+        {"application": application, "form": form},
     )
 
 

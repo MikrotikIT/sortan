@@ -1,5 +1,6 @@
 from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
+import mimetypes
 from random import choice, randint
 
 from django.contrib import messages
@@ -8,16 +9,17 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.http import JsonResponse
+from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.html import escape
 from django.utils import timezone
 from django.utils.safestring import mark_safe
 from django.db.models import Max, Q, Sum
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
-from .forms import InvestmentForm, LoginForm, RegistrationForm, WithdrawalForm
-from .models import Deposit, Film, Investment, InvestmentVoucher, PlatformSettings, SupportOption, UserNotification, WithdrawalRequest
+from .forms import InvestmentForm, JoinApplicationForm, LoginForm, RegistrationForm, WithdrawalForm
+from .models import Deposit, Film, Investment, InvestmentVoucher, JoinApplication, PlatformSettings, SupportOption, UserNotification, WithdrawalRequest
 from .notification_services import sanitize_notification_html
 from .services import get_platform_settings, parse_deposit_activity_examples, parse_withdrawal_referral_rules, settle_due_investments, withdraw_available_at
 from .wallet_services import ensure_wallet
@@ -42,29 +44,121 @@ def home(request):
 
 def register(request):
     if request.user.is_authenticated:
-        return redirect("home")
+        if request.user.is_staff or request.user.approval_status == "approved":
+            return redirect("home")
+        return redirect("join_application" if request.user.approval_status == "rejected" else "account_review")
     referral_code = (request.GET.get("ref") or "").strip().upper()[:12]
     form = RegistrationForm(request.POST or None, initial={"invitation_code": referral_code})
     if request.method == "POST" and form.is_valid():
         user = form.create_user()
+        user.approval_status = "pending"
+        user.save(update_fields=("approval_status",))
         login(request, user, backend="django.contrib.auth.backends.ModelBackend")
-        messages.success(request, "تم إنشاء حسابك وإضافة قسائم الاستثمار المجانية.")
-        return redirect("home")
+        messages.success(request, "تم إنشاء حسابك. أكمل وثيقة طلب الانضمام لإرسالها إلى المراجعة.")
+        return redirect("join_application")
     return render(request, "investments/register.html", {"form": form})
 
 
 def sign_in(request):
     if request.user.is_authenticated:
-        return redirect("home")
+        if request.user.is_staff:
+            return redirect("management_dashboard")
+        if request.user.approval_status == "rejected":
+            return redirect("join_application")
+        return redirect("home" if request.user.approval_status == "approved" else "account_review")
     form = LoginForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
-        phone = form.cleaned_data["phone"].strip()
-        user = authenticate(request, phone=phone, password=form.cleaned_data["password"])
+        user = None
+        for phone in dict.fromkeys((form.cleaned_data["phone"], form.cleaned_data["legacy_phone"])):
+            user = authenticate(request, phone=phone, password=form.cleaned_data["password"])
+            if user is not None:
+                break
         if user is not None:
+            if not user.country_code:
+                user.country_code = form.cleaned_data["country_code"]
+                user.save(update_fields=("country_code",))
             login(request, user)
-            return redirect("management_dashboard" if user.is_staff else "home")
+            if user.is_staff:
+                return redirect("management_dashboard")
+            if user.approval_status == "rejected":
+                return redirect("join_application")
+            return redirect("home" if user.approval_status == "approved" else "account_review")
         form.add_error(None, "رقم الهاتف أو كلمة المرور غير صحيحة.")
     return render(request, "investments/login.html", {"form": form})
+
+
+@login_required
+def join_application(request):
+    user = request.user
+    if user.is_staff or user.approval_status == "approved":
+        return redirect("management_dashboard" if user.is_staff else "home")
+    if user.approval_status == "pending" and JoinApplication.objects.filter(user=user).exists():
+        return redirect("account_review")
+
+    application = JoinApplication.objects.filter(user=user).first()
+    form = JoinApplicationForm(request.POST or None, request.FILES or None, instance=application)
+    if request.method == "POST" and form.is_valid():
+        previous_photo_name = (
+            application.profile_image.name
+            if application and application.profile_image and request.FILES.get("profile_image")
+            else ""
+        )
+        previous_photo_storage = application.profile_image.storage if previous_photo_name else None
+        with transaction.atomic():
+            application = form.save(commit=False)
+            application.user = user
+            application.rejection_reason = ""
+            application.reviewed_by = None
+            application.reviewed_at = None
+            application.save()
+            if previous_photo_name and previous_photo_name != application.profile_image.name:
+                transaction.on_commit(
+                    lambda name=previous_photo_name, storage=previous_photo_storage: storage.delete(name)
+                )
+            if user.approval_status != "pending":
+                user.approval_status = "pending"
+                user.save(update_fields=("approval_status",))
+        messages.success(request, "تم إرسال طلب الانضمام. سيبقى حسابك قيد المراجعة حتى يصدر القرار.")
+        return redirect("account_review")
+
+    return render(
+        request,
+        "investments/join_application.html",
+        {
+            "form": form,
+            "application": application,
+            "was_rejected": user.approval_status == "rejected",
+        },
+    )
+
+
+@login_required
+def account_review(request):
+    if request.user.is_staff or request.user.approval_status == "approved":
+        return redirect("management_dashboard" if request.user.is_staff else "home")
+    if request.user.approval_status == "rejected":
+        return redirect("join_application")
+    if not JoinApplication.objects.filter(user=request.user).exists():
+        return redirect("join_application")
+    return render(request, "investments/account_review.html")
+
+
+@login_required
+def join_application_photo(request, pk):
+    application = get_object_or_404(JoinApplication.objects.select_related("user"), pk=pk)
+    if not request.user.is_staff and application.user_id != request.user.pk:
+        raise Http404
+    try:
+        photo = application.profile_image.open("rb")
+    except (FileNotFoundError, OSError, ValueError):
+        raise Http404
+    response = FileResponse(
+        photo,
+        content_type=mimetypes.guess_type(application.profile_image.name)[0] or "application/octet-stream",
+    )
+    response["Cache-Control"] = "private, no-store"
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 @login_required
@@ -112,7 +206,7 @@ def withdrawal_receipt(request, pk):
         WithdrawalRequest.objects.filter(
             user=request.user,
             status=WithdrawalRequest.Status.PAID,
-        ),
+        ).select_related("user"),
         pk=pk,
     )
     return render(request, "investments/withdrawal_receipt.html", {"withdrawal": withdrawal})

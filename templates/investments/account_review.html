@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}حسابك قيد المراجعة — Kodi TV{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/account-review.css' %}">{% endblock %}
+{% block content %}
+<main class="account-review-page">
+  <section class="account-review-card" aria-labelledby="review-title">
+    <span class="account-review-icon" aria-hidden="true">⌛</span>
+    <span class="eyebrow">طلب الانضمام</span>
+    <h1 id="review-title">حسابك قيد المراجعة</h1>
+    <p>استلمنا وثيقة طلب الانضمام. ستتمكن من استخدام المنصة بعد موافقة الإدارة، وسنرسل لك إشعاراً بالقرار في صندوق الإشعارات.</p>
+    <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="btn btn-primary" type="submit">تسجيل الخروج</button></form>
+  </section>
+</main>
+{% endblock %}

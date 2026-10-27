@@ -1,0 +1,16 @@
+.management-heading-count{display:flex;align-items:center;gap:11px;padding:11px 16px;border:1px solid #f1dfb6;border-radius:12px;background:#fffaf0;color:#8d651c}
+.management-heading-count strong{font-size:22px}.management-heading-count span{font-size:12px}
+.join-review-panel{display:grid;grid-template-columns:190px minmax(0,1fr);gap:20px}
+.join-review-photo{display:grid;align-content:start;justify-items:center;gap:8px;color:#71838a;font-size:12px}
+.join-review-photo img{width:172px;height:190px;border-radius:12px;object-fit:cover;background:#f1f5f5}
+.join-review-details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0;margin:0;border:1px solid #e8eef0;border-radius:12px;overflow:hidden}
+.join-review-details>div{padding:13px 14px;border-bottom:1px solid #edf1f2}
+.join-review-details>div:nth-child(odd){border-left:1px solid #edf1f2}
+.join-review-details dt{margin-bottom:5px;color:#829298;font-size:11px}
+.join-review-details dd{margin:0;color:#263d45;font-size:14px;font-weight:700;overflow-wrap:anywhere}
+.join-review-details .join-review-wide{grid-column:1/-1;border-left:0}
+.join-review-form{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding-top:18px;border-top:1px solid #e8eef0}
+.join-review-form .admin-field textarea,.join-review-form .admin-field select{width:100%}
+.join-review-form .admin-field:nth-child(2),.join-review-form-note,.join-review-form .form-actions{grid-column:1/-1}
+.join-review-form-note{padding:12px;border-radius:9px;background:#f3f8f9;color:#5c737a;font-size:12px;line-height:1.7}
+@media(max-width:640px){.join-review-panel{grid-template-columns:1fr}.join-review-photo img{width:150px;height:160px}.join-review-details,.join-review-form{grid-template-columns:1fr}.join-review-details>div:nth-child(odd){border-left:0}.join-review-details .join-review-wide,.join-review-form .admin-field:nth-child(2),.join-review-form-note,.join-review-form .form-actions{grid-column:1}}

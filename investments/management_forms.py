@@ -190,6 +190,25 @@ class NotificationForm(forms.Form):
         return body
 
 
+class JoinApplicationDecisionForm(forms.Form):
+    decision = forms.ChoiceField(
+        label="قرار المراجعة",
+        choices=(("", "اختر القرار"), ("approved", "الموافقة على الانضمام"), ("rejected", "رفض الطلب")),
+    )
+    rejection_reason = forms.CharField(
+        label="سبب الرفض",
+        required=False,
+        max_length=1200,
+        widget=forms.Textarea(attrs={"rows": 4, "placeholder": "اكتب سبباً واضحاً ليظهر للمتقدم"}),
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("decision") == "rejected" and not cleaned.get("rejection_reason", "").strip():
+            self.add_error("rejection_reason", "اكتب سبب الرفض ليتمكن المتقدم من معرفة المطلوب.")
+        return cleaned
+
+
 class ManualDepositForm(forms.Form):
     phone = forms.CharField(label="رقم هاتف المستخدم", max_length=20, widget=forms.TextInput(attrs={"dir": "ltr", "placeholder": "رقم الهاتف"}))
     amount = forms.DecimalField(label="المبلغ (USDT)", min_value=Decimal("0.01"), max_digits=20, decimal_places=6)

@@ -23,6 +23,8 @@
 .account-balance-block+.account-earnings-block{margin:0;padding:16px 0 0 20px;border-top:0;border-right:1px solid rgba(255,255,255,.14)}
 @media(max-width:600px){.account-summary-card{column-gap:12px}.account-balance-block+.account-earnings-block{padding-left:10px}.account-summary-label{font-size:10px;line-height:1.45}.account-balance-line{gap:4px}.account-balance-line strong{font-size:clamp(14px,4vw,22px)}.balance-visibility-toggle{flex-basis:32px;width:32px;height:32px}.balance-visibility-toggle svg{width:17px;height:17px}}
 @media(max-width:380px){.account-summary-card{padding:17px 12px;column-gap:8px}.account-balance-block+.account-earnings-block{padding-left:7px}.account-balance-line strong{font-size:clamp(13px,3.8vw,16px)}.account-balance-line small{font-size:9px}.balance-visibility-toggle{flex-basis:28px;width:28px;height:28px}}
+.account-phone-country{display:flex;align-items:center;gap:5px;margin-top:5px;color:#b6d2d8;font-size:11px;font-weight:600}
+.account-phone-country>span{font-size:15px;line-height:1}
 .account-logout-form{margin:0}
 .account-summary-logout{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:40px;padding:8px 12px;border:1px solid rgba(255,255,255,.2);border-radius:11px;background:rgba(255,255,255,.09);color:#fff;font:700 11px "Tajawal",sans-serif;cursor:pointer;transition:background .15s,border-color .15s,transform .15s}
 .account-summary-logout:hover{transform:translateY(-1px);border-color:rgba(255,255,255,.35);background:rgba(255,255,255,.16)}

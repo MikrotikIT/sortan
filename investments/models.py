@@ -1,16 +1,25 @@
 import secrets
 import string
+import uuid
 from datetime import timedelta
 
 from django.contrib.auth.models import AbstractUser, BaseUserManager
-from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
+from django.core.validators import FileExtensionValidator, MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
 from django.utils import timezone
+
+from .countries import COUNTRY_CHOICES, COUNTRY_NAMES, country_flag, infer_country_code_from_number, masked_phone_number
+from .storage import PrivateApplicationStorage
 
 
 def make_referral_code():
     alphabet = string.ascii_uppercase + string.digits
     return "CINE" + "".join(secrets.choice(alphabet) for _ in range(6))
+
+
+def join_application_photo_path(instance, filename):
+    extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else "jpg"
+    return f"join-applications/{instance.user_id}/{uuid.uuid4().hex}.{extension}"
 
 
 class UserManager(BaseUserManager):
@@ -43,6 +52,13 @@ class UserManager(BaseUserManager):
 class User(AbstractUser):
     username = None
     phone = models.CharField("رقم الهاتف", max_length=20, unique=True)
+    country_code = models.CharField("الدولة", max_length=2, choices=COUNTRY_CHOICES, blank=True, default="")
+    APPROVAL_STATUS = (
+        ("approved", "مقبول"),
+        ("pending", "قيد المراجعة"),
+        ("rejected", "مرفوض"),
+    )
+    approval_status = models.CharField("حالة طلب الانضمام", max_length=12, choices=APPROVAL_STATUS, default="approved")
     balance = models.DecimalField("الرصيد", max_digits=20, decimal_places=6, default=0)
     earnings_balance = models.DecimalField("الأرباح المتاحة للسحب", max_digits=14, decimal_places=2, default=0)
     total_earned = models.DecimalField("إجمالي الأرباح", max_digits=14, decimal_places=2, default=0)
@@ -67,6 +83,72 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.phone
+
+    @property
+    def resolved_country_code(self):
+        return self.country_code or infer_country_code_from_number(self.phone)
+
+    @property
+    def country_flag(self):
+        return country_flag(self.resolved_country_code)
+
+    @property
+    def country_name(self):
+        return COUNTRY_NAMES.get(self.resolved_country_code, "")
+
+    @property
+    def masked_phone(self):
+        return masked_phone_number(self.phone, self.resolved_country_code)
+
+
+class JoinApplication(models.Model):
+    GENDER_CHOICES = (("male", "ذكر"), ("female", "أنثى"))
+    MARITAL_STATUS_CHOICES = (
+        ("single", "أعزب / عزباء"),
+        ("married", "متزوج / متزوجة"),
+        ("divorced", "مطلق / مطلقة"),
+        ("widowed", "أرمل / أرملة"),
+    )
+    FINANCIAL_STATUS_CHOICES = (
+        ("limited", "محدود"),
+        ("moderate", "متوسط"),
+        ("good", "جيد"),
+        ("prefer_not_to_say", "أفضل عدم الإفصاح"),
+    )
+
+    user = models.OneToOneField(User, verbose_name="المتقدم", on_delete=models.CASCADE, related_name="join_application")
+    full_name = models.CharField("الاسم والنسبة", max_length=160)
+    father_name = models.CharField("اسم الأب", max_length=120)
+    mother_name = models.CharField("اسم الأم", max_length=120)
+    gender = models.CharField("الجنس", max_length=12, choices=GENDER_CHOICES)
+    marital_status = models.CharField("الوضع العائلي", max_length=20, choices=MARITAL_STATUS_CHOICES)
+    financial_status = models.CharField("الوضع المادي", max_length=24, choices=FINANCIAL_STATUS_CHOICES)
+    profile_image = models.ImageField(
+        "الصورة الشخصية",
+        upload_to=join_application_photo_path,
+        validators=[FileExtensionValidator(("jpg", "jpeg", "png", "webp"))],
+        storage=PrivateApplicationStorage(),
+    )
+    submitted_at = models.DateTimeField("تاريخ الإرسال", auto_now_add=True)
+    updated_at = models.DateTimeField("آخر تعديل", auto_now=True)
+    reviewed_at = models.DateTimeField("تاريخ المراجعة", null=True, blank=True)
+    reviewed_by = models.ForeignKey(
+        User,
+        verbose_name="راجع الطلب",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="reviewed_join_applications",
+    )
+    rejection_reason = models.TextField("سبب الرفض", blank=True)
+
+    class Meta:
+        ordering = ("-submitted_at", "-pk")
+        verbose_name = "طلب انضمام"
+        verbose_name_plural = "طلبات الانضمام"
+
+    def __str__(self):
+        return f"{self.full_name} — {self.user.phone}"
 
 
 class UserNotification(models.Model):

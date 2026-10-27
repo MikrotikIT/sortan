@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/customer-home.css' %}"><link rel="stylesheet" href="{% static 'css/support-options.css' %}">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/customer-home.css' %}?v=country-1"><link rel="stylesheet" href="{% static 'css/support-options.css' %}">{% endblock %}
 {% block title %}الرئيسية — Kodi TV{% endblock %}
 {% block breadcrumb %}الرئيسية{% endblock %}
 {% block content %}
@@ -13,7 +13,7 @@
 </section>
 <section class="account-summary-card" aria-label="ملخص الحساب">
   <div class="account-summary-top">
-    <div><span class="account-summary-label">رقم الهاتف</span><strong class="account-phone" dir="ltr">{{ user.phone }}</strong></div>
+    <div><span class="account-summary-label">رقم الهاتف</span><strong class="account-phone" dir="ltr">{{ user.phone }}</strong>{% if user.country_name %}<span class="account-phone-country"><span aria-hidden="true">{{ user.country_flag }}</span>{{ user.country_name }}</span>{% endif %}</div>
     <form method="post" action="{% url 'logout' %}" class="account-logout-form">{% csrf_token %}<button class="account-summary-logout" type="submit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/></svg><span>تسجيل الخروج</span></button></form>
   </div>
   <div class="account-balance-block" data-balance-card>

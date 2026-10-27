@@ -5,20 +5,29 @@ from django import forms
 from django.contrib.auth import password_validation
 from django.core.exceptions import ValidationError
 
-from .models import Film, Investment, User
+from .models import Film, Investment, JoinApplication, User
+from .countries import COUNTRY_FORM_CHOICES, clean_phone_input, normalize_phone_number
 
 
 class RegistrationForm(forms.Form):
-    phone = forms.CharField(label="رقم الهاتف", max_length=20, widget=forms.TextInput(attrs={"placeholder": "+90 5xx xxx xx xx", "autocomplete": "tel", "dir": "ltr"}))
+    country_code = forms.ChoiceField(
+        label="الدولة ورمز الاتصال",
+        choices=(('', "اختر الدولة ورمز الاتصال"),) + COUNTRY_FORM_CHOICES,
+        widget=forms.Select(attrs={"autocomplete": "country"}),
+    )
+    phone = forms.CharField(label="رقم الهاتف المحلي", max_length=20, widget=forms.TextInput(attrs={"type": "tel", "placeholder": "أدخل الرقم بدون رمز الدولة", "autocomplete": "tel-national", "dir": "ltr"}))
     invitation_code = forms.CharField(label="كود الدعوة", max_length=12, widget=forms.TextInput(attrs={"placeholder": "أدخل كود الدعوة", "dir": "ltr"}))
     password1 = forms.CharField(label="كلمة المرور", widget=forms.PasswordInput(attrs={"placeholder": "8 أحرف على الأقل", "autocomplete": "new-password"}))
     password2 = forms.CharField(label="تأكيد كلمة المرور", widget=forms.PasswordInput(attrs={"placeholder": "أعد كتابة كلمة المرور", "autocomplete": "new-password"}))
 
     def clean_phone(self):
         phone = self.cleaned_data["phone"].strip()
-        if not re.fullmatch(r"\+?[0-9][0-9\s()-]{6,18}", phone):
-            raise ValidationError("أدخل رقم هاتف صحيحاً.")
-        normalized = re.sub(r"[\s()-]", "", phone)
+        try:
+            normalized = normalize_phone_number(phone, self.cleaned_data.get("country_code"))
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
+        if not 7 <= len(normalized.lstrip("+")) <= 15:
+            raise ValidationError("تحقق من رقم الهاتف ورمز الدولة.")
         if User.objects.filter(phone=normalized).exists():
             raise ValidationError("رقم الهاتف مسجل بالفعل.")
         return normalized
@@ -54,6 +63,7 @@ class RegistrationForm(forms.Form):
             referrer = User.objects.get(referral_code__iexact=self.cleaned_data["invitation_code"])
             user = User.objects.create_user(
                 phone=self.cleaned_data["phone"],
+                country_code=self.cleaned_data["country_code"],
                 password=self.cleaned_data["password1"],
                 referred_by=referrer,
             )
@@ -63,12 +73,58 @@ class RegistrationForm(forms.Form):
         return user
 
 
+class JoinApplicationForm(forms.ModelForm):
+    class Meta:
+        model = JoinApplication
+        fields = (
+            "full_name",
+            "father_name",
+            "mother_name",
+            "gender",
+            "marital_status",
+            "financial_status",
+            "profile_image",
+        )
+        widgets = {
+            "full_name": forms.TextInput(attrs={"autocomplete": "name", "maxlength": "160"}),
+            "father_name": forms.TextInput(attrs={"maxlength": "120"}),
+            "mother_name": forms.TextInput(attrs={"maxlength": "120"}),
+            "gender": forms.Select(),
+            "marital_status": forms.Select(),
+            "financial_status": forms.Select(),
+            "profile_image": forms.FileInput(attrs={"accept": "image/jpeg,image/png,image/webp"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk and self.instance.profile_image:
+            self.fields["profile_image"].required = False
+
+    def clean_profile_image(self):
+        image = self.cleaned_data.get("profile_image")
+        if image and image.size > 5 * 1024 * 1024:
+            raise ValidationError("حجم الصورة يجب ألا يتجاوز 5 ميغابايت.")
+        return image
+
+
 class LoginForm(forms.Form):
-    phone = forms.CharField(label="رقم الهاتف", max_length=20, widget=forms.TextInput(attrs={"placeholder": "+90 5xx xxx xx xx", "autocomplete": "tel", "dir": "ltr"}))
+    country_code = forms.ChoiceField(
+        label="الدولة ورمز الاتصال",
+        choices=(('', "اختر الدولة ورمز الاتصال"),) + COUNTRY_FORM_CHOICES,
+        widget=forms.Select(attrs={"autocomplete": "country"}),
+    )
+    phone = forms.CharField(label="رقم الهاتف المحلي", max_length=20, widget=forms.TextInput(attrs={"type": "tel", "placeholder": "أدخل الرقم بدون رمز الدولة", "autocomplete": "tel-national", "dir": "ltr"}))
     password = forms.CharField(label="كلمة المرور", widget=forms.PasswordInput(attrs={"placeholder": "أدخل كلمة المرور", "autocomplete": "current-password"}))
 
     def clean_phone(self):
-        return re.sub(r"[\s()-]", "", self.cleaned_data["phone"].strip())
+        raw_phone = self.cleaned_data["phone"].strip()
+        try:
+            _, digits = clean_phone_input(raw_phone)
+            normalized = normalize_phone_number(raw_phone, self.cleaned_data.get("country_code"))
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
+        self.cleaned_data["legacy_phone"] = digits
+        return normalized
 
 
 class InvestmentForm(forms.Form):

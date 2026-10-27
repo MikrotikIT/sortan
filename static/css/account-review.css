@@ -1,0 +1,41 @@
+.account-review-page,.join-application-page{width:min(780px,100%);margin:22px auto 36px}
+.account-review-page{min-height:calc(100vh - 180px);display:grid;place-items:center}
+.account-review-card{width:min(520px,100%);padding:36px 28px;text-align:center;background:#fff;border:1px solid #e5ecee;border-radius:18px;box-shadow:0 18px 48px rgba(18,48,59,.08)}
+.account-review-icon{display:grid;place-items:center;width:64px;height:64px;margin:0 auto 18px;border-radius:20px;background:#fff5df;color:#bc831b;font-size:32px}
+.account-review-card h1{margin:9px 0 12px;color:#14272e;font-size:26px}
+.account-review-card p{margin:0 auto 24px;max-width:420px;color:#71838a;line-height:1.9}
+.account-review-card form{display:flex;justify-content:center}
+.join-application-page{max-width:760px}
+.join-application-document{overflow:hidden;background:#fff;border:1px solid #e5ecee;border-radius:17px;box-shadow:0 14px 40px rgba(18,48,59,.06)}
+.application-document-heading{padding:28px 24px 22px;text-align:center;background:linear-gradient(145deg,#0a2029,#123b48);color:#fff}
+.application-document-heading img{display:block;width:84px;height:70px;object-fit:contain;margin:0 auto 12px}
+.application-document-heading>span{color:#78d2e9;font-size:12px;font-weight:700}
+.application-document-heading h1{margin:8px 0;font-size:24px}
+.application-document-heading p{margin:0;color:#c2d5da;font-size:14px}
+.application-instructions{margin:22px 24px 4px;padding:17px 18px;border:1px solid #dceef2;border-radius:12px;background:#f4fafb;color:#29464f;line-height:1.8}
+.application-instructions strong{display:block;margin-bottom:4px;color:#117c9b}
+.application-instructions p{margin:0}
+.join-application-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;padding:20px 24px 24px}
+.application-form-field{min-width:0;display:grid;gap:7px}
+.application-form-field label{color:#263e46;font-size:13px;font-weight:700}
+.application-form-field input,.application-form-field select{width:100%;min-height:44px;padding:9px 11px;border:1px solid #dce6e8;border-radius:9px;background:#fff;color:#203940;font:14px "Tajawal",sans-serif;outline:0}
+.application-form-field input:focus,.application-form-field select:focus{border-color:#149ecc;box-shadow:0 0 0 3px rgba(20,158,204,.1)}
+.application-form-field small{color:#71838a;font-size:11px;line-height:1.6}
+.application-form-field .field-error,.application-form-error{color:#b33e43}
+.application-image-field,.application-checklist,.join-application-form>.btn,.application-form-error{grid-column:1/-1}
+.application-image-field input{padding:8px;height:auto;background:#f9fbfb}
+.application-checklist{padding:16px 18px;border-radius:11px;background:#f5f8f8;color:#4b6269;font-size:12px;line-height:1.9}
+.application-checklist h2{margin:0 0 7px;color:#1d4955;font-size:15px}
+.application-checklist ul{margin:0;padding-right:19px}
+.application-checklist p{margin:8px 0 0;font-weight:700;color:#147b63}
+.application-document-footer{padding:16px;text-align:center;border-top:1px solid #edf1f2;color:#53727b;font-size:12px;font-weight:700}
+.application-current-photo{display:flex;align-items:center;gap:12px;margin:20px 24px 0;padding:10px 12px;border:1px solid #e4edef;border-radius:11px;color:#61757b;font-size:12px}
+.application-current-photo img{width:62px;height:62px;border-radius:9px;object-fit:cover}
+.application-status-alert{margin-bottom:15px;padding:16px 18px;border-radius:12px;line-height:1.8}
+.application-status-rejected{border:1px solid #f1d2d2;background:#fff6f5;color:#8d3439}
+.application-status-alert strong{font-size:17px}
+.application-status-alert p{margin:5px 0;font-weight:600}
+.application-status-alert small{color:#8d5558}
+.application-logout-form{display:flex;justify-content:center;margin-top:13px}
+.topbar-review .site-topbar-brand{cursor:default}
+@media(max-width:600px){.account-review-page,.join-application-page{margin-top:10px}.account-review-page{min-height:calc(100vh - 100px)}.account-review-card{padding:30px 20px}.account-review-card h1{font-size:22px}.application-document-heading{padding:22px 16px 18px}.application-document-heading h1{font-size:20px}.application-instructions{margin:16px 14px 0;padding:14px}.join-application-form{grid-template-columns:1fr;padding:16px 14px 20px;gap:13px}.application-current-photo{margin:15px 14px 0}.application-form-field,.application-image-field,.application-checklist,.join-application-form>.btn,.application-form-error{grid-column:1}.application-checklist{padding:13px}}

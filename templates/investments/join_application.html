@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}وثيقة طلب الانضمام والتسجيل — Kodi TV{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/account-review.css' %}">{% endblock %}
+{% block content %}
+<main class="join-application-page">
+  {% if was_rejected %}
+  <section class="application-status-alert application-status-rejected">
+    <strong>تم رفض حسابك</strong>
+    <p>سبب الرفض: {{ application.rejection_reason|default:"يرجى مراجعة البيانات وإعادة إرسال الطلب." }}</p>
+    <small>يمكنك تعديل بياناتك وإرسال الطلب للمراجعة مرة أخرى.</small>
+  </section>
+  {% endif %}
+  <article class="join-application-document">
+    <header class="application-document-heading">
+      <img src="{% static 'img/kodi-logo.svg' %}" alt="شعار KODI">
+      <span>🌐 منصة KODI العالمية</span>
+      <h1>وثيقة طلب الانضمام والتسجيل</h1>
+      <p>للانضمام إلى منصة KODI العالمية للربح عبر الإنترنت</p>
+    </header>
+
+    {% if application and application.profile_image %}
+    <div class="application-current-photo">
+      <img src="{% url 'join_application_photo' application.pk %}" alt="الصورة الشخصية المرفقة">
+      <span>الصورة الشخصية المرفقة حالياً</span>
+    </div>
+    {% endif %}
+
+    <section class="application-instructions">
+      <strong>أجب عن الأسئلة التالية:</strong>
+      <p>يرجى إرفاق صورة شخصية واضحة بعد استكمال الإجابة عن جميع الأسئلة والبيانات المذكورة أعلاه.</p>
+    </section>
+
+    <form method="post" enctype="multipart/form-data" class="join-application-form">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="application-form-error">{{ form.non_field_errors }}</div>{% endif %}
+      {% for field in form %}
+      <div class="application-form-field{% if field.name == 'profile_image' %} application-image-field{% endif %}">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.name == 'profile_image' %}<small>صورة واضحة بصيغة JPG أو PNG أو WEBP، حتى 5 ميغابايت.</small>{% endif %}
+        {% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
+      </div>
+      {% endfor %}
+      <section class="application-checklist">
+        <h2>✅ تعليمات إكمال الطلب</h2>
+        <ul>
+          <li>يُرجى التأكد من إدخال جميع البيانات المطلوبة بشكل صحيح.</li>
+          <li>يُرجى مراجعة المعلومات قبل إرسال الطلب.</li>
+          <li>يجب إرفاق الصورة الشخصية مع استمارة التسجيل.</li>
+        </ul>
+        <p>نتمنى لكم التوفيق والنجاح.</p>
+      </section>
+      <button class="btn btn-primary btn-full" type="submit">{% if was_rejected %}إعادة إرسال الطلب للمراجعة{% else %}إرسال طلب الانضمام للمراجعة{% endif %}</button>
+    </form>
+    <footer class="application-document-footer">🌐 منصة KODI العالمية — طلب الانضمام والتسجيل</footer>
+  </article>
+  <form class="application-logout-form" method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="btn btn-quiet" type="submit">تسجيل الخروج</button></form>
+</main>
+{% endblock %}
