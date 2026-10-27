@@ -1,9 +1,9 @@
 {% extends 'base.html' %}
-{% block title %}الإشعارات — CineVest{% endblock %}
+{% block title %}الإشعارات — Kodi TV{% endblock %}
 {% block breadcrumb %}الإشعارات{% endblock %}
 {% block content %}
 <section class="welcome-row notifications-heading">
-  <div><span class="eyebrow">آخر المستجدات</span><h1>الإشعارات</h1><p>رسائل وتحديثات خاصة بحسابك.</p></div>
+  <div><p>رسائل وتحديثات خاصة بحسابك.</p></div>
   {% if unread_notification_count %}<form method="post" action="{% url 'notifications_mark_all_read' %}">{% csrf_token %}<button class="btn btn-outline btn-small" type="submit">تحديد الكل كمقروء</button></form>{% endif %}
 </section>
 {% if notification_page.object_list %}

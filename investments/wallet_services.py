@@ -27,7 +27,7 @@ def _fernet():
         key = configured_key.encode("ascii")
     elif settings.DEBUG:
         # Keeps local development usable; production must configure a separate secret.
-        digest = hmac.new(settings.SECRET_KEY.encode(), b"cinevest-wallet-encryption-v1", hashlib.sha256).digest()
+        digest = hmac.new(settings.SECRET_KEY.encode(), b"Kodi TV-wallet-encryption-v1", hashlib.sha256).digest()
         import base64
 
         key = base64.urlsafe_b64encode(digest)
@@ -40,7 +40,7 @@ def _fernet():
 
 
 def _legacy_development_fernet():
-    digest = hmac.new(settings.SECRET_KEY.encode(), b"cinevest-wallet-encryption-v1", hashlib.sha256).digest()
+    digest = hmac.new(settings.SECRET_KEY.encode(), b"Kodi TV-wallet-encryption-v1", hashlib.sha256).digest()
     import base64
 
     return Fernet(base64.urlsafe_b64encode(digest))
@@ -139,7 +139,7 @@ def ensure_wallet(user):
 
 
 def _trongrid_headers():
-    headers = {"Accept": "application/json", "User-Agent": "CineVest/1.0"}
+    headers = {"Accept": "application/json", "User-Agent": "Kodi TV/1.0"}
     api_key = getattr(settings, "TRONGRID_API_KEY", "")
     if api_key:
         headers["TRON-PRO-API-KEY"] = api_key

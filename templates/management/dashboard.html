@@ -1,5 +1,5 @@
 {% extends 'management/base.html' %}
-{% block title %}إدارة CineVest{% endblock %}
+{% block title %}إدارة Kodi TV{% endblock %}
 {% block content %}
 <section class="management-heading"><div><span class="eyebrow">مساحة المشرف</span><h1>لوحة الإدارة</h1><p>إدارة مشاريع الأفلام وحسابات المستثمرين والطلبات.</p></div><a class="btn btn-primary" href="{% url 'management_film_create' %}">＋ إضافة فيلم</a></section>
 <section class="management-stats"><a class="management-stat" href="{% url 'management_films' %}"><span>الأفلام</span><strong>{{ film_count }}</strong><small>إدارة المشاريع</small></a><a class="management-stat" href="{% url 'management_vouchers' %}"><span>المستخدمون</span><strong>{{ user_count }}</strong><small>إصدار وإدارة القسائم</small></a><a class="management-stat" href="{% url 'management_films' %}"><span>استثمارات نشطة</span><strong>{{ active_investment_count }}</strong><small>قيد الانتظار</small></a><a class="management-stat stat-attention" href="{% url 'management_deposits' %}"><span>إيداعات للمراجعة</span><strong>{{ pending_deposit_count }}</strong><small>تحتاج إجراء</small></a><a class="management-stat stat-attention" href="{% url 'management_withdrawals' %}"><span>طلبات سحب</span><strong>{{ pending_withdrawal_count }}</strong><small>تحتاج مراجعة</small></a></section>

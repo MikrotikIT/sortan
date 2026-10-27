@@ -1,5 +1,5 @@
 {% extends 'management/base.html' %}
-{% block title %}العملاء — CineVest{% endblock %}
+{% block title %}العملاء — Kodi TV{% endblock %}
 {% block content %}
 <section class="management-heading"><div><span class="eyebrow">ملفات الحسابات</span><h1>العملاء</h1><p>ابحث برقم الهاتف أو كود الدعوة، وافتح ملف العميل لعرض معاملاته كاملة.</p></div></section>
 <section class="management-panel"><form method="get" class="customer-search"><label for="customer-search">بحث العملاء</label><input id="customer-search" type="search" name="q" value="{{ query }}" placeholder="رقم الهاتف أو كود الدعوة" dir="auto"><button class="btn btn-primary" type="submit">بحث</button>{% if query %}<a class="btn btn-secondary" href="{% url 'management_customers' %}">مسح</a>{% endif %}</form>

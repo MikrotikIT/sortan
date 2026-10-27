@@ -1,12 +1,12 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block extra_head %}<link rel="stylesheet" href="{% static 'css/referral.css' %}">{% endblock %}
-{% block title %}الدعوة والعمولات — CineVest{% endblock %}
+{% block title %}الدعوة والعمولات — Kodi TV{% endblock %}
 {% block breadcrumb %}الدعوة والعمولات{% endblock %}
 {% block content %}
 <section class="welcome-row"><div><span class="eyebrow">برنامج الدعوة</span><p>اجعل أصدقاءك يسجلون عبر كود الدعوة الخاص بك واربح عمولات فورية ومتجددة على جميع إيداعاتهم وأرباحهم مدى الحياة</p></div></section>
 <section class="panel referral-page-panel">
-  <div class="panel-heading"><div><span class="eyebrow">شارك CineVest</span><h2>كود الدعوة الخاص بك</h2></div><span class="stat-icon stat-icon-purple">✦</span></div>
+  <div class="panel-heading"><div><span class="eyebrow">شارك Kodi TV</span><h2>كود الدعوة الخاص بك</h2></div><span class="stat-icon stat-icon-purple">✦</span></div>
   <p class="referral-page-copy">انسخ كودك وشاركه الآن مع أصدقائك ليتمكنوا من التسجيل عبره.</p>
   <div class="referral-code-row referral-code-large"><code id="referral-code">{{ user.referral_code }}</code><button type="button" class="copy-code" data-copy-target="referral-code">نسخ الكود</button></div>
   <ul class="referral-benefits" aria-label="مزايا الدعوة">

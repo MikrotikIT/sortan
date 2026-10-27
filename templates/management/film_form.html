@@ -1,5 +1,5 @@
 {% extends 'management/base.html' %}
-{% block title %}{{ heading }} — CineVest{% endblock %}
+{% block title %}{{ heading }} — Kodi TV{% endblock %}
 {% block content %}
 <section class="management-heading"><div><span class="eyebrow">إدارة المشاريع</span><h1>{{ heading }}</h1><p>تظهر تفاصيل الفيلم ورابطه وكوده للمستثمرين ضمن عروض المنصة.</p></div><a class="btn btn-quiet" href="{% url 'management_films' %}">← قائمة الأفلام</a></section>
 <section class="management-panel form-panel"><form method="post" class="management-form">{% csrf_token %}{% for field in form %}<div class="admin-field {% if field.field.widget.input_type == 'checkbox' %}admin-check-field{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}<div class="form-actions"><button class="btn btn-primary" type="submit">حفظ الفيلم</button><a class="btn btn-quiet" href="{% url 'management_films' %}">إلغاء</a></div></form></section>

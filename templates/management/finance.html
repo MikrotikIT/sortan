@@ -1,5 +1,5 @@
 {% extends 'management/base.html' %}
-{% block title %}المالية — CineVest{% endblock %}
+{% block title %}المالية — Kodi TV{% endblock %}
 {% block content %}
 <section class="management-heading"><div><span class="eyebrow">متابعة التدفقات</span><h1>المالية والإيداعات</h1><p>ملخص الإيداعات المؤكدة يومياً، مع إمكانية عرض آخر شهر أو شهرين أو ثلاثة أشهر.</p></div><form method="get" class="finance-period-form"><label for="finance-days">الفترة</label><select id="finance-days" name="days" onchange="this.form.submit()"><option value="30" {% if period_days == 30 %}selected{% endif %}>آخر 30 يوماً</option><option value="60" {% if period_days == 60 %}selected{% endif %}>آخر شهرين</option><option value="90" {% if period_days == 90 %}selected{% endif %}>آخر 3 أشهر</option></select></form></section>
 <section class="management-stats finance-stats"><div class="management-stat"><span>إيداعات اليوم</span><strong>{{ today_deposits|floatformat:2 }}</strong><small>USDT</small></div><div class="management-stat"><span>إجمالي آخر {{ period_days }} يوماً</span><strong>{{ period_total|floatformat:2 }}</strong><small>USDT مؤكدة</small></div><div class="management-stat"><span>عدد الإيداعات في الفترة</span><strong>{{ period_count }}</strong><small>عملية</small></div></section>

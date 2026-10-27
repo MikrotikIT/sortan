@@ -1,4 +1,4 @@
-# CineVest — Django
+# Kodi TV — Django
 
 منصة عربية RTL لإدارة استثمارات الأفلام، مبنية باستخدام Django.
 
@@ -40,7 +40,7 @@ py manage.py runserver
 2. احفظه سراً في متغير البيئة `WALLET_ENCRYPTION_KEY`، واضبط `TRONGRID_API_KEY` من حساب TronGrid. استخدم المفتاح نفسه باستمرار وخزّن نسخة احتياطية آمنة؛ فقدانه يمنع فك تشفير مفاتيح المحافظ. أثناء التطوير المحلي فقط، إذا لم تحدد مفتاح Fernet، يستخدم التطبيق مفتاحاً مشتقاً من `DJANGO_SECRET_KEY`.
 3. إذا انتقلت من مفتاح التطوير إلى مفتاح Fernet مستقل، اضبط `WALLET_ENCRYPTION_KEY` ثم شغّل `py manage.py reencrypt_wallet_keys` قبل تغيير `DJANGO_SECRET_KEY`.
 4. شغّل Redis (أو اضبط CELERY_BROKER_URL لوسيط متاح)، ثم شغّل الواركر وBeat كلاهما في نافذة منفصلة:
-   إذا كان Docker مثبتاً ولا يعمل Redis لديك، شغّله أولاً: docker run --name cinevest-redis -p 127.0.0.1:6379:6379 -d redis:7-alpine
+   إذا كان Docker مثبتاً ولا يعمل Redis لديك، شغّله أولاً: docker run --name Kodi TV-redis -p 127.0.0.1:6379:6379 -d redis:7-alpine
 
    python -m celery -A config worker --pool=solo --loglevel=info
    python -m celery -A config beat --loglevel=info

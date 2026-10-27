@@ -1,7 +1,7 @@
 {% extends 'management/base.html' %}
 {% load static %}
 {% block extra_head %}<link rel="stylesheet" href="{% static 'css/notification-admin.css' %}">{% endblock %}
-{% block title %}ملف العميل {{ customer.phone }} — CineVest{% endblock %}
+{% block title %}ملف العميل {{ customer.phone }} — Kodi TV{% endblock %}
 {% block content %}
 <section class="management-heading"><div><span class="eyebrow">ملف العميل</span><h1 dir="ltr">{{ customer.phone }}</h1><p>سجل الحساب والرصيد والمحفظة والاستثمارات والإيداعات والسحوبات والدعوات.</p></div><a class="btn btn-secondary" href="{% url 'management_customers' %}">← كل العملاء</a></section>
 <section class="management-stats customer-detail-stats"><div class="management-stat"><span>الرصيد</span><strong>{{ customer.balance|floatformat:2 }}</strong><small>USDT</small></div><div class="management-stat"><span>الأرباح المتاحة</span><strong>{{ customer.earnings_balance|floatformat:2 }}</strong><small>USDT</small></div><div class="management-stat"><span>إجمالي الأرباح</span><strong>{{ customer.total_earned|floatformat:2 }}</strong><small>USDT</small></div><div class="management-stat"><span>المدعوون</span><strong>{{ referrals|length }}</strong><small>مستخدم</small></div></section>
