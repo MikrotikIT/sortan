@@ -1,0 +1,8 @@
+.topbar{gap:12px}
+.topbar-actions{gap:12px}
+.topbar-actions form{margin:0}
+.online-counter-label{display:inline}
+.topbar-logout{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 11px;border:1px solid #f0d5d2;border-radius:8px;background:#fff7f6;color:#ac5149;font:600 12px "Tajawal",sans-serif;white-space:nowrap;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+.topbar-logout svg{width:15px;height:15px;flex:0 0 15px}
+.topbar-logout:hover{border-color:#e7b5b0;background:#fdecea;color:#9e3f37}
+@media(max-width:600px){.topbar{gap:6px;padding-right:12px;padding-left:12px}.topbar-actions{gap:7px}.online-counter{gap:4px;padding:6px 6px}.online-counter-label{display:inline;font-size:8px}.online-counter strong{min-width:31px;font-size:10px}.topbar-management{font-size:10px}.topbar-logout{gap:4px;padding:7px 8px;font-size:10px}}
