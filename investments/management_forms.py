@@ -1,8 +1,12 @@
 from decimal import Decimal
+from io import BytesIO
+import warnings
 
 from django import forms
+from django.core.files.base import ContentFile
 from django.core.exceptions import ValidationError
 from django.utils.html import strip_tags
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 from .models import Film, InvestmentVoucher, PlatformSettings, SupportOption, User
 from .notification_services import sanitize_notification_html
@@ -122,23 +126,63 @@ class SupportOptionForm(forms.ModelForm):
             "sort_order": forms.NumberInput(attrs={"min": "0", "step": "1"}),
         }
         help_texts = {
-            "image": "اختر صورة من جهازك (PNG أو JPG أو WebP أو GIF)، بحد أقصى 5 ميغابايت. اتركها فارغة لاستخدام الأيقونة الافتراضية.",
+            "image": "PNG أو JPG أو WebP أو GIF، بحد أقصى 5 ميغابايت. ستُوحّد الصورة تلقائياً إلى مربع 256×256 لتظهر بالحجم نفسه.",
             "sort_order": "الأرقام الأصغر تظهر أولاً.",
         }
 
     def clean_image(self):
         image = self.cleaned_data.get("image")
-        if image and image.size > 5 * 1024 * 1024:
+        if not image or getattr(image, "_committed", False):
+            return image
+        if image.size > 5 * 1024 * 1024:
             raise ValidationError("حجم الصورة يجب ألا يتجاوز 5 ميغابايت.")
-        return image
+
+        try:
+            image.seek(0)
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", Image.DecompressionBombWarning)
+                with Image.open(image) as source:
+                    if source.format not in {"JPEG", "PNG", "WEBP", "GIF"}:
+                        raise ValidationError("اختر صورة بصيغة PNG أو JPG أو WebP أو GIF.")
+                    width, height = source.size
+                    if width <= 0 or height <= 0 or width * height > 20_000_000:
+                        raise ValidationError("أبعاد الصورة كبيرة جداً. اختر صورة أصغر.")
+
+                    source = ImageOps.exif_transpose(source)
+                    source.seek(0)
+                    source.load()
+                    has_alpha = "A" in source.getbands() or "transparency" in source.info
+                    converted = source.convert("RGBA" if has_alpha else "RGB")
+                    converted.thumbnail((224, 224), Image.Resampling.LANCZOS)
+
+                    canvas_mode = "RGBA" if has_alpha else "RGB"
+                    background = (255, 255, 255, 0) if has_alpha else (255, 255, 255)
+                    canvas = Image.new(canvas_mode, (256, 256), background)
+                    offset = ((256 - converted.width) // 2, (256 - converted.height) // 2)
+                    if has_alpha:
+                        canvas.alpha_composite(converted, dest=offset)
+                    else:
+                        canvas.paste(converted, offset)
+
+                    output = BytesIO()
+                    canvas.save(output, format="WEBP", quality=82, method=6)
+        except ValidationError:
+            raise
+        except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
+            raise ValidationError("تعذرت قراءة الصورة. اختر ملف صورة صالحاً بصيغة PNG أو JPG أو WebP أو GIF.") from exc
+
+        return ContentFile(output.getvalue(), name="support-option.webp")
 
     def save(self, commit=True):
+        previous_image = self.instance.image if self.instance.pk else None
         option = super().save(commit=False)
         if "image" in self.changed_data:
             option.image_url = ""
         if commit:
             option.save()
             self.save_m2m()
+            if previous_image and "image" in self.changed_data and previous_image.name != option.image.name:
+                previous_image.delete(save=False)
         return option
 
 

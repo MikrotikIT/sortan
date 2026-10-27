@@ -1,4 +1,6 @@
 {% extends 'management/base.html' %}
+{% load static %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/support-options.css' %}?v=support-images-2">{% endblock %}
 {% block title %}{{ heading }} — Kodi TV{% endblock %}
 {% block content %}
 <section class="management-heading"><div><span class="eyebrow">خيارات الدعم الفني</span><h1>{{ heading }}</h1><p>عدّل الاسم أو الرابط أو ارفع صورة من جهازك.</p></div><a class="btn btn-quiet" href="{% url 'management_support_options' %}">قائمة الخيارات</a></section>
