@@ -10,16 +10,17 @@ from django.core.files.base import ContentFile
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from .models import Film, Investment, JoinApplication, User
-from .countries import COUNTRY_FORM_CHOICES, clean_phone_input, normalize_phone_number
+from .countries import COUNTRY_CHOICES, clean_phone_input, normalize_phone_number
 
 
 class RegistrationForm(forms.Form):
     country_code = forms.ChoiceField(
         label="الدولة ورمز الاتصال",
-        choices=(('', "اختر الدولة ورمز الاتصال"),) + COUNTRY_FORM_CHOICES,
-        widget=forms.Select(attrs={"autocomplete": "country"}),
+        choices=COUNTRY_CHOICES,
+        initial="SY",
+        widget=forms.HiddenInput(attrs={"data-phone-country-code": ""}),
     )
-    phone = forms.CharField(label="رقم الهاتف المحلي", max_length=20, widget=forms.TextInput(attrs={"type": "tel", "placeholder": "أدخل الرقم بدون رمز الدولة", "autocomplete": "tel-national", "dir": "ltr"}))
+    phone = forms.CharField(label="رقم الهاتف", max_length=40, widget=forms.TextInput(attrs={"type": "tel", "placeholder": "أدخل رقم الهاتف", "autocomplete": "tel-national", "dir": "ltr", "data-intl-phone": ""}))
     invitation_code = forms.CharField(label="كود الدعوة", max_length=12, widget=forms.TextInput(attrs={"placeholder": "أدخل كود الدعوة", "dir": "ltr"}))
     password1 = forms.CharField(label="كلمة المرور", widget=forms.PasswordInput(attrs={"placeholder": "8 أحرف على الأقل", "autocomplete": "new-password"}))
     password2 = forms.CharField(label="تأكيد كلمة المرور", widget=forms.PasswordInput(attrs={"placeholder": "أعد كتابة كلمة المرور", "autocomplete": "new-password"}))
@@ -155,10 +156,11 @@ class JoinApplicationForm(forms.ModelForm):
 class LoginForm(forms.Form):
     country_code = forms.ChoiceField(
         label="الدولة ورمز الاتصال",
-        choices=(('', "اختر الدولة ورمز الاتصال"),) + COUNTRY_FORM_CHOICES,
-        widget=forms.Select(attrs={"autocomplete": "country"}),
+        choices=COUNTRY_CHOICES,
+        initial="SY",
+        widget=forms.HiddenInput(attrs={"data-phone-country-code": ""}),
     )
-    phone = forms.CharField(label="رقم الهاتف المحلي", max_length=20, widget=forms.TextInput(attrs={"type": "tel", "placeholder": "أدخل الرقم بدون رمز الدولة", "autocomplete": "tel-national", "dir": "ltr"}))
+    phone = forms.CharField(label="رقم الهاتف", max_length=40, widget=forms.TextInput(attrs={"type": "tel", "placeholder": "أدخل رقم الهاتف", "autocomplete": "tel-national", "dir": "ltr", "data-intl-phone": ""}))
     password = forms.CharField(label="كلمة المرور", widget=forms.PasswordInput(attrs={"placeholder": "أدخل كلمة المرور", "autocomplete": "current-password"}))
 
     def clean_phone(self):

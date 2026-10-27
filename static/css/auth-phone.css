@@ -1,6 +1,9 @@
-.auth-card .field select{width:100%;height:45px;border:1px solid #dce6e8;border-radius:7px;padding:0 12px;background:#fff;color:#213941;font:13px "Tajawal",sans-serif;outline:0;transition:border .15s,box-shadow .15s}
-.auth-card .field select:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(20,158,204,.1)}
-.auth-card .field select option{font-family:"Tajawal",sans-serif}
-.auth-phone-row{display:grid;grid-template-columns:minmax(145px,.9fr) minmax(0,1.2fr);gap:10px}
-.auth-phone-row .field{min-width:0}
-@media(max-width:420px){.auth-phone-row{grid-template-columns:1fr}}
+.auth-phone-field .iti{width:100%;direction:rtl}
+.auth-phone-field .iti__tel-input{width:100%;height:45px;border:1px solid #dce6e8;border-radius:7px;padding-block:0;background:#fff;color:#213941;font:14px "DM Sans","Tajawal",sans-serif;outline:0;transition:border .15s,box-shadow .15s}
+.auth-phone-field .iti__tel-input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(20,158,204,.1)}
+.auth-phone-field .iti__country-container{padding:3px}
+.auth-phone-field .iti__selected-country{border-radius:5px}
+.auth-phone-field .iti__selected-country:hover{background:#f2f8f9}
+.auth-phone-field .iti__selected-dial-code{font-family:"DM Sans",sans-serif;font-size:13px;font-weight:600;direction:ltr}
+.auth-phone-hint{color:#829399;font-size:11px;line-height:1.5}
+.auth-phone-field .iti__country-list,.iti__country-selector{font-family:"Tajawal",sans-serif}

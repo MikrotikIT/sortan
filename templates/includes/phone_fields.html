@@ -1,12 +1,8 @@
-<div class="auth-phone-row">
-  <div class="field">
-    <label for="{{ form.country_code.id_for_label }}">{{ form.country_code.label }}</label>
-    {{ form.country_code }}
-    {% for error in form.country_code.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
-  </div>
-  <div class="field">
-    <label for="{{ form.phone.id_for_label }}">{{ form.phone.label }}</label>
-    {{ form.phone }}
-    {% for error in form.phone.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
-  </div>
+<div class="field auth-phone-field" dir="rtl">
+  <label for="{{ form.phone.id_for_label }}">{{ form.phone.label }}</label>
+  {{ form.country_code }}
+  {{ form.phone }}
+  <small class="auth-phone-hint">اختر العلم لتغيير الدولة ورمز الاتصال، أو ابحث باسم الدولة.</small>
+  {% for error in form.phone.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
+  {% for error in form.country_code.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
 </div>

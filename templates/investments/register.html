@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/auth-phone.css' %}">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'vendor/intl-tel-input/css/intlTelInput.min.css' %}?v=29.5.3"><link rel="stylesheet" href="{% static 'css/auth-phone.css' %}?v=iti-29.5.3">{% endblock %}
 {% block title %}إنشاء حساب — Kodi TV{% endblock %}
 {% block auth_content %}
 <main class="auth-layout">
@@ -26,3 +26,4 @@
   </section>
 </main>
 {% endblock %}
+{% block extra_js %}<script src="{% static 'vendor/intl-tel-input/js/intlTelInputWithUtils.min.js' %}?v=29.5.3"></script><script src="{% static 'js/auth-phone.js' %}?v=iti-29.5.3"></script>{% endblock %}
