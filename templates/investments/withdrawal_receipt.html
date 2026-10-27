@@ -19,11 +19,11 @@
     </div>
 
     <dl class="withdrawal-receipt-details">
+      <div><dt>رقم العميل والدولة</dt><dd class="receipt-customer-country">{% if withdrawal.user.country_flag %}<span aria-hidden="true">{{ withdrawal.user.country_flag }}</span>{% endif %}<bdi dir="ltr">{{ withdrawal.user.masked_phone }}</bdi><span>{{ withdrawal.user.country_name|default:"الدولة غير محددة" }}</span></dd></div>
       <div><dt>حالة السحب</dt><dd><span class="receipt-paid-badge"><i></i>مدفوع ومكتمل</span></dd></div>
       <div><dt>المبلغ قبل الضريبة</dt><dd>{{ withdrawal.amount|floatformat:2 }} USDT</dd></div>
       <div><dt>نسبة الضريبة</dt><dd>{{ withdrawal.tax_percent|floatformat:2 }}%</dd></div>
       <div><dt>قيمة الضريبة</dt><dd>{{ withdrawal.tax_amount|floatformat:2 }} USDT</dd></div>
-      <div><dt>رقم العميل والدولة</dt><dd class="receipt-customer-country">{% if withdrawal.user.country_flag %}<span aria-hidden="true">{{ withdrawal.user.country_flag }}</span>{% endif %}<bdi dir="ltr">{{ withdrawal.user.masked_phone }}</bdi><span>{{ withdrawal.user.country_name|default:"الدولة غير محددة" }}</span></dd></div>
       <div class="receipt-address-row"><dt>محفظة الاستلام · TRC20</dt><dd><code dir="ltr">{{ withdrawal.wallet_address }}</code></dd></div>
       <div><dt>تاريخ طلب السحب</dt><dd>{{ withdrawal.requested_at|date:"Y-m-d H:i:s" }}</dd></div>
       <div><dt>تاريخ إتمام الدفع</dt><dd>{% if withdrawal.processed_at %}{{ withdrawal.processed_at|date:"Y-m-d H:i:s" }}{% else %}—{% endif %}</dd></div>
