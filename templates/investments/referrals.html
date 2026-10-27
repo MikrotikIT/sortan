@@ -4,16 +4,17 @@
 {% block title %}الدعوة والعمولات — CineVest{% endblock %}
 {% block breadcrumb %}الدعوة والعمولات{% endblock %}
 {% block content %}
-<section class="welcome-row"><div><span class="eyebrow">انشر فرصتك</span><h1>الدعوة والعمولات</h1><p>شارك كودك مع أصدقائك وتابع الدعوات والعمولات المكتسبة.</p></div></section>
+<section class="welcome-row"><div><span class="eyebrow">برنامج الدعوة</span><h1>شارك كودك واكسب عمولات متجددة</h1><p>ادعُ أصدقاءك للانضمام، وقد تستحق عمولات على إيداعاتهم المقبولة وأرباحهم المحققة وفق النسب المطبقة في المنصة. كلما زاد نشاطهم، قد تزيد عمولاتك.</p></div></section>
+<section class="panel referral-page-panel">
+  <div class="panel-heading"><div><span class="eyebrow">شارك CineVest</span><h2>كود الدعوة الخاص بك</h2></div><span class="stat-icon stat-icon-purple">✦</span></div>
+  <p class="referral-page-copy">انسخ كودك وشاركه الآن مع أصدقائك ليتمكنوا من التسجيل عبره.</p>
+  <div class="referral-code-row referral-code-large"><code id="referral-code">{{ user.referral_code }}</code><button type="button" class="copy-code" data-copy-target="referral-code">نسخ الكود</button></div>
+</section>
 <section class="stats-grid customer-stats">
   <article class="stat-card"><div class="stat-top"><span>عدد المدعوين</span><span class="stat-icon">♧</span></div><strong>{{ referral_count }}</strong><div class="stat-foot"><span class="dot dot-blue"></span> حسابات سجلت باستخدام كودك</div></article>
   <article class="stat-card"><div class="stat-top"><span>إجمالي العمولات</span><span class="stat-icon stat-icon-green">↗</span></div><strong>{{ referral_commission_total|floatformat:2 }} <small>USDT</small></strong><div class="stat-foot"><span class="dot dot-green"></span> تضاف إلى رصيد أرباحك</div></article>
 </section>
-<section class="panel referral-page-panel">
-  <div class="panel-heading"><div><span class="eyebrow">شارك CineVest</span><h2>كود الدعوة الخاص بك</h2></div><span class="stat-icon stat-icon-purple">✦</span></div>
-  <p class="referral-page-copy">انسخ الكود وأرسله لمن تريد دعوته للانضمام إلى المنصة.</p>
-  <div class="referral-code-row referral-code-large"><code id="referral-code">{{ user.referral_code }}</code><button type="button" class="copy-code" data-copy-target="referral-code">نسخ الكود</button></div>
-</section>
+
 <section class="panel history-panel">
   <div class="panel-heading"><div><span class="eyebrow">شبكتك</span><h2>المستخدمون الذين دعوتهم</h2></div><span class="count-pill">{{ referral_count }} مستخدم</span></div>
   {% if referred_users %}<div class="table-wrap"><table class="data-table"><thead><tr><th>رقم الهاتف</th><th>تاريخ الانضمام</th></tr></thead><tbody>{% for referred_user in referred_users %}<tr><td dir="ltr">{{ referred_user.phone }}</td><td>{{ referred_user.date_joined|date:"Y-m-d" }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="empty-state compact"><span class="empty-icon">♧</span><strong>لا توجد دعوات حتى الآن</strong><p>شارك كود الدعوة الخاص بك لبدء دعوة المستخدمين.</p></div>{% endif %}
