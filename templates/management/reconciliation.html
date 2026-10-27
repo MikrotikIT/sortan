@@ -20,7 +20,7 @@
 <section class="management-panel">
   <div class="management-panel-head"><div><span class="eyebrow">حركة الفترة</span><h2>الإيداعات والسحوبات</h2></div></div>
   <div class="admin-table-wrap"><table class="admin-table reconciliation-table"><thead><tr><th>النوع</th><th>عدد العمليات</th><th>المجموع USDT</th></tr></thead><tbody>
-    {% for metric in metrics %}<tr><td>{{ metric.label }}</td><td>{{ metric.count }}</td><td><strong>{{ metric.amount|floatformat:2 }}</strong></td></tr>{% endfor %}
+    {% for metric in metrics %}<tr><td><strong>{{ metric.label }}</strong><small class="reconciliation-detail">{{ metric.description }}</small></td><td>{{ metric.count }}</td><td><strong>{{ metric.amount|floatformat:2 }}</strong></td></tr>{% endfor %}
   </tbody></table></div>
 </section>
 <div class="notice notice-info"><strong>قراءة الأرقام</strong><p>رصيد المحافظ لقطة حالية حسب آخر مزامنة، أما الإيداعات والسحوبات فهي تدفقات الفترة المحددة. لا يحسب التقرير فائضاً أو عجزاً نهائياً لأن التحويلات الخارجة من محافظ الاستقبال لا تسجل حالياً كحركات مستقلة.</p></div>

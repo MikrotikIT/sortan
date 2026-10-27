@@ -10,6 +10,8 @@
 .admin-pagination a{padding:6px 9px;border:1px solid #dce7e9;border-radius:7px;background:#fff;color:#167f9a}
 .admin-pagination strong{font-weight:600;color:#51686f;white-space:nowrap}
 .reconciliation-table td:first-child{font-weight:700;color:#3d555c}
+.reconciliation-table td:first-child strong{display:block}
+.reconciliation-detail{display:block;margin-top:3px;color:#788b90;font-size:10px;font-weight:400;line-height:1.6}
 .health-status{display:inline-flex;align-items:center;gap:6px}
 .health-status i{width:7px;height:7px;border-radius:50%;background:#c78323}
 .health-status.is-ok i{background:#1caa79}

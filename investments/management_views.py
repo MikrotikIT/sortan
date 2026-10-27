@@ -750,11 +750,36 @@ def _reconciliation_data(request):
         latest_check=Max("balance_checked_at"),
     )
     metrics = [
-        {"label": "إيداعات TRON المعتمدة", "count": approved_tron.count(), "amount": approved_tron.aggregate(total=Sum("amount"))["total"] or 0},
-        {"label": "الإيداعات اليدوية المعتمدة", "count": approved_manual.count(), "amount": approved_manual.aggregate(total=Sum("amount"))["total"] or 0},
-        {"label": "الأرصدة غير المتوقعة", "count": unexpected.count(), "amount": unexpected.aggregate(total=Sum("amount"))["total"] or 0},
-        {"label": "إيداعات قيد المراجعة", "count": pending.count(), "amount": pending.aggregate(total=Sum("amount"))["total"] or 0},
-        {"label": "السحوبات المدفوعة — الصافي", "count": paid_withdrawals.count(), "amount": paid_withdrawals.aggregate(total=Sum("net_amount"))["total"] or 0},
+        {
+            "label": "إيداعات TRON المعتمدة",
+            "description": "تحويلات USDT المكتشفة على شبكة TRON واعتمدت كإيداعات خلال الفترة.",
+            "count": approved_tron.count(),
+            "amount": approved_tron.aggregate(total=Sum("amount"))["total"] or 0,
+        },
+        {
+            "label": "الإيداعات اليدوية المعتمدة",
+            "description": "إيداعات سجلتها الإدارة واعتمدتها يدوياً.",
+            "count": approved_manual.count(),
+            "amount": approved_manual.aggregate(total=Sum("amount"))["total"] or 0,
+        },
+        {
+            "label": "الأرصدة غير المتوقعة",
+            "description": "تحويلات وصلت إلى المحفظة لكنها لم تُضف تلقائياً إلى الرصيد المتاح، مثل المبالغ الأقل من الحد الأدنى.",
+            "count": unexpected.count(),
+            "amount": unexpected.aggregate(total=Sum("amount"))["total"] or 0,
+        },
+        {
+            "label": "إيداعات قيد المراجعة",
+            "description": "إيداعات لم تُعتمد أو تُرفض بعد، لذلك تظهر منفصلة عن الإيداعات المعتمدة.",
+            "count": pending.count(),
+            "amount": pending.aggregate(total=Sum("amount"))["total"] or 0,
+        },
+        {
+            "label": "السحوبات المدفوعة — الصافي",
+            "description": "صافي ما دُفع للعملاء بعد احتساب الضريبة المسجلة في طلب السحب.",
+            "count": paid_withdrawals.count(),
+            "amount": paid_withdrawals.aggregate(total=Sum("net_amount"))["total"] or 0,
+        },
     ]
     return {
         "date_from": date_from,
