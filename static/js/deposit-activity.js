@@ -12,10 +12,18 @@
   if (!Array.isArray(examples) || examples.length === 0) return;
 
   const country = toast.querySelector("[data-activity-country]");
+  const flag = toast.querySelector("[data-activity-flag]");
   const phone = toast.querySelector("[data-activity-phone]");
   const amount = toast.querySelector("[data-activity-amount]");
   const close = toast.querySelector("[data-activity-close]");
   const interval = Math.max(5, Number(toast.dataset.activityInterval) || 10) * 1000;
+  const countryFlags = new Map([
+    ["سوريا", "🇸🇾"], ["سورية", "🇸🇾"], ["syria", "🇸🇾"],
+    ["العراق", "🇮🇶"], ["iraq", "🇮🇶"],
+    ["الأردن", "🇯🇴"], ["اردن", "🇯🇴"], ["jordan", "🇯🇴"],
+    ["السودان", "🇸🇩"], ["sudan", "🇸🇩"],
+    ["لبنان", "🇱🇧"], ["lebanon", "🇱🇧"],
+  ]);
 
   const hideToast = () => {
     toast.hidden = true;
@@ -23,7 +31,8 @@
 
   const showActivity = () => {
     const item = examples[Math.floor(Math.random() * examples.length)];
-    if (!item || !country || !phone || !amount) return;
+    if (!item || !country || !flag || !phone || !amount) return;
+    flag.textContent = countryFlags.get(item.country.trim().toLocaleLowerCase()) || "🌐";
     country.textContent = `من ${item.country}`;
     phone.textContent = item.phone;
     const numericAmount = Number(item.amount);
