@@ -2,8 +2,10 @@ from decimal import Decimal
 
 from django import forms
 from django.core.exceptions import ValidationError
+from django.utils.html import strip_tags
 
 from .models import Film, InvestmentVoucher, PlatformSettings, User
+from .notification_services import sanitize_notification_html
 from .services import parse_deposit_activity_examples, parse_withdrawal_referral_rules
 
 
@@ -129,6 +131,33 @@ class VoucherAmountForm(forms.ModelForm):
         model = InvestmentVoucher
         fields = ("amount",)
         widgets = {"amount": forms.NumberInput(attrs={"min": "0.01", "step": "0.01"})}
+
+
+class NotificationForm(forms.Form):
+    title = forms.CharField(
+        label="عنوان الإشعار",
+        max_length=180,
+        widget=forms.TextInput(attrs={"placeholder": "مثال: تحديث مهم على حسابك"}),
+    )
+    body_html = forms.CharField(
+        label="محتوى الإشعار",
+        max_length=20000,
+        help_text="يمكنك كتابة HTML أو استخدام أزرار التنسيق. تدعم الرسالة العناوين والفقرات والقوائم والروابط والجداول.",
+        widget=forms.Textarea(
+            attrs={
+                "rows": 12,
+                "dir": "ltr",
+                "spellcheck": "false",
+                "data-notification-html-source": "",
+            }
+        ),
+    )
+
+    def clean_body_html(self):
+        body = sanitize_notification_html(self.cleaned_data["body_html"])
+        if not strip_tags(body).strip():
+            raise ValidationError("اكتب محتوى نصياً للإشعار.")
+        return body
 
 
 class ManualDepositForm(forms.Form):

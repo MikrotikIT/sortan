@@ -6,15 +6,18 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
+from django.core.paginator import Paginator
 from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.safestring import mark_safe
 from django.db.models import Max, Q, Sum
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 
 from .forms import InvestmentForm, LoginForm, RegistrationForm, WithdrawalForm
-from .models import Deposit, Film, Investment, InvestmentVoucher, PlatformSettings, WithdrawalRequest
+from .models import Deposit, Film, Investment, InvestmentVoucher, PlatformSettings, UserNotification, WithdrawalRequest
+from .notification_services import sanitize_notification_html
 from .services import get_platform_settings, parse_deposit_activity_examples, parse_withdrawal_referral_rules, settle_due_investments, withdraw_available_at
 from .wallet_services import ensure_wallet
 
@@ -60,6 +63,45 @@ def sign_out(request):
     if request.method == "POST":
         logout(request)
     return redirect("login")
+
+
+@login_required
+def notification_list(request):
+    page = Paginator(
+        UserNotification.objects.filter(recipient=request.user).order_by("-created_at", "-pk"),
+        30,
+    ).get_page(request.GET.get("page"))
+    for notification in page.object_list:
+        notification.rendered_html = mark_safe(sanitize_notification_html(notification.body_html))
+    return render(request, "investments/notifications.html", {"notification_page": page})
+
+
+@login_required
+@require_POST
+def notification_mark_read(request, pk):
+    notification = get_object_or_404(UserNotification, pk=pk, recipient=request.user)
+    if not notification.is_read:
+        notification.is_read = True
+        notification.read_at = timezone.now()
+        notification.save(update_fields=("is_read", "read_at"))
+    return redirect("notifications")
+
+
+@login_required
+@require_POST
+def notifications_mark_all_read(request):
+    UserNotification.objects.filter(recipient=request.user, is_read=False).update(
+        is_read=True,
+        read_at=timezone.now(),
+    )
+    return redirect("notifications")
+
+
+@login_required
+@require_GET
+def notification_unread_count(request):
+    count = UserNotification.objects.filter(recipient=request.user, is_read=False).count()
+    return JsonResponse({"count": count})
 
 
 @login_required

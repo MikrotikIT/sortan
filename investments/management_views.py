@@ -13,8 +13,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from .management_forms import FilmForm, InternalBalanceCreditForm, ManualDepositForm, PlatformSettingsForm, VoucherAmountForm, VoucherIssueForm
-from .models import Deposit, Film, InternalBalanceCredit, Investment, InvestmentVoucher, User, Wallet, WithdrawalRequest
+from .management_forms import FilmForm, InternalBalanceCreditForm, ManualDepositForm, NotificationForm, PlatformSettingsForm, VoucherAmountForm, VoucherIssueForm
+from .models import Deposit, Film, InternalBalanceCredit, Investment, InvestmentVoucher, User, UserNotification, Wallet, WithdrawalRequest
 from .services import approve_deposit, get_platform_settings, pay_withdrawal, reject_deposit, reject_withdrawal
 from .wallet_services import decrypt_private_key, ensure_wallet, sync_all_wallets
 
@@ -46,6 +46,32 @@ def dashboard(request):
             "recent_investments": Investment.objects.select_related("user", "film").order_by("-invested_at")[:6],
             "recent_withdrawals": WithdrawalRequest.objects.select_related("user").order_by("-requested_at")[:5],
         },
+    )
+
+
+@staff_required
+def send_notifications(request):
+    form = NotificationForm(request.POST or None)
+    recipients = User.objects.filter(is_active=True, is_staff=False)
+    recipient_count = recipients.count()
+    if request.method == "POST" and form.is_valid():
+        notifications = [
+            UserNotification(
+                recipient=recipient,
+                sender=request.user,
+                title=form.cleaned_data["title"],
+                body_html=form.cleaned_data["body_html"],
+            )
+            for recipient in recipients.iterator(chunk_size=500)
+        ]
+        with transaction.atomic():
+            UserNotification.objects.bulk_create(notifications, batch_size=500)
+        messages.success(request, f"تم إرسال الإشعار إلى {len(notifications)} عميل.")
+        return redirect("management_send_notifications")
+    return render(
+        request,
+        "management/send_notifications.html",
+        {"form": form, "recipient_count": recipient_count},
     )
 
 
@@ -275,6 +301,16 @@ def customers(request):
 @staff_required
 def customer_detail(request, pk):
     customer = get_object_or_404(User.objects.select_related("referred_by"), pk=pk, is_staff=False)
+    notification_form = NotificationForm(request.POST or None)
+    if request.method == "POST" and notification_form.is_valid():
+        UserNotification.objects.create(
+            recipient=customer,
+            sender=request.user,
+            title=notification_form.cleaned_data["title"],
+            body_html=notification_form.cleaned_data["body_html"],
+        )
+        messages.success(request, f"تم إرسال إشعار إلى العميل {customer.phone}.")
+        return redirect("management_customer_detail", pk=customer.pk)
     wallet, _ = ensure_wallet(customer)
     return render(
         request,
@@ -289,6 +325,8 @@ def customer_detail(request, pk):
             "referrals": customer.referrals.order_by("-date_joined")[:50],
             "commissions": customer.referral_commissions.all()[:50],
             "paid_withdrawal_count": customer.withdrawals.filter(status=WithdrawalRequest.Status.PAID).count(),
+            "notification_form": notification_form,
+            "notifications": customer.notifications.order_by("-created_at", "-pk")[:10],
         },
     )
 

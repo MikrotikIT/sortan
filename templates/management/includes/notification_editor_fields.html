@@ -1,0 +1,28 @@
+<div class="admin-field notification-title-field">
+  <label for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+  {{ form.title }}
+  {% for error in form.title.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
+</div>
+<div class="admin-field notification-body-field">
+  <label for="{{ form.body_html.id_for_label }}">{{ form.body_html.label }}</label>
+  <div class="notification-editor" data-notification-editor>
+    <div class="notification-editor-toolbar" role="toolbar" aria-label="تنسيق محتوى الإشعار">
+      <button type="button" data-insert-before="&lt;strong&gt;" data-insert-after="&lt;/strong&gt;" aria-label="خط عريض"><b>B</b></button>
+      <button type="button" data-insert-before="&lt;em&gt;" data-insert-after="&lt;/em&gt;" aria-label="خط مائل"><i>I</i></button>
+      <button type="button" data-insert-before="&lt;u&gt;" data-insert-after="&lt;/u&gt;" aria-label="تسطير"><u>U</u></button>
+      <button type="button" data-insert-before="&lt;h2&gt;" data-insert-after="&lt;/h2&gt;" aria-label="عنوان فرعي">H2</button>
+      <button type="button" data-insert-before="&lt;p&gt;" data-insert-after="&lt;/p&gt;" aria-label="فقرة">¶</button>
+      <button type="button" data-insert-before="&lt;ul&gt;&lt;li&gt;" data-insert-after="&lt;/li&gt;&lt;/ul&gt;" aria-label="قائمة نقطية">• ☰</button>
+      <button type="button" data-insert-before="&lt;ol&gt;&lt;li&gt;" data-insert-after="&lt;/li&gt;&lt;/ol&gt;" aria-label="قائمة مرقمة">1. ☰</button>
+      <button type="button" data-insert-before="&lt;blockquote&gt;" data-insert-after="&lt;/blockquote&gt;" aria-label="اقتباس">❝</button>
+      <button type="button" data-insert-before="&lt;a href=&quot;https://example.com&quot;&gt;" data-insert-after="&lt;/a&gt;" aria-label="رابط">↗</button>
+    </div>
+    {{ form.body_html }}
+  </div>
+  {% if form.body_html.help_text %}<small>{{ form.body_html.help_text }}</small>{% endif %}
+  {% for error in form.body_html.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
+</div>
+<div class="notification-preview-field">
+  <span class="notification-preview-label">معاينة الإشعار</span>
+  <iframe class="notification-preview" data-notification-preview sandbox="" title="معاينة آمنة لمحتوى الإشعار"></iframe>
+</div>

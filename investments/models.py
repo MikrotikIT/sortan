@@ -69,6 +69,39 @@ class User(AbstractUser):
         return self.phone
 
 
+class UserNotification(models.Model):
+    recipient = models.ForeignKey(
+        User,
+        verbose_name="المستلم",
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    sender = models.ForeignKey(
+        User,
+        verbose_name="المرسل من الإدارة",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="sent_notifications",
+    )
+    title = models.CharField("العنوان", max_length=180)
+    body_html = models.TextField("محتوى HTML")
+    is_read = models.BooleanField("مقروء", default=False)
+    created_at = models.DateTimeField("تاريخ الإرسال", auto_now_add=True)
+    read_at = models.DateTimeField("تاريخ القراءة", null=True, blank=True)
+
+    class Meta:
+        ordering = ("-created_at", "-pk")
+        indexes = [
+            models.Index(fields=("recipient", "is_read", "created_at"), name="notif_user_read_time_idx"),
+        ]
+        verbose_name = "إشعار مستخدم"
+        verbose_name_plural = "إشعارات المستخدمين"
+
+    def __str__(self):
+        return f"{self.title} — {self.recipient.phone}"
+
+
 class PlatformSettings(models.Model):
     id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
     support_url = models.URLField("رابط الدعم الفني", max_length=500, blank=True, default="")

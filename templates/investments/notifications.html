@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}الإشعارات — CineVest{% endblock %}
+{% block breadcrumb %}الإشعارات{% endblock %}
+{% block content %}
+<section class="welcome-row notifications-heading">
+  <div><span class="eyebrow">آخر المستجدات</span><h1>الإشعارات</h1><p>رسائل وتحديثات خاصة بحسابك.</p></div>
+  {% if unread_notification_count %}<form method="post" action="{% url 'notifications_mark_all_read' %}">{% csrf_token %}<button class="btn btn-outline btn-small" type="submit">تحديد الكل كمقروء</button></form>{% endif %}
+</section>
+{% if notification_page.object_list %}
+<section class="notifications-list" aria-label="قائمة الإشعارات">
+  {% for notification in notification_page.object_list %}
+  <article class="notification-card{% if not notification.is_read %} is-unread{% endif %}">
+    <span class="notification-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="9"/></svg></span>
+    <div class="notification-card-copy">
+      <h2 class="notification-card-title">{{ notification.title }}{% if not notification.is_read %}<span class="notification-unread-pill">جديد</span>{% endif %}</h2>
+      <time datetime="{{ notification.created_at|date:'c' }}">{{ notification.created_at|date:"Y-m-d H:i" }}</time>
+      <div class="notification-card-body">{{ notification.rendered_html }}</div>
+    </div>
+    {% if notification.is_read %}<span class="notification-read-state">مقروء</span>{% else %}<form class="notification-read-form" method="post" action="{% url 'notification_mark_read' notification.pk %}">{% csrf_token %}<button class="notification-read-button" type="submit">تحديد كمقروء</button></form>{% endif %}
+  </article>
+  {% endfor %}
+</section>
+{% if notification_page.paginator.num_pages > 1 %}<nav class="notification-pagination" aria-label="صفحات الإشعارات">{% if notification_page.has_previous %}<a href="?page={{ notification_page.previous_page_number }}">الأحدث ←</a>{% endif %}<span>صفحة {{ notification_page.number }} من {{ notification_page.paginator.num_pages }}</span>{% if notification_page.has_next %}<a href="?page={{ notification_page.next_page_number }}">الأقدم →</a>{% endif %}</nav>{% endif %}
+{% else %}
+<section class="panel"><div class="empty-state compact"><span class="empty-icon">♧</span><strong>لا توجد إشعارات بعد</strong><p>ستظهر هنا الرسائل والتحديثات المرسلة إلى حسابك.</p></div></section>
+{% endif %}
+{% endblock %}

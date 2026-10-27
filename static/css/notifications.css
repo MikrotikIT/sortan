@@ -1,0 +1,33 @@
+.notification-bell{position:relative;display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;border:1px solid #e0eaed;border-radius:10px;background:#fff;color:#52717a;transition:background .15s,border-color .15s,color .15s}
+.notification-bell:hover{border-color:#a9dbe7;background:#effafd;color:#087f9f}
+.notification-bell svg{width:19px;height:19px}
+.notification-bell-count{position:absolute;top:-6px;inset-inline-start:-7px;display:grid;place-items:center;min-width:18px;height:18px;padding:0 4px;border:2px solid #fff;border-radius:12px;background:#d64b42;color:#fff;font:700 9px/1 "DM Sans","Tajawal",sans-serif}
+.notification-bell-count[hidden]{display:none}
+.notifications-heading{align-items:center}
+.notifications-heading form{margin:0}
+.notifications-list{display:grid;gap:12px}
+.notification-card{position:relative;display:grid;grid-template-columns:38px minmax(0,1fr) auto;align-items:start;gap:12px;padding:17px 18px;border:1px solid #e5ecee;border-radius:12px;background:#fff;box-shadow:0 8px 22px rgba(18,48,59,.04)}
+.notification-card.is-unread{border-color:#b9e1e9;background:linear-gradient(110deg,#fff,#f1fbfd);box-shadow:0 8px 24px rgba(18,112,138,.08)}
+.notification-card-icon{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:#e8f6fa;color:#1485a5}
+.notification-card.is-unread .notification-card-icon{background:#d8f2f7;color:#067a98}
+.notification-card-icon svg{width:19px;height:19px}
+.notification-card-copy{min-width:0}
+.notification-card-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:1px 0 5px;color:#18353e;font-size:14px}
+.notification-unread-pill{padding:3px 7px;border-radius:12px;background:#e7f7fa;color:#087d99;font-size:9px;font-weight:700}
+.notification-card time{display:block;margin-bottom:9px;color:#93a1a5;font:10px "DM Sans","Tajawal",sans-serif;direction:rtl}
+.notification-card-body{color:#546b72;font-size:12px;line-height:1.9;overflow-wrap:anywhere}
+.notification-card-body>*:first-child{margin-top:0}
+.notification-card-body>*:last-child{margin-bottom:0}
+.notification-card-body a{color:#087f9f;text-decoration:underline;text-underline-offset:2px}
+.notification-card-body h1,.notification-card-body h2,.notification-card-body h3,.notification-card-body h4{margin:12px 0 7px;color:#18353e;font-size:1.15em}
+.notification-card-body ul,.notification-card-body ol{padding-inline-start:22px}
+.notification-card-body blockquote{margin:9px 0;padding:6px 12px;border-inline-start:3px solid #77c8d9;background:#f2fafc;color:#58717a}
+.notification-card-body pre,.notification-card-body code{padding:2px 5px;border-radius:4px;background:#f1f5f6;color:#32515a;font-family:monospace;direction:ltr}
+.notification-card-body pre{padding:10px;overflow:auto}
+.notification-read-form{margin:0}
+.notification-read-button{padding:7px 9px;border:1px solid #dce7e9;border-radius:7px;background:#fff;color:#5d7379;font:600 10px "Tajawal",sans-serif;cursor:pointer;white-space:nowrap}
+.notification-read-button:hover{border-color:#9dd4e0;color:#087f9f}
+.notification-read-state{padding:7px 9px;color:#98a5a9;font-size:10px;white-space:nowrap}
+.notification-pagination{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:18px;color:#72868c;font-size:11px}
+.notification-pagination a{padding:7px 11px;border:1px solid #dce7e9;border-radius:7px;background:#fff;color:#287c91}
+@media(max-width:520px){.notification-card{grid-template-columns:32px minmax(0,1fr);gap:9px;padding:14px}.notification-card-icon{width:31px;height:31px}.notification-read-form,.notification-read-state{grid-column:2;justify-self:start}.notification-read-state{padding-inline:0}}

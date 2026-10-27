@@ -1,0 +1,17 @@
+{% extends 'management/base.html' %}
+{% load static %}
+{% block title %}إرسال الإشعارات — الإدارة{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/notification-admin.css' %}">{% endblock %}
+{% block content %}
+<section class="management-heading"><div><span class="eyebrow">التواصل مع العملاء</span><h1>إرسال الإشعارات</h1><p>اكتب تحديثاً يظهر في مركز الإشعارات لدى العملاء النشطين.</p></div></section>
+<section class="management-panel notification-composer-panel">
+  <div class="management-panel-head"><div><span class="eyebrow">إشعار جماعي</span><h2>إنشاء رسالة جديدة</h2></div></div>
+  <form method="post" class="management-form notification-composer-form" data-notification-form>
+    {% csrf_token %}
+    {% include 'management/includes/notification_editor_fields.html' with form=form %}
+    <div class="notification-send-summary"><span aria-hidden="true">◎</span><span>سيُرسل هذا الإشعار إلى <strong>{{ recipient_count }} عميلاً نشطاً</strong>.</span></div>
+    <div class="form-actions"><button class="btn btn-primary" type="submit">إرسال الإشعار الآن</button></div>
+  </form>
+</section>
+{% endblock %}
+{% block extra_js %}<script src="{% static 'js/notification-editor.js' %}"></script>{% endblock %}

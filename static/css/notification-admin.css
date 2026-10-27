@@ -1,0 +1,21 @@
+.notification-composer-panel{max-width:980px}
+.notification-composer-form{grid-template-columns:1fr}
+.notification-title-field,.notification-body-field,.notification-preview-field{grid-column:1/-1}
+.notification-editor{overflow:hidden;border:1px solid #dbe5e7;border-radius:9px;background:#fff}
+.notification-editor-toolbar{display:flex;flex-wrap:wrap;gap:5px;padding:8px;border-bottom:1px solid #e7eef0;background:#f7fafb}
+.notification-editor-toolbar button{display:grid;min-width:34px;height:32px;place-items:center;padding:0 7px;border:1px solid #dce6e8;border-radius:6px;background:#fff;color:#38565f;font:600 11px "DM Sans","Tajawal",sans-serif;cursor:pointer}
+.notification-editor-toolbar button:hover{border-color:#83c9d8;background:#effafd;color:#087f9f}
+.notification-editor textarea{display:block;width:100%;min-height:230px;padding:13px;border:0!important;border-radius:0!important;box-shadow:none!important;resize:vertical;background:#fff;color:#263f46;font:12px/1.7 Consolas,"Courier New",monospace;tab-size:2}
+.notification-editor textarea:focus{outline:2px solid #9ad9e5;outline-offset:-2px}
+.notification-format-help{display:block;margin-top:7px;color:#819196;font-size:10px;line-height:1.7}
+.notification-preview-field{display:grid;gap:7px}
+.notification-preview-label{font-size:11px;font-weight:700;color:#425a61}
+.notification-preview{width:100%;height:230px;border:1px solid #dbe5e7;border-radius:9px;background:#fff}
+.notification-send-summary{display:flex;align-items:center;gap:9px;padding:11px 13px;border:1px solid #d8eaf0;border-radius:9px;background:#f1fafc;color:#54727b;font-size:11px}
+.notification-send-summary strong{color:#0d748e}
+.notification-history-list{display:grid;gap:8px}
+.notification-history-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 12px;padding:11px 12px;border:1px solid #e9eff0;border-radius:8px;background:#fbfcfc}
+.notification-history-row strong{color:#304b53;font-size:11px}
+.notification-history-row time{color:#92a0a4;font:10px "DM Sans","Tajawal",sans-serif}
+.notification-history-row small{grid-column:1/-1;color:#788b91;font-size:10px}
+@media(max-width:600px){.notification-editor textarea{min-height:190px}.notification-preview{height:190px}.notification-history-row{grid-template-columns:1fr}.notification-history-row time{grid-column:1}}
