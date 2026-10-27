@@ -1,0 +1,19 @@
+.admin-filter-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));align-items:end;gap:10px;margin:0 0 16px;padding:13px;border:1px solid #e6edef;border-radius:10px;background:#f8fbfc}
+.admin-filter-bar .admin-field{margin:0}
+.admin-filter-bar label{display:block;margin:0 0 5px;color:#526970;font-size:10px;font-weight:700}
+.admin-filter-bar input,.admin-filter-bar select{width:100%;min-width:0;min-height:38px;padding:7px 9px;border:1px solid #dce6e8;border-radius:7px;background:#fff;color:#263f46;font:11px "Tajawal",sans-serif}
+.admin-filter-actions{display:flex;align-items:center;gap:8px}
+.admin-filter-actions .btn{min-height:38px;padding:8px 13px;white-space:nowrap}
+.admin-filter-actions>a{color:#74878c;font-size:10px;white-space:nowrap}
+.admin-pagination{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:15px;padding-top:12px;border-top:1px solid #edf1f2;color:#7a8b90;font-size:10px}
+.admin-pagination>div{display:flex;align-items:center;gap:11px}
+.admin-pagination a{padding:6px 9px;border:1px solid #dce7e9;border-radius:7px;background:#fff;color:#167f9a}
+.admin-pagination strong{font-weight:600;color:#51686f;white-space:nowrap}
+.reconciliation-table td:first-child{font-weight:700;color:#3d555c}
+.health-status{display:inline-flex;align-items:center;gap:6px}
+.health-status i{width:7px;height:7px;border-radius:50%;background:#c78323}
+.health-status.is-ok i{background:#1caa79}
+.health-status.is-error i{background:#cc5c52}
+.health-error-list{margin:0;padding-inline-start:18px;color:#a34c45;font-size:10px;line-height:1.8}
+@media(min-width:1051px){.management-nav{flex-wrap:wrap;row-gap:1px}}
+@media(max-width:600px){.admin-filter-bar{grid-template-columns:1fr 1fr;padding:10px}.admin-filter-actions{grid-column:1/-1}.admin-filter-actions .btn{flex:1}.admin-pagination{align-items:flex-start;flex-direction:column}.admin-pagination>div{width:100%;justify-content:space-between}}

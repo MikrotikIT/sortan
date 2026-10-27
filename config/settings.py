@@ -138,6 +138,10 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_IGNORE_RESULT = True
 CELERY_BEAT_SCHEDULE = {
+    "admin-health-heartbeat": {
+        "task": "investments.tasks.record_celery_heartbeat",
+        "schedule": 60,
+    },
     "sync-tron-deposits": {
         "task": "investments.tasks.sync_tron_deposits",
         "schedule": TRON_DEPOSIT_SYNC_INTERVAL_SECONDS,

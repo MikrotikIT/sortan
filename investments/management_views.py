@@ -1,3 +1,4 @@
+import csv
 from functools import wraps
 from datetime import timedelta
 
@@ -7,17 +8,19 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured, PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, DateTimeField, F, Q, Sum
+from django.db.models import Count, DateTimeField, F, Max, Q, Sum
 from django.db.models.functions import Coalesce, TruncDate
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_POST
 
 from .management_forms import FilmForm, InternalBalanceCreditForm, ManualDepositForm, NotificationForm, PlatformSettingsForm, VoucherAmountForm, VoucherIssueForm
-from .models import Deposit, Film, InternalBalanceCredit, Investment, InvestmentVoucher, User, UserNotification, Wallet, WithdrawalRequest
+from .models import Deposit, Film, InternalBalanceCredit, Investment, InvestmentVoucher, ServiceHeartbeat, User, UserNotification, Wallet, WalletSyncRun, WithdrawalRequest
 from .services import approve_deposit, deposit_status_for_amount, get_platform_settings, pay_withdrawal, reject_deposit, reject_withdrawal
 from .wallet_services import decrypt_private_key, ensure_wallet, sync_all_wallets
+from config.celery import app as celery_app
 
 
 def staff_required(view_func):
@@ -29,6 +32,49 @@ def staff_required(view_func):
         return view_func(request, *args, **kwargs)
 
     return wrapped
+
+
+def _date_filters(request, start_key="date_from", end_key="date_to"):
+    try:
+        date_from = parse_date(request.GET.get(start_key, "")) if request.GET.get(start_key) else None
+    except ValueError:
+        date_from = None
+    try:
+        date_to = parse_date(request.GET.get(end_key, "")) if request.GET.get(end_key) else None
+    except ValueError:
+        date_to = None
+    if date_from and date_to and date_from > date_to:
+        date_from, date_to = date_to, date_from
+    return date_from, date_to
+
+
+def _apply_date_range(queryset, field_name, date_from, date_to):
+    if date_from:
+        queryset = queryset.filter(**{f"{field_name}__date__gte": date_from})
+    if date_to:
+        queryset = queryset.filter(**{f"{field_name}__date__lte": date_to})
+    return queryset
+
+
+def _apply_deposit_date_range(queryset, date_from, date_to):
+    if date_from:
+        queryset = queryset.filter(
+            Q(occurred_at__date__gte=date_from)
+            | Q(occurred_at__isnull=True, created_at__date__gte=date_from)
+        )
+    if date_to:
+        queryset = queryset.filter(
+            Q(occurred_at__date__lte=date_to)
+            | Q(occurred_at__isnull=True, created_at__date__lte=date_to)
+        )
+    return queryset
+
+
+def _paginate(request, queryset, per_page=50):
+    page_obj = Paginator(queryset, per_page).get_page(request.GET.get("page"))
+    params = request.GET.copy()
+    params.pop("page", None)
+    return page_obj, params.urlencode()
 
 
 @staff_required
@@ -166,12 +212,28 @@ def vouchers(request):
             )
         messages.success(request, f"تم إصدار {count} قسيمة للمستخدم {user.phone}.")
         return redirect("management_vouchers")
+    voucher_items = InvestmentVoucher.objects.select_related("user").order_by("-created_at", "-pk")
+    query = request.GET.get("q", "").strip()
+    status = request.GET.get("status", "")
+    if query:
+        voucher_items = voucher_items.filter(user__phone__icontains=query)
+    if status in InvestmentVoucher.Status.values:
+        voucher_items = voucher_items.filter(status=status)
+    date_from, date_to = _date_filters(request)
+    voucher_items = _apply_date_range(voucher_items, "created_at", date_from, date_to)
+    page_obj, pagination_query = _paginate(request, voucher_items)
     return render(
         request,
         "management/vouchers.html",
         {
             "form": form,
-            "vouchers": InvestmentVoucher.objects.select_related("user").order_by("-created_at")[:100],
+            "vouchers": page_obj,
+            "page_obj": page_obj,
+            "pagination_query": pagination_query,
+            "filter_q": query,
+            "filter_status": status,
+            "date_from": date_from,
+            "date_to": date_to,
             "available_count": InvestmentVoucher.objects.filter(status=InvestmentVoucher.Status.AVAILABLE).count(),
             "used_count": InvestmentVoucher.objects.filter(status=InvestmentVoucher.Status.USED).count(),
         },
@@ -244,12 +306,37 @@ def deposits(request):
             else:
                 messages.info(request, "تمت معالجة هذا الإيداع سابقاً.")
             return redirect("management_deposits")
+    deposit_items = Deposit.objects.select_related("user").order_by("-created_at", "-pk")
+    query = request.GET.get("q", "").strip()
+    status = request.GET.get("status", "")
+    source = request.GET.get("source", "")
+    if query:
+        deposit_items = deposit_items.filter(
+            Q(user__phone__icontains=query)
+            | Q(reference__icontains=query)
+            | Q(transaction_id__icontains=query)
+        )
+    if status in Deposit.Status.values:
+        deposit_items = deposit_items.filter(status=status)
+    if source in Deposit.Source.values:
+        deposit_items = deposit_items.filter(source=source)
+    date_from, date_to = _date_filters(request)
+    deposit_items = _apply_deposit_date_range(deposit_items, date_from, date_to)
+    page_obj, pagination_query = _paginate(request, deposit_items)
     return render(
         request,
         "management/deposits.html",
         {
             "form": form,
-            "deposits": Deposit.objects.select_related("user").order_by("-created_at")[:100],
+            "deposits": page_obj,
+            "page_obj": page_obj,
+            "pagination_query": pagination_query,
+            "filter_q": query,
+            "filter_status": status,
+            "filter_source": source,
+            "date_from": date_from,
+            "date_to": date_to,
+            "deposit_status_choices": Deposit.Status.choices,
             "minimum_deposit_amount": get_platform_settings().minimum_deposit_amount,
         },
     )
@@ -274,11 +361,29 @@ def internal_credits(request):
         messages.success(request, f"تمت إضافة {amount} USDT إلى رصيد العميل {user.phone}.")
         return redirect("management_internal_credits")
 
-    credits = InternalBalanceCredit.objects.select_related("user", "admin")[:150]
+    credits = InternalBalanceCredit.objects.select_related("user", "admin").order_by("-created_at", "-pk")
+    query = request.GET.get("q", "").strip()
+    if query:
+        credits = credits.filter(
+            Q(user__phone__icontains=query)
+            | Q(admin__phone__icontains=query)
+            | Q(internal_note__icontains=query)
+        )
+    date_from, date_to = _date_filters(request)
+    credits = _apply_date_range(credits, "created_at", date_from, date_to)
+    page_obj, pagination_query = _paginate(request, credits)
     return render(
         request,
         "management/internal_credits.html",
-        {"form": form, "credits": credits},
+        {
+            "form": form,
+            "credits": page_obj,
+            "page_obj": page_obj,
+            "pagination_query": pagination_query,
+            "filter_q": query,
+            "date_from": date_from,
+            "date_to": date_to,
+        },
     )
 
 
@@ -298,16 +403,37 @@ def withdrawals(request):
         else:
             messages.info(request, "تمت معالجة طلب السحب سابقاً أو لم يعد قيد المراجعة.")
         return redirect("management_withdrawals")
+    withdrawal_items = WithdrawalRequest.objects.select_related("user").order_by("-requested_at", "-pk")
+    query = request.GET.get("q", "").strip()
+    status = request.GET.get("status", "")
+    if query:
+        withdrawal_items = withdrawal_items.filter(
+            Q(user__phone__icontains=query) | Q(wallet_address__icontains=query)
+        )
+    if status in WithdrawalRequest.Status.values:
+        withdrawal_items = withdrawal_items.filter(status=status)
+    date_from, date_to = _date_filters(request)
+    withdrawal_items = _apply_date_range(withdrawal_items, "requested_at", date_from, date_to)
+    page_obj, pagination_query = _paginate(request, withdrawal_items)
     return render(
         request,
         "management/withdrawals.html",
-        {"withdrawals": WithdrawalRequest.objects.select_related("user").order_by("-requested_at")[:150]},
+        {
+            "withdrawals": page_obj,
+            "page_obj": page_obj,
+            "pagination_query": pagination_query,
+            "filter_q": query,
+            "filter_status": status,
+            "date_from": date_from,
+            "date_to": date_to,
+        },
     )
 
 
 @staff_required
 def customers(request):
     query = request.GET.get("q", "").strip()
+    status = request.GET.get("status", "")
     items = User.objects.filter(is_staff=False).select_related("referred_by").annotate(
         investment_count=Count("investments", distinct=True),
         deposit_count=Count("deposits", filter=Q(deposits__status=Deposit.Status.APPROVED), distinct=True),
@@ -318,7 +444,26 @@ def customers(request):
     ).order_by("-date_joined")
     if query:
         items = items.filter(Q(phone__icontains=query) | Q(referral_code__icontains=query))
-    return render(request, "management/customers.html", {"customers": items[:200], "query": query})
+    if status == "active":
+        items = items.filter(is_active=True)
+    elif status == "inactive":
+        items = items.filter(is_active=False)
+    date_from, date_to = _date_filters(request)
+    items = _apply_date_range(items, "date_joined", date_from, date_to)
+    page_obj, pagination_query = _paginate(request, items)
+    return render(
+        request,
+        "management/customers.html",
+        {
+            "customers": page_obj,
+            "page_obj": page_obj,
+            "pagination_query": pagination_query,
+            "query": query,
+            "filter_status": status,
+            "date_from": date_from,
+            "date_to": date_to,
+        },
+    )
 
 
 @staff_required
@@ -355,13 +500,83 @@ def customer_detail(request, pk):
 
 
 @staff_required
+def investments(request):
+    queryset = Investment.objects.select_related("user", "film").order_by("-invested_at", "-pk")
+    query = request.GET.get("q", "").strip()
+    customer_query = request.GET.get("customer", "").strip()
+    film_id = request.GET.get("film", "").strip()
+    status = request.GET.get("status", "")
+    funding_source = request.GET.get("funding", "")
+    if query:
+        queryset = queryset.filter(
+            Q(user__phone__icontains=query)
+            | Q(film_title__icontains=query)
+            | Q(film_url__icontains=query)
+        )
+    if customer_query:
+        queryset = queryset.filter(user__phone__icontains=customer_query)
+    if film_id.isdigit():
+        queryset = queryset.filter(film_id=int(film_id))
+    if status in Investment.Status.values:
+        queryset = queryset.filter(status=status)
+    if funding_source in Investment.FundingSource.values:
+        queryset = queryset.filter(funding_source=funding_source)
+    invested_from, invested_to = _date_filters(request, "invested_from", "invested_to")
+    queryset = _apply_date_range(queryset, "invested_at", invested_from, invested_to)
+    matures_from, matures_to = _date_filters(request, "matures_from", "matures_to")
+    queryset = _apply_date_range(queryset, "matures_at", matures_from, matures_to)
+    page_obj, pagination_query = _paginate(request, queryset)
+    return render(
+        request,
+        "management/investments.html",
+        {
+            "investments": page_obj,
+            "page_obj": page_obj,
+            "pagination_query": pagination_query,
+            "filter_q": query,
+            "filter_customer": customer_query,
+            "filter_film": film_id,
+            "films": Film.objects.order_by("title"),
+            "filter_status": status,
+            "filter_funding": funding_source,
+            "invested_from": invested_from,
+            "invested_to": invested_to,
+            "matures_from": matures_from,
+            "matures_to": matures_to,
+        },
+    )
+
+
+@staff_required
 def wallets(request):
     queryset = Wallet.objects.select_related("user").order_by("-created_at")
+    query = request.GET.get("q", "").strip()
+    sync_status = request.GET.get("sync", "")
+    if query:
+        queryset = queryset.filter(Q(user__phone__icontains=query) | Q(address__icontains=query))
+    if sync_status == "never":
+        queryset = queryset.filter(balance_checked_at__isnull=True)
+    elif sync_status == "stale":
+        stale_before = timezone.now() - timedelta(
+            seconds=max(settings.TRON_DEPOSIT_SYNC_INTERVAL_SECONDS * 2, 600)
+        )
+        queryset = queryset.filter(balance_checked_at__lt=stale_before)
+    elif sync_status == "positive":
+        queryset = queryset.filter(usdt_balance__gt=0)
+    date_from, date_to = _date_filters(request)
+    queryset = _apply_date_range(queryset, "balance_checked_at", date_from, date_to)
+    page_obj, pagination_query = _paginate(request, queryset)
     return render(
         request,
         "management/wallets.html",
         {
-            "wallets": queryset[:250],
+            "wallets": page_obj,
+            "page_obj": page_obj,
+            "pagination_query": pagination_query,
+            "filter_q": query,
+            "filter_sync": sync_status,
+            "date_from": date_from,
+            "date_to": date_to,
             "wallet_count": queryset.count(),
             "total_usdt": queryset.aggregate(total=Sum("usdt_balance"))["total"] or 0,
             "has_trongrid_key": bool(settings.TRONGRID_API_KEY),
@@ -394,10 +609,47 @@ def wallet_detail(request, pk):
 
 
 @staff_required
+def system_health(request):
+    now = timezone.now()
+    latest_sync = WalletSyncRun.objects.order_by("-started_at", "-pk").first()
+    last_successful_sync = WalletSyncRun.objects.filter(status=WalletSyncRun.Status.SUCCEEDED).order_by("-completed_at", "-pk").first()
+    sync_runs = WalletSyncRun.objects.select_related("requested_by").order_by("-started_at", "-pk")[:30]
+    heartbeat = ServiceHeartbeat.objects.filter(component="beat-worker-pipeline").first()
+    heartbeat_is_recent = bool(
+        heartbeat and heartbeat.last_seen_at >= now - timedelta(minutes=3)
+    )
+    try:
+        worker_replies = celery_app.control.inspect(timeout=1).ping() or {}
+        worker_names = sorted(worker_replies.keys())
+        worker_probe_error = False
+    except Exception:
+        worker_names = []
+        worker_probe_error = True
+    return render(
+        request,
+        "management/system_health.html",
+        {
+            "latest_sync": latest_sync,
+            "last_successful_sync": last_successful_sync,
+            "sync_runs": sync_runs,
+            "heartbeat": heartbeat,
+            "heartbeat_is_recent": heartbeat_is_recent,
+            "worker_names": worker_names,
+            "worker_probe_error": worker_probe_error,
+            "tron_configured": bool(settings.TRONGRID_API_KEY),
+            "sync_interval_seconds": settings.TRON_DEPOSIT_SYNC_INTERVAL_SECONDS,
+        },
+    )
+
+
+@staff_required
 @require_POST
 def sync_wallet_balances(request):
     try:
-        result = sync_all_wallets()
+        result = sync_all_wallets(
+            trigger=WalletSyncRun.Trigger.MANUAL,
+            requested_by=request.user,
+        )
     except ImproperlyConfigured as exc:
         messages.error(request, str(exc))
         return redirect("management_wallets")
@@ -469,3 +721,107 @@ def finance(request):
             .select_related("user", "wallet").order_by("-occurred_at", "-created_at")[:30],
         },
     )
+
+
+def _reconciliation_data(request):
+    today = timezone.localdate()
+    date_from, date_to = _date_filters(request)
+    if not date_from and not date_to:
+        date_from = today - timedelta(days=29)
+        date_to = today
+
+    deposits = _apply_deposit_date_range(Deposit.objects.select_related("user", "wallet"), date_from, date_to)
+    approved_tron = deposits.filter(status=Deposit.Status.APPROVED, source=Deposit.Source.TRON)
+    approved_manual = deposits.filter(status=Deposit.Status.APPROVED, source=Deposit.Source.MANUAL)
+    unexpected = deposits.filter(status=Deposit.Status.UNEXPECTED)
+    pending = deposits.filter(status=Deposit.Status.PENDING)
+
+    paid_withdrawals = _apply_date_range(
+        WithdrawalRequest.objects.select_related("user").filter(status=WithdrawalRequest.Status.PAID),
+        "processed_at",
+        date_from,
+        date_to,
+    )
+    wallet_queryset = Wallet.objects.select_related("user").order_by("pk")
+    stale_before = timezone.now() - timedelta(seconds=max(settings.TRON_DEPOSIT_SYNC_INTERVAL_SECONDS * 2, 600))
+    wallet_totals = wallet_queryset.aggregate(
+        total=Sum("usdt_balance"),
+        count=Count("pk"),
+        latest_check=Max("balance_checked_at"),
+    )
+    metrics = [
+        {"label": "إيداعات TRON المعتمدة", "count": approved_tron.count(), "amount": approved_tron.aggregate(total=Sum("amount"))["total"] or 0},
+        {"label": "الإيداعات اليدوية المعتمدة", "count": approved_manual.count(), "amount": approved_manual.aggregate(total=Sum("amount"))["total"] or 0},
+        {"label": "الأرصدة غير المتوقعة", "count": unexpected.count(), "amount": unexpected.aggregate(total=Sum("amount"))["total"] or 0},
+        {"label": "إيداعات قيد المراجعة", "count": pending.count(), "amount": pending.aggregate(total=Sum("amount"))["total"] or 0},
+        {"label": "السحوبات المدفوعة — الصافي", "count": paid_withdrawals.count(), "amount": paid_withdrawals.aggregate(total=Sum("net_amount"))["total"] or 0},
+    ]
+    return {
+        "date_from": date_from,
+        "date_to": date_to,
+        "metrics": metrics,
+        "wallets": wallet_queryset,
+        "wallet_total": wallet_totals["total"] or 0,
+        "wallet_count": wallet_totals["count"],
+        "latest_wallet_check": wallet_totals["latest_check"],
+        "wallets_without_sync": wallet_queryset.filter(balance_checked_at__isnull=True).count(),
+        "wallets_stale": wallet_queryset.filter(balance_checked_at__lt=stale_before).count(),
+        "deposits": deposits.order_by("occurred_at", "created_at", "pk"),
+        "paid_withdrawals": paid_withdrawals.order_by("processed_at", "pk"),
+    }
+
+
+@staff_required
+def reconciliation(request):
+    return render(request, "management/reconciliation.html", _reconciliation_data(request))
+
+
+@staff_required
+def reconciliation_export(request):
+    report = _reconciliation_data(request)
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    response.write("\ufeff")
+    response["Content-Disposition"] = "attachment; filename=financial-reconciliation.csv"
+    writer = csv.writer(response)
+    writer.writerow(["نوع البيان", "العدد", "المبلغ USDT", "رقم العميل", "التاريخ", "الحالة", "المصدر", "مرجع / TxID", "عنوان المحفظة"])
+    for metric in report["metrics"]:
+        writer.writerow([metric["label"], metric["count"], metric["amount"]])
+    writer.writerow(["الرصيد الفعلي الحالي على الشبكة", report["wallet_count"], report["wallet_total"]])
+    writer.writerow([])
+    for deposit in report["deposits"]:
+        writer.writerow([
+            "إيداع",
+            "",
+            deposit.amount,
+            deposit.user.phone,
+            deposit.occurred_at or deposit.created_at,
+            deposit.get_status_display(),
+            deposit.get_source_display(),
+            deposit.transaction_id or deposit.reference,
+            deposit.wallet.address if deposit.wallet_id else "",
+        ])
+    for withdrawal in report["paid_withdrawals"]:
+        writer.writerow([
+            "سحب مدفوع — الصافي",
+            "",
+            withdrawal.net_amount,
+            withdrawal.user.phone,
+            withdrawal.processed_at,
+            withdrawal.get_status_display(),
+            "TRC20",
+            "",
+            withdrawal.wallet_address,
+        ])
+    for wallet in report["wallets"]:
+        writer.writerow([
+            "لقطة رصيد شبكة",
+            "",
+            wallet.usdt_balance,
+            wallet.user.phone,
+            wallet.balance_checked_at or "",
+            "مزامنة قديمة" if wallet.balance_checked_at else "لم تتم المزامنة",
+            "TRC20",
+            "",
+            wallet.address,
+        ])
+    return response

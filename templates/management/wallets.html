@@ -7,14 +7,21 @@
   <form method="post" action="{% url 'management_wallet_sync' %}">{% csrf_token %}<button class="btn btn-primary" type="submit">⟳ مزامنة الإيداعات والأرصدة</button></form>
 </section>
 {% if not has_trongrid_key %}<div class="notice notice-info wallet-setup-notice"><strong>إعداد مطلوب للمزامنة</strong><p>أضف <code>TRONGRID_API_KEY</code> إلى متغيرات البيئة ثم أعد تشغيل Django. يمكنك عرض العناوين الآن، لكن مزامنة الإيداعات وقراءة الأرصدة تحتاج مفتاح TronGrid.</p></div>{% endif %}
-<div class="notice notice-info wallet-setup-notice"><strong>مزامنة الإيداعات عبر Celery</strong><p>شغّل Redis (مثال Docker: <code>docker run --name Kodi TV-redis -p 127.0.0.1:6379:6379 -d redis:7-alpine</code>)، ثم شغّل الواركر وBeat كلاهما في نافذة منفصلة: <code>python -m celery -A config worker --pool=solo --loglevel=info</code> و <code>python -m celery -A config beat --loglevel=info</code>. شغّل Beat مرة واحدة فقط. يفحص Beat الإيداعات كل {{ sync_interval_seconds }} ثانية؛ يمكنك ضبطها بـ TRON_DEPOSIT_SYNC_INTERVAL_SECONDS.</p></div>
+<div class="notice notice-info wallet-setup-notice"><strong>المزامنة المجدولة</strong><p>تعمل المزامنة تلقائياً كل {{ sync_interval_seconds }} ثانية عبر Celery. استخدم الزر لبدء مزامنة يدوية، وتابع آخر النتائج والأخطاء من <a href="{% url 'management_system_health' %}">صحة الخدمات</a>.</p></div>
 <section class="management-stats wallet-stats">
   <div class="management-stat"><span>عدد المحافظ</span><strong>{{ wallet_count }}</strong><small>عنوان مستقل لكل حساب</small></div>
-  <div class="management-stat"><span>مجموع الرصيد الفعلي</span><strong>{{ total_usdt|floatformat:2 }}</strong><small>USDT في جميع المحافظ · حسب آخر مزامنة</small></div>
+  <div class="management-stat"><span>مجموع الرصيد الفعلي</span><strong>{{ total_usdt|floatformat:2 }}</strong><small>USDT في المحافظ المعروضة · حسب آخر مزامنة</small></div>
   <div class="management-stat"><span>مفتاح المحفظة</span><strong>مشفّر</strong><small>الكشف متاح للمدير الأعلى فقط</small></div>
 </section>
 <section class="management-panel">
   <div class="management-panel-head"><div><span class="eyebrow">العناوين والأرصدة</span><h2>محافظ العملاء</h2></div></div>
+  <form method="get" class="admin-filter-bar">
+    <div class="admin-field"><label for="wallet-q">بحث</label><input id="wallet-q" name="q" value="{{ filter_q }}" placeholder="رقم الهاتف أو عنوان TRC20"></div>
+    <div class="admin-field"><label for="wallet-sync">حالة المزامنة</label><select id="wallet-sync" name="sync"><option value="">كل المحافظ</option><option value="never" {% if filter_sync == 'never' %}selected{% endif %}>لم تتم مزامنتها</option><option value="stale" {% if filter_sync == 'stale' %}selected{% endif %}>مزامنتها قديمة</option><option value="positive" {% if filter_sync == 'positive' %}selected{% endif %}>لديها رصيد على الشبكة</option></select></div>
+    <div class="admin-field"><label for="wallet-from">آخر مزامنة من</label><input id="wallet-from" type="date" name="date_from" value="{{ date_from|date:'Y-m-d' }}"></div>
+    <div class="admin-field"><label for="wallet-to">آخر مزامنة إلى</label><input id="wallet-to" type="date" name="date_to" value="{{ date_to|date:'Y-m-d' }}"></div>
+    <div class="admin-filter-actions"><button class="btn btn-primary" type="submit">تصفية</button><a href="{% url 'management_wallets' %}">مسح</a></div>
+  </form>
   {% if wallets %}
   <div class="admin-table-wrap">
     <table class="admin-table wallet-table">
@@ -33,6 +40,7 @@
       </tbody>
     </table>
   </div>
+  {% include 'management/includes/pagination.html' %}
   {% else %}<div class="admin-empty">لا توجد محافظ. شغّل أمر إنشاء المحافظ للحسابات القديمة.</div>{% endif %}
 </section>
 {% endblock %}

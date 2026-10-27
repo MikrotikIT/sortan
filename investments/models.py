@@ -305,6 +305,51 @@ class Wallet(models.Model):
         return f"{self.user.phone} — {self.address}"
 
 
+class WalletSyncRun(models.Model):
+    class Status(models.TextChoices):
+        RUNNING = "running", "جارٍ"
+        SUCCEEDED = "succeeded", "ناجح"
+        PARTIAL = "partial", "اكتمل مع أخطاء"
+        FAILED = "failed", "فشل"
+
+    class Trigger(models.TextChoices):
+        SCHEDULED = "scheduled", "مجدول"
+        MANUAL = "manual", "يدوي"
+
+    status = models.CharField("الحالة", max_length=12, choices=Status.choices, default=Status.RUNNING)
+    trigger = models.CharField("طريقة التشغيل", max_length=12, choices=Trigger.choices, default=Trigger.SCHEDULED)
+    requested_by = models.ForeignKey(
+        User,
+        verbose_name="طلب المزامنة بواسطة",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="wallet_sync_runs",
+    )
+    started_at = models.DateTimeField("وقت البدء", default=timezone.now)
+    completed_at = models.DateTimeField("وقت الانتهاء", null=True, blank=True)
+    total_wallets = models.PositiveIntegerField("عدد المحافظ", default=0)
+    updated_wallets = models.PositiveIntegerField("المحافظ التي تمت مزامنتها", default=0)
+    imported_deposits = models.PositiveIntegerField("الإيداعات المكتشفة", default=0)
+    failed_wallets = models.PositiveIntegerField("المحافظ التي تعذر تحديثها", default=0)
+    errors = models.JSONField("تفاصيل الأخطاء", default=list, blank=True)
+
+    class Meta:
+        ordering = ("-started_at", "-pk")
+        verbose_name = "عملية مزامنة محافظ"
+        verbose_name_plural = "عمليات مزامنة المحافظ"
+
+
+class ServiceHeartbeat(models.Model):
+    component = models.CharField("المكوّن", max_length=40, unique=True)
+    last_seen_at = models.DateTimeField("آخر نبضة", default=timezone.now)
+    details = models.CharField("تفاصيل", max_length=240, blank=True)
+
+    class Meta:
+        verbose_name = "نبضة خدمة"
+        verbose_name_plural = "نبضات الخدمات"
+
+
 class Deposit(models.Model):
     class Source(models.TextChoices):
         MANUAL = "manual", "يدوي"

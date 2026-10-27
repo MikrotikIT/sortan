@@ -1,0 +1,27 @@
+{% extends 'management/base.html' %}
+{% block title %}المطابقة المالية — Kodi TV{% endblock %}
+{% block content %}
+<section class="management-heading">
+  <div><span class="eyebrow">مقارنة التدفقات والأرصدة</span><h1>المطابقة المالية</h1><p>قارن الإيداعات والسحوبات خلال الفترة مع أحدث أرصدة محافظ TRON.</p></div>
+  <a class="btn btn-secondary" href="{% url 'management_reconciliation_export' %}?date_from={{ date_from|date:'Y-m-d' }}&amp;date_to={{ date_to|date:'Y-m-d' }}">تصدير CSV ↓</a>
+</section>
+<section class="management-panel">
+  <form method="get" class="admin-filter-bar">
+    <div class="admin-field"><label for="recon-from">من تاريخ</label><input id="recon-from" type="date" name="date_from" value="{{ date_from|date:'Y-m-d' }}"></div>
+    <div class="admin-field"><label for="recon-to">إلى تاريخ</label><input id="recon-to" type="date" name="date_to" value="{{ date_to|date:'Y-m-d' }}"></div>
+    <div class="admin-filter-actions"><button class="btn btn-primary" type="submit">تحديث التقرير</button><a href="{% url 'management_reconciliation' %}">آخر 30 يوماً</a></div>
+  </form>
+</section>
+<section class="management-stats finance-stats">
+  <div class="management-stat"><span>الرصيد الفعلي في المحافظ</span><strong>{{ wallet_total|floatformat:2 }}</strong><small>USDT حسب آخر مزامنة · {{ wallet_count }} محفظة</small></div>
+  <div class="management-stat"><span>آخر قراءة للمحافظ</span><strong>{% if latest_wallet_check %}{{ latest_wallet_check|date:"Y-m-d H:i" }}{% else %}—{% endif %}</strong><small>{{ wallets_without_sync }} لم تتم مزامنتها · {{ wallets_stale }} قراءتها قديمة</small></div>
+  <div class="management-stat"><span>الفترة المعروضة</span><strong>{{ date_from|date:"Y-m-d" }} — {{ date_to|date:"Y-m-d" }}</strong><small>التدفقات حسب تاريخ التحويل أو المعالجة</small></div>
+</section>
+<section class="management-panel">
+  <div class="management-panel-head"><div><span class="eyebrow">حركة الفترة</span><h2>الإيداعات والسحوبات</h2></div></div>
+  <div class="admin-table-wrap"><table class="admin-table reconciliation-table"><thead><tr><th>النوع</th><th>عدد العمليات</th><th>المجموع USDT</th></tr></thead><tbody>
+    {% for metric in metrics %}<tr><td>{{ metric.label }}</td><td>{{ metric.count }}</td><td><strong>{{ metric.amount|floatformat:2 }}</strong></td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+<div class="notice notice-info"><strong>قراءة الأرقام</strong><p>رصيد المحافظ لقطة حالية حسب آخر مزامنة، أما الإيداعات والسحوبات فهي تدفقات الفترة المحددة. لا يحسب التقرير فائضاً أو عجزاً نهائياً لأن التحويلات الخارجة من محافظ الاستقبال لا تسجل حالياً كحركات مستقلة.</p></div>
+{% endblock %}

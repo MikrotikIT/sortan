@@ -14,7 +14,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from .models import Deposit, User, Wallet
+from .models import Deposit, User, Wallet, WalletSyncRun
 
 
 BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
@@ -262,16 +262,41 @@ def sync_wallet(wallet):
     return imported
 
 
-def sync_all_wallets():
-    if not getattr(settings, "TRONGRID_API_KEY", ""):
-        raise ImproperlyConfigured("أضف TRONGRID_API_KEY إلى متغيرات البيئة لمزامنة إيداعات TRON.")
+def sync_all_wallets(*, trigger=WalletSyncRun.Trigger.MANUAL, requested_by=None):
+    run = WalletSyncRun.objects.create(
+        trigger=trigger,
+        requested_by=requested_by,
+        total_wallets=Wallet.objects.count(),
+    )
     imported = 0
     updated = 0
     errors = []
-    for wallet in Wallet.objects.select_related("user").order_by("pk"):
-        try:
-            imported += sync_wallet(wallet)
-            updated += 1
-        except Exception as exc:
-            errors.append(f"{wallet.user.phone}: {exc}")
+    try:
+        if not getattr(settings, "TRONGRID_API_KEY", ""):
+            raise ImproperlyConfigured("أضف TRONGRID_API_KEY إلى متغيرات البيئة لمزامنة إيداعات TRON.")
+        for wallet in Wallet.objects.select_related("user").order_by("pk"):
+            try:
+                imported += sync_wallet(wallet)
+                updated += 1
+            except Exception as exc:
+                errors.append(f"{wallet.user.phone}: {exc}")
+    except Exception as exc:
+        run.status = WalletSyncRun.Status.FAILED
+        run.failed_wallets = run.total_wallets
+        run.errors = [str(exc)]
+        run.completed_at = timezone.now()
+        run.save(update_fields=("status", "failed_wallets", "errors", "completed_at"))
+        raise
+
+    run.status = WalletSyncRun.Status.PARTIAL if errors else WalletSyncRun.Status.SUCCEEDED
+    run.updated_wallets = updated
+    run.imported_deposits = imported
+    run.failed_wallets = len(errors)
+    run.errors = errors
+    run.completed_at = timezone.now()
+    run.save(
+        update_fields=(
+            "status", "updated_wallets", "imported_deposits", "failed_wallets", "errors", "completed_at"
+        )
+    )
     return {"imported": imported, "updated": updated, "errors": errors}

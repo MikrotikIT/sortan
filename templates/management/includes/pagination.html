@@ -1,0 +1,8 @@
+<nav class="admin-pagination" aria-label="التنقل بين الصفحات">
+  <span>عرض {{ page_obj.start_index }}–{{ page_obj.end_index }} من {{ page_obj.paginator.count }}</span>
+  <div>
+    {% if page_obj.has_previous %}<a href="?{% if pagination_query %}{{ pagination_query }}&amp;{% endif %}page={{ page_obj.previous_page_number }}">السابق</a>{% endif %}
+    <strong>صفحة {{ page_obj.number }} من {{ page_obj.paginator.num_pages }}</strong>
+    {% if page_obj.has_next %}<a href="?{% if pagination_query %}{{ pagination_query }}&amp;{% endif %}page={{ page_obj.next_page_number }}">التالي</a>{% endif %}
+  </div>
+</nav>

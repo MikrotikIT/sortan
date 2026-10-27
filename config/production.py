@@ -8,6 +8,10 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 STATIC_URL = "/static/"
 
-# The scheduled TRON sync needs a configured API key. Keep Beat idle until it exists.
+# The scheduled TRON sync needs a configured API key. Keep the health heartbeat active.
 if not os.environ.get("TRONGRID_API_KEY"):
-    CELERY_BEAT_SCHEDULE = {}
+    CELERY_BEAT_SCHEDULE = {
+        name: schedule
+        for name, schedule in CELERY_BEAT_SCHEDULE.items()
+        if name != "sync-tron-deposits"
+    }

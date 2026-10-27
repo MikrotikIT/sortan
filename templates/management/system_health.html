@@ -1,0 +1,21 @@
+{% extends 'management/base.html' %}
+{% block title %}صحة الخدمات — Kodi TV{% endblock %}
+{% block content %}
+<section class="management-heading"><div><span class="eyebrow">المراقبة التشغيلية</span><h1>صحة الخدمات</h1><p>حالة Celery ومهام المزامنة وأخطاء قراءة محافظ TRON.</p></div></section>
+<section class="management-stats finance-stats">
+  <div class="management-stat"><span>Celery Worker</span><strong>{% if worker_names %}متصل{% elif worker_probe_error %}تعذر الفحص{% else %}لا توجد استجابة{% endif %}</strong><small>{% if worker_names %}{{ worker_names|join:", " }}{% else %}يتحقق الفحص من وجود عامل يستجيب للمهام{% endif %}</small></div>
+  <div class="management-stat"><span>Beat → Worker</span><strong>{% if heartbeat_is_recent %}نشط{% else %}لا توجد نبضة حديثة{% endif %}</strong><small>{% if heartbeat %}آخر تنفيذ {{ heartbeat.last_seen_at|date:"Y-m-d H:i:s" }}{% else %}لم تسجل نبضة بعد{% endif %}</small></div>
+  <div class="management-stat"><span>TRONGRID_API_KEY</span><strong>{% if tron_configured %}مضبوط{% else %}غير مضبوط{% endif %}</strong><small>فترة المزامنة {{ sync_interval_seconds }} ثانية</small></div>
+</section>
+<section class="management-columns">
+  <article class="management-panel"><div class="management-panel-head"><div><span class="eyebrow">آخر تشغيل</span><h2>مزامنة المحافظ</h2></div><a href="{% url 'management_wallets' %}">المحافظ ←</a></div>
+    {% if latest_sync %}<dl class="customer-info-list"><div><dt>الحالة</dt><dd>{{ latest_sync.get_status_display }}</dd></div><div><dt>النوع</dt><dd>{{ latest_sync.get_trigger_display }}</dd></div><div><dt>البدء</dt><dd>{{ latest_sync.started_at|date:"Y-m-d H:i:s" }}</dd></div><div><dt>الانتهاء</dt><dd>{% if latest_sync.completed_at %}{{ latest_sync.completed_at|date:"Y-m-d H:i:s" }}{% else %}جارٍ{% endif %}</dd></div><div><dt>المحافظ المحدثة</dt><dd>{{ latest_sync.updated_wallets }} من {{ latest_sync.total_wallets }}</dd></div><div><dt>إيداعات مكتشفة</dt><dd>{{ latest_sync.imported_deposits }}</dd></div><div><dt>محافظ فشلت</dt><dd>{{ latest_sync.failed_wallets }}</dd></div>{% if latest_sync.requested_by %}<div><dt>طلبها</dt><dd>{{ latest_sync.requested_by.phone }}</dd></div>{% endif %}</dl>
+      {% if latest_sync.errors %}<div class="notice notice-warn"><strong>أخطاء المزامنة</strong><ul class="health-error-list">{% for error in latest_sync.errors %}<li>{{ error }}</li>{% endfor %}</ul></div>{% endif %}
+    {% else %}<div class="admin-empty">لم تسجل أي محاولة مزامنة بعد.</div>{% endif %}
+  </article>
+  <article class="management-panel"><div class="management-panel-head"><div><span class="eyebrow">آخر نجاح</span><h2>آخر مزامنة مكتملة بلا أخطاء</h2></div></div>{% if last_successful_sync %}<p><strong>{{ last_successful_sync.completed_at|date:"Y-m-d H:i:s" }}</strong></p><p class="date-muted">حدّثت {{ last_successful_sync.updated_wallets }} محفظة واكتشفت {{ last_successful_sync.imported_deposits }} إيداع.</p>{% else %}<div class="admin-empty">لا يوجد تشغيل ناجح مسجل حتى الآن.</div>{% endif %}<p class="date-muted">نبضة Beat → Worker تعني أن مهمة مجدولة وصلت إلى العامل ونُفذت؛ وهي فحص لمسار المهام، لا قراءة مباشرة لعملية Beat.</p></article>
+</section>
+<section class="management-panel"><div class="management-panel-head"><div><span class="eyebrow">سجل التشغيل</span><h2>آخر 30 محاولة مزامنة</h2></div></div>
+  {% if sync_runs %}<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>البدء</th><th>النوع</th><th>الحالة</th><th>المحافظ</th><th>الإيداعات</th><th>الأخطاء</th><th>المنفذ</th></tr></thead><tbody>{% for run in sync_runs %}<tr><td>{{ run.started_at|date:"Y-m-d H:i:s" }}</td><td>{{ run.get_trigger_display }}</td><td>{{ run.get_status_display }}</td><td>{{ run.updated_wallets }}/{{ run.total_wallets }}</td><td>{{ run.imported_deposits }}</td><td>{{ run.failed_wallets }}</td><td>{% if run.requested_by %}{{ run.requested_by.phone }}{% else %}Celery{% endif %}</td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="admin-empty">لا توجد سجلات.</div>{% endif %}
+</section>
+{% endblock %}
