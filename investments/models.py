@@ -98,6 +98,17 @@ class PlatformSettings(models.Model):
     online_counter_step_max = models.PositiveIntegerField("أكبر مقدار للتغير", default=30, validators=[MinValueValidator(1)])
     online_counter_current = models.PositiveIntegerField("قيمة عداد المتصلين الحالية", default=0, editable=False)
     online_counter_updated_at = models.DateTimeField("آخر تحديث لعداد المتصلين", null=True, blank=True, editable=False)
+    deposit_activity_enabled = models.BooleanField("إظهار إشعار النشاط التجريبي", default=True)
+    deposit_activity_examples = models.TextField(
+        "بيانات إشعار النشاط التجريبي",
+        default="سوريا|0963980***|100\nالعراق|0770123***|150\nالأردن|0791234***|200\nالسودان|0912345***|300\nلبنان|031234***|250",
+        help_text="سطر لكل إشعار بالصيغة الدولة|رقم الهاتف|المبلغ. هذه بيانات عرض تجريبية وليست إيداعات حقيقية.",
+    )
+    deposit_activity_interval_seconds = models.PositiveIntegerField(
+        "الفاصل بين إشعارات النشاط (ثوانٍ)",
+        default=10,
+        validators=[MinValueValidator(5), MaxValueValidator(120)],
+    )
 
     class Meta:
         verbose_name = "إعدادات المنصة"

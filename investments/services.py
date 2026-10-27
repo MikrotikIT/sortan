@@ -1,4 +1,4 @@
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django.db import transaction
 from django.utils import timezone
@@ -13,6 +13,27 @@ from .models import (
 )
 
 CENT = Decimal("0.01")
+
+
+def parse_deposit_activity_examples(value):
+    examples = []
+    for line_number, line in enumerate((value or "").splitlines(), start=1):
+        if not line.strip():
+            continue
+        parts = [part.strip() for part in line.split("|")]
+        if len(parts) != 3 or not all(parts):
+            raise ValueError(f"السطر {line_number}: استخدم الصيغة الدولة|رقم الهاتف|المبلغ.")
+        country, phone, amount_text = parts
+        try:
+            amount = Decimal(amount_text.replace(",", ""))
+        except InvalidOperation as exc:
+            raise ValueError(f"السطر {line_number}: أدخل مبلغاً صحيحاً.") from exc
+        if not amount.is_finite() or amount <= 0:
+            raise ValueError(f"السطر {line_number}: يجب أن يكون المبلغ أكبر من صفر.")
+        if not any(mask in phone for mask in ("*", "•", "×")):
+            phone = f"{phone[:-3]}***" if len(phone) > 3 else "***"
+        examples.append({"country": country, "phone": phone, "amount": format(amount, "f")})
+    return examples
 
 
 def parse_withdrawal_referral_rules(value):

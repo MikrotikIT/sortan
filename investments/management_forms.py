@@ -4,7 +4,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 
 from .models import Film, InvestmentVoucher, PlatformSettings, User
-from .services import parse_withdrawal_referral_rules
+from .services import parse_deposit_activity_examples, parse_withdrawal_referral_rules
 
 
 class FilmForm(forms.ModelForm):
@@ -42,6 +42,7 @@ class PlatformSettingsForm(forms.ModelForm):
             "referral_deposit_percent", "referral_profit_percent",
             "online_counter_enabled", "online_counter_min", "online_counter_max",
             "online_counter_step_min", "online_counter_step_max",
+            "deposit_activity_enabled", "deposit_activity_examples", "deposit_activity_interval_seconds",
         )
 
         widgets = {
@@ -51,6 +52,8 @@ class PlatformSettingsForm(forms.ModelForm):
             "online_counter_max": forms.NumberInput(attrs={"min": "0", "step": "1"}),
             "online_counter_step_min": forms.NumberInput(attrs={"min": "1", "step": "1"}),
             "online_counter_step_max": forms.NumberInput(attrs={"min": "1", "step": "1"}),
+            "deposit_activity_examples": forms.Textarea(attrs={"rows": 5, "dir": "ltr"}),
+            "deposit_activity_interval_seconds": forms.NumberInput(attrs={"min": "5", "max": "120", "step": "1"}),
         }
         help_texts = {
             "support_url": "أدخل رابط الدعم الكامل، مثل رابط واتساب أو تيليجرام. اتركه فارغاً لإخفاء زر التواصل مؤقتاً.",
@@ -59,6 +62,9 @@ class PlatformSettingsForm(forms.ModelForm):
             "online_counter_min": "يبدأ العداد من قيمة عشوائية بين هذا الحد والحد الأعلى.",
             "online_counter_step_min": "الحد الأدنى للزيادة أو النقصان العشوائي الذي يحدث كل 5 ثوانٍ.",
             "online_counter_step_max": "الحد الأعلى للزيادة أو النقصان العشوائي الذي يحدث كل 5 ثوانٍ.",
+            "deposit_activity_enabled": "يعرض أمثلة تجريبية واضحة، ولا يعرض إيداعات أو بيانات عملاء حقيقية.",
+            "deposit_activity_examples": "سطر لكل مثال بالصيغة الدولة|رقم الهاتف|المبلغ. تُخفى آخر ثلاثة أرقام تلقائياً إذا لم يكن الرقم مقنّعاً.",
+            "deposit_activity_interval_seconds": "الفاصل بين بداية ظهور إشعارين تجريبيين، من 5 إلى 120 ثانية.",
         }
 
     def clean(self):
@@ -92,6 +98,16 @@ class PlatformSettingsForm(forms.ModelForm):
         if required_counts != sorted(required_counts):
             raise ValidationError("يجب ألا يقل عدد المدعوين المطلوب في مرحلة لاحقة عن المرحلة السابقة.")
         return ", ".join(f"{withdrawal_count}:{referral_count}" for withdrawal_count, referral_count in rules)
+
+    def clean_deposit_activity_examples(self):
+        raw_examples = self.cleaned_data["deposit_activity_examples"]
+        try:
+            examples = parse_deposit_activity_examples(raw_examples)
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
+        if self.cleaned_data.get("deposit_activity_enabled") and not examples:
+            raise ValidationError("أضف مثالاً واحداً على الأقل أو أوقف إشعارات النشاط التجريبي.")
+        return raw_examples.strip()
 
 
 class VoucherIssueForm(forms.Form):

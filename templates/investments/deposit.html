@@ -2,7 +2,7 @@
 {% load static %}
 {% block title %}الإيداع — CineVest{% endblock %}
 {% block breadcrumb %}الإيداع{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/deposit.css' %}">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/deposit.css' %}">{% if deposit_activity_enabled %}<link rel="stylesheet" href="{% static 'css/deposit-activity.css' %}">{% endif %}{% endblock %}
 {% block content %}
 <section class="deposit-hero" data-deposit-notifications data-notifications-url="{% url 'deposit_notifications' %}" data-after-id="{{ latest_direct_deposit_id }}">
   <div>
@@ -80,5 +80,17 @@
   <div class="deposit-empty-state"><span aria-hidden="true">↓</span><strong>لا توجد إيداعات مباشرة بعد</strong><p>ستظهر هنا تحويلات USDT المؤكدة على شبكة TRC20.</p></div>
   {% endif %}
 </section>
+{% if deposit_activity_enabled %}
+{{ deposit_activity_examples|json_script:"deposit-activity-data" }}
+<aside class="deposit-activity-toast" data-deposit-activity data-activity-interval="{{ deposit_activity_interval_seconds }}" role="status" aria-live="polite" aria-atomic="true" aria-label="إشعار نشاط تجريبي؛ لا يمثل إيداعاً حقيقياً" hidden>
+  <span class="deposit-activity-icon" aria-hidden="true">₮</span>
+  <div class="deposit-activity-content">
+    <div class="deposit-activity-heading"><span>بيانات تجريبية</span><strong>نشاط إيداع</strong><b class="deposit-activity-amount" data-activity-amount dir="ltr"></b></div>
+    <div class="deposit-activity-details"><span data-activity-country></span><code data-activity-phone dir="ltr"></code></div>
+    <small class="deposit-activity-disclaimer">هذه أمثلة وليست إيداعات حقيقية.</small>
+  </div>
+  <button class="deposit-activity-close" type="button" data-activity-close aria-label="إغلاق الإشعار">×</button>
+</aside>
+{% endif %}
 {% endblock %}
-{% block extra_js %}<script src="{% static 'js/deposit-notifications.js' %}"></script>{% endblock %}
+{% block extra_js %}<script src="{% static 'js/deposit-notifications.js' %}"></script>{% if deposit_activity_enabled %}<script src="{% static 'js/deposit-activity.js' %}"></script>{% endif %}{% endblock %}

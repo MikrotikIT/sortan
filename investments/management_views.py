@@ -106,6 +106,11 @@ def platform_settings(request):
             form["online_counter_enabled"], form["online_counter_min"], form["online_counter_max"],
             form["online_counter_step_min"], form["online_counter_step_max"],
         ]),
+        ("إشعار النشاط التجريبي للإيداع", [
+            form["deposit_activity_enabled"],
+            form["deposit_activity_examples"],
+            form["deposit_activity_interval_seconds"],
+        ]),
     ]
     if request.method == "POST" and form.is_valid():
         form.save()
