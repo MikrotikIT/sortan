@@ -1,2 +1,10 @@
 .referral-box{border-top:1px solid #edf1f2;margin-top:15px;padding-top:14px}.referral-box>div:first-child strong{font-size:11px;color:#3b535a}.referral-code-row{display:flex;align-items:center;justify-content:space-between;background:#f3f8f9;border:1px dashed #c9dfe5;border-radius:7px;padding:7px 9px;margin-top:9px}.referral-code-row code{font:700 12px "DM Sans",sans-serif;letter-spacing:1px;color:#147c9e;direction:ltr}.copy-code{border:0;background:transparent;color:var(--cyan-dark);font:700 10px "Tajawal",sans-serif;cursor:pointer}.referral-stats{display:flex;justify-content:space-between;margin-top:8px;color:#87979c;font-size:9px}
-.referral-page-panel .referral-code-large{background:linear-gradient(120deg,#102f3a,#0c4d5d);border:1px solid #286376;border-style:solid;box-shadow:0 9px 22px rgba(9,42,53,.12)}.referral-page-panel .referral-code-large code{color:#8be4f3;font-size:18px;letter-spacing:2px}.referral-page-panel .referral-code-large .copy-code{padding:9px 13px;border-radius:8px;background:#d9f7ff;color:#0b5368;font-size:12px;transition:background .15s,transform .15s}.referral-page-panel .referral-code-large .copy-code:hover{background:#b9effa;transform:translateY(-1px)}
+.referral-page-panel{background:linear-gradient(135deg,#0b2731,#0e5263);border:1px solid #24758a;box-shadow:0 14px 32px rgba(9,42,53,.18)}
+.referral-page-panel .panel-heading h2{color:#fff}
+.referral-page-panel .eyebrow{color:#75dff1}
+.referral-page-panel .stat-icon{background:#d9f7ff;color:#0b7189}
+.referral-page-copy{color:#c3dce2}
+.referral-page-panel .referral-code-large{background:#f1fbfd;border:1px solid #91d6e2;border-style:solid;box-shadow:0 8px 18px rgba(5,30,38,.14)}
+.referral-page-panel .referral-code-large code{color:#0b5264;font-size:18px;letter-spacing:2px}
+.referral-page-panel .referral-code-large .copy-code{padding:9px 13px;border-radius:8px;background:#0d829b;color:#fff;font-size:12px;transition:background .15s,transform .15s}
+.referral-page-panel .referral-code-large .copy-code:hover{background:#086d83;transform:translateY(-1px)}
