@@ -1,0 +1,20 @@
+.referral-gate-notice{display:grid;gap:16px;margin:0 0 18px;padding:17px;border:1px solid #efd49e;border-inline-start:4px solid #e0a033;border-radius:12px;background:linear-gradient(135deg,#fffaf0,#fff3d9);box-shadow:0 8px 22px rgba(135,91,17,.08);color:#59431f}
+.referral-gate-heading{display:flex;align-items:flex-start;gap:12px}
+.referral-gate-icon{display:grid;flex:0 0 34px;place-items:center;width:34px;height:34px;border-radius:11px;background:#f9e4b9;color:#94600d;font:800 19px/1 "DM Sans",sans-serif}
+.referral-gate-copy{min-width:0}
+.referral-gate-label{display:inline-block;margin-bottom:4px;color:#9a6a19;font-size:10px;font-weight:800}
+.referral-gate-copy h2{margin:0;color:#553d17;font-size:16px;line-height:1.5}
+.referral-gate-copy p{margin:4px 0 0;color:#79643d;font-size:11px;line-height:1.8}
+.referral-progress-section{display:grid;gap:8px;padding-top:13px;border-top:1px solid rgba(174,127,40,.2)}
+.referral-progress-label,.referral-progress-footer{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.referral-progress-label{color:#79643d;font-size:10px}
+.referral-progress-label strong{color:#59431f;font:700 11px "DM Sans","Tajawal",sans-serif;direction:rtl}
+.referral-progress-track{height:9px;overflow:hidden;border-radius:20px;background:#f0dfbd;direction:rtl}
+.referral-progress-fill{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#f0b642,#d58a16);transition:width .45s ease}
+.referral-progress-footer{margin-top:2px}
+.referral-progress-footer>strong{color:#8c5c0d;font-size:11px}
+.referral-progress-footer>a{display:inline-flex;align-items:center;gap:6px;flex-shrink:0;padding:8px 11px;border-radius:8px;background:#82530e;color:#fff;font-size:10px;font-weight:700;transition:background .15s,transform .15s}
+.referral-progress-footer>a:hover{transform:translateY(-1px);background:#694207}
+.referral-progress-footer>a span{font:16px/1 "DM Sans",sans-serif}
+@media(max-width:520px){.referral-gate-notice{gap:13px;padding:14px}.referral-progress-footer{align-items:flex-start;flex-direction:column}.referral-progress-footer>a{justify-content:center;width:100%}}
+@media(prefers-reduced-motion:reduce){.referral-progress-fill,.referral-progress-footer>a{transition:none}}

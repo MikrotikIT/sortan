@@ -178,6 +178,11 @@ def withdrawals(request):
     required_referral_count = active_referral_rule[1] if active_referral_rule else 0
     referral_gate_blocked = referral_gate_reached and referral_count < required_referral_count
     remaining_referrals = max(required_referral_count - referral_count, 0)
+    referral_progress_percent = (
+        min(100, int(referral_count * 100 / required_referral_count))
+        if required_referral_count
+        else 0
+    )
     can_request = not pending_request and cooldown_passed and not referral_gate_blocked
     form = WithdrawalForm(request.POST or None)
     if request.method == "POST":
@@ -225,6 +230,7 @@ def withdrawals(request):
             "paid_withdrawal_count": paid_withdrawal_count,
             "referral_count": referral_count,
             "remaining_referrals": remaining_referrals,
+            "referral_progress_percent": referral_progress_percent,
         },
     )
 
