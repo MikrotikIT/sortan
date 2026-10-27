@@ -1,0 +1,62 @@
+{% extends 'management/base.html' %}
+{% load static %}
+{% block title %}عرض المحفظة — Kodi TV{% endblock %}
+{% block content %}
+<section class="management-heading">
+  <div><span class="eyebrow">محافظ TRON</span><h1>تفاصيل المحفظة</h1><p>بيانات العنوان، الرصيد المسجل، وسجل التحويلات المرتبطة به.</p></div>
+  <a class="btn btn-secondary" href="{% url 'management_wallets' %}">← العودة إلى المحافظ</a>
+</section>
+
+<section class="management-stats customer-detail-stats">
+  <div class="management-stat"><span>الرصيد الفعلي على الشبكة</span><strong>{{ wallet.usdt_balance|floatformat:6 }}</strong><small>USDT حسب آخر مزامنة</small></div>
+  <div class="management-stat"><span>مجموع الإيداعات المسجلة</span><strong>{{ deposit_totals.all_amount|default_if_none:0|floatformat:2 }}</strong><small>USDT · {{ deposit_totals.deposit_count }} عملية</small></div>
+  <div class="management-stat"><span>الإيداعات المقبولة</span><strong>{{ deposit_totals.approved_amount|default_if_none:0|floatformat:2 }}</strong><small>USDT أضيفت إلى رصيد العميل</small></div>
+  <div class="management-stat"><span>رصيد غير متوقع</span><strong>{{ deposit_totals.unexpected_amount|default_if_none:0|floatformat:2 }}</strong><small>USDT بانتظار مراجعة الإدارة</small></div>
+</section>
+
+<section class="management-panel">
+  <div class="management-panel-head"><div><span class="eyebrow">بيانات المحفظة</span><h2>معلومات العنوان والعميل</h2></div></div>
+  <dl class="customer-info-list">
+    <div><dt>رقم العميل</dt><dd><a class="table-action" href="{% url 'management_customer_detail' wallet.user.pk %}" dir="ltr">{{ wallet.user.phone }}</a></dd></div>
+    <div><dt>الرصيد الحالي على الشبكة</dt><dd>{{ wallet.usdt_balance|floatformat:6 }} USDT</dd></div>
+    <div><dt>تاريخ إنشاء المحفظة</dt><dd>{{ wallet.created_at|date:"Y-m-d H:i" }}</dd></div>
+    <div><dt>آخر مزامنة</dt><dd>{% if wallet.balance_checked_at %}{{ wallet.balance_checked_at|date:"Y-m-d H:i" }}{% else %}لم تتم المزامنة{% endif %}</dd></div>
+    <div class="customer-info-wide"><dt>عنوان TRC20</dt><dd><code id="wallet-address-{{ wallet.pk }}" dir="ltr">{{ wallet.address }}</code> <button class="table-action" type="button" data-copy-target="wallet-address-{{ wallet.pk }}">نسخ العنوان</button></dd></div>
+    <div class="customer-info-wide"><dt>المفتاح الخاص</dt><dd>
+      {% if user.is_superuser %}
+      <form class="wallet-reveal-form" method="post" action="{% url 'management_wallet_reveal' wallet.pk %}">{% csrf_token %}<button class="table-action" type="submit">كشف المفتاح</button><code class="revealed-private-key" id="wallet-key-{{ wallet.pk }}" dir="ltr" hidden></code><button class="table-action private-key-copy" type="button" data-copy-target="wallet-key-{{ wallet.pk }}" hidden>نسخ المفتاح</button></form>
+      {% else %}<span class="date-muted">مشفّر، والكشف متاح للمدير الأعلى فقط</span>{% endif %}
+    </dd></div>
+  </dl>
+</section>
+
+<section class="management-panel">
+  <div class="management-panel-head"><div><span class="eyebrow">سجل الشبكة</span><h2>إيداعات هذه المحفظة</h2></div><span class="count-pill">{{ deposit_totals.deposit_count }} عملية</span></div>
+  {% if deposits.object_list %}
+  <div class="admin-table-wrap">
+    <table class="admin-table">
+      <thead><tr><th>المبلغ</th><th>الحالة</th><th>المصدر</th><th>وقت التحويل</th><th>معرّف التحويل</th></tr></thead>
+      <tbody>
+        {% for item in deposits %}
+        <tr>
+          <td>{{ item.amount|floatformat:6 }} USDT</td>
+          <td>{{ item.get_status_display }}</td>
+          <td>{{ item.get_source_display }}</td>
+          <td>{% if item.occurred_at %}{{ item.occurred_at|date:"Y-m-d H:i" }}{% else %}{{ item.created_at|date:"Y-m-d H:i" }}{% endif %}</td>
+          <td>{% if item.transaction_id %}<a class="table-action" href="https://tronscan.org/#/transaction/{{ item.transaction_id }}" target="_blank" rel="noopener noreferrer">{{ item.transaction_id|truncatechars:20 }} ↗</a>{% else %}{{ item.reference|default:"—" }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if deposits.has_other_pages %}
+  <div class="row-actions" style="justify-content:center;margin-top:16px">
+    {% if deposits.has_previous %}<a class="table-action" href="?page={{ deposits.previous_page_number }}">← السابق</a>{% endif %}
+    <span class="date-muted">صفحة {{ deposits.number }} من {{ deposits.paginator.num_pages }}</span>
+    {% if deposits.has_next %}<a class="table-action" href="?page={{ deposits.next_page_number }}">التالي →</a>{% endif %}
+  </div>
+  {% endif %}
+  {% else %}<div class="admin-empty">لا توجد إيداعات مسجلة لهذه المحفظة بعد.</div>{% endif %}
+</section>
+{% endblock %}
+{% block extra_js %}<script src="{% static 'js/wallet-management.js' %}"></script>{% endblock %}

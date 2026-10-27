@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured, PermissionDenied
+from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, DateTimeField, F, Q, Sum
 from django.db.models.functions import Coalesce, TruncDate
@@ -365,6 +366,29 @@ def wallets(request):
             "total_usdt": queryset.aggregate(total=Sum("usdt_balance"))["total"] or 0,
             "has_trongrid_key": bool(settings.TRONGRID_API_KEY),
             "sync_interval_seconds": settings.TRON_DEPOSIT_SYNC_INTERVAL_SECONDS,
+        },
+    )
+
+
+@staff_required
+def wallet_detail(request, pk):
+    wallet = get_object_or_404(Wallet.objects.select_related("user"), pk=pk)
+    deposit_queryset = wallet.deposits.order_by("-occurred_at", "-created_at", "-pk")
+    page_obj = Paginator(deposit_queryset, 50).get_page(request.GET.get("page"))
+    deposit_totals = wallet.deposits.aggregate(
+        all_amount=Sum("amount"),
+        approved_amount=Sum("amount", filter=Q(status=Deposit.Status.APPROVED)),
+        pending_amount=Sum("amount", filter=Q(status=Deposit.Status.PENDING)),
+        unexpected_amount=Sum("amount", filter=Q(status=Deposit.Status.UNEXPECTED)),
+        deposit_count=Count("pk"),
+    )
+    return render(
+        request,
+        "management/wallet_detail.html",
+        {
+            "wallet": wallet,
+            "deposits": page_obj,
+            "deposit_totals": deposit_totals,
         },
     )
 

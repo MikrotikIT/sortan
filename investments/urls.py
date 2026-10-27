@@ -34,6 +34,7 @@ urlpatterns = [
     path("management/customers/", management_views.customers, name="management_customers"),
     path("management/customers/<int:pk>/", management_views.customer_detail, name="management_customer_detail"),
     path("management/wallets/", management_views.wallets, name="management_wallets"),
+    path("management/wallets/<int:pk>/", management_views.wallet_detail, name="management_wallet_detail"),
     path("management/wallets/sync/", management_views.sync_wallet_balances, name="management_wallet_sync"),
     path("management/wallets/<int:pk>/private-key/", management_views.reveal_wallet_key, name="management_wallet_reveal"),
     path("management/finance/", management_views.finance, name="management_finance"),
