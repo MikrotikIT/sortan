@@ -408,13 +408,6 @@
     if (ownMessage || canModerate || canPost) {
       const tools = document.createElement("div");
       tools.className = "chat-message-tools";
-      if (canPost) {
-        const reply = document.createElement("button");
-        reply.type = "button";
-        reply.textContent = "رد";
-        reply.addEventListener("click", () => selectReplyTarget(message));
-        tools.append(reply);
-      }
       if (ownMessage && message.text) {
         const edit = document.createElement("button");
         edit.type = "button";
@@ -435,7 +428,10 @@
         });
         tools.append(remove);
       }
-      if (tools.childElementCount) header.append(tools);
+      if (tools.childElementCount) {
+        card.classList.add("has-message-tools");
+        header.append(tools);
+      }
     }
     card.append(header);
 
@@ -499,7 +495,18 @@
     const reactions = document.createElement("div");
     reactions.className = "chat-reactions";
     renderReactions(reactions, message);
-    card.append(reactions);
+    const footer = document.createElement("div");
+    footer.className = "chat-message-footer";
+    if (canPost) {
+      const reply = document.createElement("button");
+      reply.type = "button";
+      reply.className = "chat-reply-action";
+      reply.textContent = "رد";
+      reply.addEventListener("click", () => selectReplyTarget(message));
+      footer.append(reply);
+    }
+    if (reactions.childElementCount) footer.append(reactions);
+    if (footer.childElementCount) card.append(footer);
     item.append(card);
     if (previous) previous.replaceWith(item);
     else if (prepend) list.prepend(item);
