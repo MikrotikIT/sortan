@@ -1,7 +1,8 @@
 (() => {
   const root = document.querySelector("[data-chat-room]");
   const list = root?.querySelector("[data-chat-messages]");
-  if (!root || !list) return;
+  const listViewport = root?.querySelector(".chat-message-list-wrap");
+  if (!root || !list || !listViewport) return;
 
   const status = root.querySelector("[data-chat-status]");
   const errorBox = root.querySelector("[data-chat-error]");
@@ -12,6 +13,7 @@
   const isAdmin = root.dataset.isAdmin === "true";
   const demoGrowthUrlTemplate = root.dataset.demoGrowthUrlTemplate || "";
   const compose = root.querySelector("[data-chat-compose]");
+  const messageInput = compose?.querySelector('textarea[name="text"]');
   const replyIdInput = compose?.querySelector("[data-reply-id]");
   const replyPreview = compose?.querySelector("[data-reply-preview]");
   const replySender = compose?.querySelector("[data-reply-sender]");
@@ -24,6 +26,22 @@
   let manuallyClosed = false;
 
   const escapeText = (value) => String(value ?? "");
+
+  const isNearLatest = () => listViewport.scrollHeight - listViewport.scrollTop - listViewport.clientHeight < 140;
+  const scrollToLatest = (behavior = "auto") => {
+    const scroll = () => listViewport.scrollTo({ top: listViewport.scrollHeight, behavior });
+    window.requestAnimationFrame(() => {
+      scroll();
+      window.requestAnimationFrame(scroll);
+    });
+  };
+
+  const resizeMessageInput = () => {
+    if (!messageInput) return;
+    messageInput.style.height = "auto";
+    messageInput.style.height = `${Math.min(messageInput.scrollHeight, 132)}px`;
+    messageInput.style.overflowY = messageInput.scrollHeight > 132 ? "auto" : "hidden";
+  };
 
   const clearReplySelection = () => {
     if (replyIdInput) replyIdInput.value = "";
@@ -398,8 +416,9 @@
         return;
       }
       if (payload.type === "message_created" || payload.type === "message_updated") {
-        const node = renderMessage(payload.message);
-        if (node) list.scrollTop = list.scrollHeight;
+        const followLatest = isNearLatest() || Number(payload.message?.sender_id) === userId;
+        renderMessage(payload.message);
+        if (payload.type === "message_created" && followLatest) scrollToLatest("smooth");
       } else if (payload.type === "message_deleted") {
         const deletedId = Number(payload.message_id);
         if (replyIdInput?.value === String(deletedId)) {
@@ -435,10 +454,12 @@
   try {
     const initial = JSON.parse(document.getElementById("chat-initial-messages")?.textContent || "[]");
     initial.forEach(renderMessage);
-    list.scrollTop = list.scrollHeight;
+    scrollToLatest();
   } catch { /* Ignore invalid cached initial data and keep the live room available. */ }
 
   compose?.querySelector("[data-reply-cancel]")?.addEventListener("click", clearReplySelection);
+  messageInput?.addEventListener("input", resizeMessageInput);
+  resizeMessageInput();
   compose?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const button = compose.querySelector(".chat-send-button");
@@ -457,7 +478,8 @@
       renderMessage(result.message);
       compose.reset();
       clearReplySelection();
-      list.scrollTop = list.scrollHeight;
+      resizeMessageInput();
+      scrollToLatest("smooth");
     } catch (error) {
       showError(error.message || "تعذر إرسال الرسالة.");
     } finally {

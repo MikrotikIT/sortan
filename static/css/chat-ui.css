@@ -483,17 +483,25 @@
   }
 
   .chat-compose-main {
+    align-items: flex-end;
+    flex-direction: row;
     gap: 7px;
   }
 
   .chat-compose textarea {
-    min-height: 44px;
+    min-width: 0;
+    min-height: 48px;
+    max-height: 132px;
     padding: 10px 11px;
     border-radius: 11px;
-    font-size: 13px;
+    font-size: 14px;
+    line-height: 1.55;
+    resize: none;
   }
 
   .chat-compose-controls {
+    flex: 0 0 auto;
+    align-items: center;
     gap: 5px;
   }
 
