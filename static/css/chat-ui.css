@@ -609,7 +609,28 @@
   flex: 0 0 42px;
   border-radius: 10px;
   background: #eaf5f7;
-  font-size: 20px;
+  color: #50727a;
+}
+
+.chat-attachment-preview-icon svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.chat-message-attachment-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 
 .chat-attachment-preview-details {
@@ -800,7 +821,16 @@
   border-radius: 10px;
   background: #f9fbfb;
   color: #50727a;
-  font-size: 17px;
+}
+
+.chat-attachment-menu > summary svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 
 .chat-attachment-options,
@@ -837,6 +867,17 @@
   cursor: pointer;
 }
 
+.chat-attachment-options label svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
 .chat-attachment-options label:hover {
   background: #f2f8f9;
 }
@@ -866,6 +907,17 @@
   left: 0;
   grid-template-columns: repeat(5, 36px);
   min-width: auto;
+}
+
+.chat-reaction-picker[open] .chat-reaction-options {
+  position: fixed;
+  z-index: 1000;
+  top: 10px;
+  right: auto;
+  bottom: auto;
+  left: 10px;
+  max-width: calc(100vw - 20px);
+  box-sizing: border-box;
 }
 
 .chat-reaction-options button {

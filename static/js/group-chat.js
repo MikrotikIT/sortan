@@ -34,6 +34,77 @@
   let loadingOlderMessages = false;
 
   const escapeText = (value) => String(value ?? "");
+  const createSvgIcon = (className, paths, circles = []) => {
+    const namespace = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(namespace, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    if (className) svg.setAttribute("class", className);
+    paths.forEach((data) => {
+      const path = document.createElementNS(namespace, "path");
+      path.setAttribute("d", data);
+      svg.append(path);
+    });
+    circles.forEach(({ cx, cy, r }) => {
+      const circle = document.createElementNS(namespace, "circle");
+      circle.setAttribute("cx", String(cx));
+      circle.setAttribute("cy", String(cy));
+      circle.setAttribute("r", String(r));
+      svg.append(circle);
+    });
+    return svg;
+  };
+
+  const positionReactionMenu = (picker) => {
+    if (!picker.open) return;
+    const trigger = picker.querySelector("summary");
+    const options = picker.querySelector(".chat-reaction-options");
+    if (!trigger || !options) return;
+    const anchor = trigger.getBoundingClientRect();
+    const menu = options.getBoundingClientRect();
+    const padding = 10;
+    const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    let left = anchor.left;
+    if (left + menu.width > viewportWidth - padding) left = anchor.right - menu.width;
+    left = Math.min(Math.max(padding, left), Math.max(padding, viewportWidth - menu.width - padding));
+    let top = anchor.top - menu.height - 8;
+    if (top < padding) top = anchor.bottom + 8;
+    top = Math.min(Math.max(padding, top), Math.max(padding, viewportHeight - menu.height - padding));
+    options.style.left = `${left}px`;
+    options.style.top = `${top}px`;
+  };
+
+  const createReactionPicker = (messageId) => {
+    const picker = document.createElement("details");
+    picker.className = "chat-reaction-picker";
+    picker.dataset.reactionPicker = "";
+    const toggle = document.createElement("summary");
+    toggle.textContent = "+";
+    toggle.setAttribute("aria-label", "إضافة تفاعل");
+    toggle.title = "إضافة تفاعل";
+    picker.append(toggle);
+    const options = document.createElement("div");
+    options.className = "chat-reaction-options";
+    Object.entries(glyphs).forEach(([kind, glyph]) => {
+      const option = document.createElement("button");
+      option.type = "button";
+      option.textContent = glyph;
+      option.title = labels[kind];
+      option.setAttribute("aria-label", labels[kind]);
+      option.addEventListener("click", () => {
+        if (sendSocket({ action: "react", message_id: messageId, kind })) picker.open = false;
+      });
+      options.append(option);
+    });
+    picker.append(options);
+    picker.addEventListener("toggle", () => {
+      if (picker.open) window.requestAnimationFrame(() => positionReactionMenu(picker));
+      else { options.style.removeProperty("left"); options.style.removeProperty("top"); }
+    });
+    return picker;
+  };
 
   const isNearLatest = () => listViewport.scrollHeight - listViewport.scrollTop - listViewport.clientHeight < 140;
   const scrollToLatest = (behavior = "auto") => {
@@ -73,8 +144,7 @@
       } else {
         const icon = document.createElement("span");
         icon.className = "chat-attachment-preview-icon";
-        icon.textContent = "📎";
-        icon.setAttribute("aria-hidden", "true");
+        icon.append(createSvgIcon("", ["M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z", "M14 2v6h6", "M8 13h8", "M8 17h8"]));
         item.append(icon);
       }
       const details = document.createElement("div");
@@ -246,29 +316,7 @@
       button.addEventListener("click", () => sendSocket({ action: "react", message_id: message.id, kind: reaction.kind }));
       container.append(button);
     });
-    const picker = document.createElement("details");
-    picker.className = "chat-reaction-picker";
-    picker.dataset.reactionPicker = "";
-    const toggle = document.createElement("summary");
-    toggle.textContent = "+";
-    toggle.setAttribute("aria-label", "إضافة تفاعل");
-    toggle.title = "إضافة تفاعل";
-    picker.append(toggle);
-    const options = document.createElement("div");
-    options.className = "chat-reaction-options";
-    Object.entries(glyphs).forEach(([kind, glyph]) => {
-      const option = document.createElement("button");
-      option.type = "button";
-      option.textContent = glyph;
-      option.title = labels[kind];
-      option.setAttribute("aria-label", labels[kind]);
-      option.addEventListener("click", () => {
-        if (sendSocket({ action: "react", message_id: message.id, kind })) picker.open = false;
-      });
-      options.append(option);
-    });
-    picker.append(options);
-    container.append(picker);
+    container.append(createReactionPicker(message.id));
   };
 
   const renderMessage = (message, { prepend = false } = {}) => {
@@ -368,7 +416,10 @@
       const attachment = document.createElement("a");
       attachment.className = "chat-message-attachment";
       attachment.href = message.media_url;
-      attachment.textContent = `📎 ${escapeText(message.attachment_name || "تنزيل الملف")}`;
+      const icon = createSvgIcon("chat-message-attachment-icon", ["M21.44 11.05 12.25 20.24a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.82-2.83l8.49-8.48"]);
+      const name = document.createElement("span");
+      name.textContent = escapeText(message.attachment_name || "تنزيل الملف");
+      attachment.append(icon, name);
       attachment.setAttribute("download", "");
       card.append(attachment);
     }
@@ -509,30 +560,7 @@
       container.insertBefore(button, picker || null);
     });
     if (!container.querySelector("[data-reaction-picker]")) {
-      const messageId = Number(payload.message_id);
-      const picker = document.createElement("details");
-      picker.className = "chat-reaction-picker";
-      picker.dataset.reactionPicker = "";
-      const toggle = document.createElement("summary");
-      toggle.textContent = "+";
-      toggle.setAttribute("aria-label", "إضافة تفاعل");
-      toggle.title = "إضافة تفاعل";
-      picker.append(toggle);
-      const options = document.createElement("div");
-      options.className = "chat-reaction-options";
-      Object.entries(glyphs).forEach(([kind, glyph]) => {
-        const option = document.createElement("button");
-        option.type = "button";
-        option.textContent = glyph;
-        option.title = labels[kind];
-        option.setAttribute("aria-label", labels[kind]);
-        option.addEventListener("click", () => {
-          if (sendSocket({ action: "react", message_id: messageId, kind })) picker.open = false;
-        });
-        options.append(option);
-      });
-      picker.append(options);
-      container.append(picker);
+      container.append(createReactionPicker(Number(payload.message_id)));
     }
   };
 
@@ -639,8 +667,12 @@
   } catch { /* Ignore invalid cached initial data and keep the live room available. */ }
 
   listViewport.addEventListener("scroll", () => {
+    root.querySelectorAll("[data-reaction-picker][open]").forEach((picker) => { picker.open = false; });
     if (listViewport.scrollTop <= 72) loadOlderMessages();
   }, { passive: true });
+  window.addEventListener("resize", () => {
+    root.querySelectorAll("[data-reaction-picker][open]").forEach(positionReactionMenu);
+  });
 
   compose?.querySelector("[data-reply-cancel]")?.addEventListener("click", clearReplySelection);
   messageInput?.addEventListener("input", resizeMessageInput);

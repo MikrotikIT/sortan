@@ -2,7 +2,7 @@
 {% load static %}
 {% block body_class %}chat-room-page{% endblock %}
 {% block title %}{{ group.title }} — KODI{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/group-chat.css' %}?v=4"><link rel="stylesheet" href="{% static 'css/chat-fullscreen.css' %}?v=2"><link rel="stylesheet" href="{% static 'css/chat-ui.css' %}?v=5">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/group-chat.css' %}?v=4"><link rel="stylesheet" href="{% static 'css/chat-fullscreen.css' %}?v=2"><link rel="stylesheet" href="{% static 'css/chat-ui.css' %}?v=7">{% endblock %}
 {% block content %}
 <section class="chat-room" data-chat-room data-ws-path="{{ ws_path }}" data-history-url="{{ history_url }}" data-has-older-messages="{{ has_older_messages|yesno:'true,false' }}" data-chat-live-stats-url="{% url 'chat_live_stats' %}" data-group-id="{{ group.pk }}" data-current-user="{{ request.user.pk }}" data-can-moderate="{{ can_moderate|yesno:'true,false' }}" data-can-post="{{ can_post|yesno:'true,false' }}" data-is-admin="{{ request.user.is_staff|yesno:'true,false' }}" data-demo-growth-url-template="{{ demo_growth_url_template }}" data-can-react="{{ group.reactions_enabled|yesno:'true,false' }}" data-member-count="{{ actual_member_count }}" data-demo-member-offset="{{ group.demo_member_offset }}">
   <header class="chat-room-header">
@@ -25,10 +25,10 @@
         <div class="chat-compose-controls">
           {% if group.allow_images or group.allow_files %}
           <details class="chat-attachment-menu">
-            <summary aria-label="إرفاق صورة أو ملف" title="إرفاق صورة أو ملف">🔗</summary>
+            <summary aria-label="إرفاق صورة أو ملف" title="إرفاق صورة أو ملف"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></summary>
             <div class="chat-attachment-options">
-              {% if group.allow_images %}<label>🖼️ صورة<input type="file" name="image" accept="image/jpeg,image/png,image/webp"></label>{% endif %}
-              {% if group.allow_files %}<label>📎 ملف<input type="file" name="attachment" accept=".pdf,.txt,.csv,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip"></label>{% endif %}
+              {% if group.allow_images %}<label><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg><span>صورة</span><input type="file" name="image" accept="image/jpeg,image/png,image/webp"></label>{% endif %}
+              {% if group.allow_files %}<label><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8"/></svg><span>ملف</span><input type="file" name="attachment" accept=".pdf,.txt,.csv,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip"></label>{% endif %}
             </div>
           </details>
           {% endif %}
@@ -49,4 +49,4 @@
 </section>
 {{ messages_data|json_script:"chat-initial-messages" }}
 {% endblock %}
-{% block extra_js %}<script src="{% static 'js/group-chat.js' %}?v=8" defer></script>{% endblock %}
+{% block extra_js %}<script src="{% static 'js/group-chat.js' %}?v=10" defer></script>{% endblock %}
