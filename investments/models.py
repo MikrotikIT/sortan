@@ -7,6 +7,7 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.core.validators import FileExtensionValidator, MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
 from django.utils import timezone
+from django.utils.text import slugify
 
 from .countries import COUNTRY_CHOICES, COUNTRY_NAMES, country_flag, infer_country_code_from_number, masked_phone_number
 from .storage import PrivateApplicationStorage
@@ -20,6 +21,16 @@ def make_referral_code():
 def join_application_photo_path(instance, filename):
     extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else "jpg"
     return f"join-applications/{instance.user_id}/{uuid.uuid4().hex}.{extension}"
+
+
+def chat_group_image_path(instance, filename):
+    extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else "webp"
+    return f"group-chat/group-images/{uuid.uuid4().hex}.{extension}"
+
+
+def chat_message_upload_path(instance, filename):
+    extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else "bin"
+    return f"group-chat/{instance.group_id}/messages/{uuid.uuid4().hex}.{extension}"
 
 
 class UserManager(BaseUserManager):
@@ -592,3 +603,215 @@ class WithdrawalRequest(models.Model):
 
     def __str__(self):
         return f"#{self.display_number} — {self.user.phone} — {self.amount} USDT ({self.get_status_display()})"
+
+
+class ChatGroup(models.Model):
+    class MessageMode(models.TextChoices):
+        EVERYONE = "everyone", "جميع الأعضاء"
+        SELECTED = "selected", "أعضاء محددون"
+        MODERATORS = "moderators", "المشرفون فقط"
+        LOCKED = "locked", "مقفلة"
+
+    title = models.CharField("اسم المجموعة", max_length=100)
+    description = models.TextField("الوصف", max_length=1200, blank=True)
+    image = models.ImageField(
+        "صورة المجموعة",
+        upload_to=chat_group_image_path,
+        storage=PrivateApplicationStorage(),
+        blank=True,
+        validators=[FileExtensionValidator(("jpg", "jpeg", "png", "webp"))],
+    )
+    is_active = models.BooleanField("مفعّلة", default=True)
+    is_public = models.BooleanField("ظاهرة في دليل المجموعات", default=True)
+    max_members = models.PositiveSmallIntegerField(
+        "الحد الأقصى للأعضاء (0 بلا حد)",
+        default=0,
+        validators=[MaxValueValidator(10000)],
+    )
+    demo_member_offset = models.PositiveIntegerField(
+        "عدد أعضاء تجريبي إضافي",
+        default=0,
+        validators=[MaxValueValidator(1000000)],
+        help_text="محاكاة للاختبار فقط؛ يضاف إلى العدد الحقيقي ويظهر بوسم تجريبي.",
+    )
+    demo_member_growth_enabled = models.BooleanField("زيادة عدد الأعضاء التجريبي تلقائياً", default=False)
+    demo_member_interval_min_seconds = models.PositiveSmallIntegerField("أقل فاصل لزيادة العدد (ثانية)", default=5, validators=[MinValueValidator(1), MaxValueValidator(15)])
+    demo_member_interval_max_seconds = models.PositiveSmallIntegerField("أعلى فاصل لزيادة العدد (ثانية)", default=15, validators=[MinValueValidator(1), MaxValueValidator(15)])
+    demo_member_increment_min = models.PositiveSmallIntegerField("أقل زيادة تجريبية للأعضاء", default=1, validators=[MinValueValidator(1), MaxValueValidator(5)])
+    demo_member_increment_max = models.PositiveSmallIntegerField("أعلى زيادة تجريبية للأعضاء", default=5, validators=[MinValueValidator(1), MaxValueValidator(5)])
+    demo_member_next_growth_at = models.DateTimeField(null=True, blank=True, editable=False)
+    message_mode = models.CharField(
+        "من يمكنه إرسال الرسائل",
+        max_length=12,
+        choices=MessageMode.choices,
+        default=MessageMode.EVERYONE,
+    )
+    allow_images = models.BooleanField("السماح بإرسال الصور", default=True)
+    allow_files = models.BooleanField("السماح بإرفاق الملفات", default=False)
+    allow_links = models.BooleanField("السماح بالروابط", default=True)
+    reactions_enabled = models.BooleanField("السماح بالتفاعلات", default=True)
+    slow_mode_seconds = models.PositiveSmallIntegerField(
+        "الفاصل بين رسائل العضو بالثواني (0 بلا حد)",
+        default=0,
+        validators=[MaxValueValidator(300)],
+    )
+    blocked_terms = models.TextField(
+        "كلمات وعبارات محظورة",
+        blank=True,
+        help_text="اكتب عبارة واحدة في كل سطر. تُرفض الرسالة إذا احتوت إحداها.",
+    )
+    created_by = models.ForeignKey(
+        User,
+        verbose_name="أنشأها",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="created_chat_groups",
+    )
+    created_at = models.DateTimeField("تاريخ الإنشاء", auto_now_add=True)
+    updated_at = models.DateTimeField("آخر تعديل", auto_now=True)
+
+    class Meta:
+        ordering = ("title", "pk")
+        verbose_name = "مجموعة محادثة"
+        verbose_name_plural = "مجموعات المحادثة"
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def member_count(self):
+        return self.memberships.filter(user__is_active=True, user__approval_status="approved").count()
+
+
+class ChatMembership(models.Model):
+    class Role(models.TextChoices):
+        MEMBER = "member", "عضو"
+        MODERATOR = "moderator", "مشرف المجموعة"
+
+    group = models.ForeignKey(ChatGroup, on_delete=models.CASCADE, related_name="memberships")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="chat_memberships")
+    role = models.CharField("الدور", max_length=12, choices=Role.choices, default=Role.MEMBER)
+    can_post = models.BooleanField("مسموح له بالمحادثة عند تحديد أعضاء معينين", default=False)
+    joined_at = models.DateTimeField("تاريخ الانضمام", auto_now_add=True)
+
+    class Meta:
+        ordering = ("joined_at", "pk")
+        constraints = [models.UniqueConstraint(fields=("group", "user"), name="unique_chat_group_member")]
+        verbose_name = "عضوية مجموعة محادثة"
+        verbose_name_plural = "أعضاء مجموعات المحادثة"
+
+    def __str__(self):
+        return f"{self.group} — {self.user}"
+
+
+class ChatGroupBan(models.Model):
+    group = models.ForeignKey(ChatGroup, on_delete=models.CASCADE, related_name="bans")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="chat_group_bans")
+    banned_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="issued_chat_bans",
+    )
+    reason = models.CharField("سبب الحظر", max_length=500, blank=True)
+    created_at = models.DateTimeField("تاريخ الحظر", auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at", "-pk")
+        constraints = [models.UniqueConstraint(fields=("group", "user"), name="unique_chat_group_ban")]
+        verbose_name = "حظر من مجموعة"
+        verbose_name_plural = "المحظورون من المجموعات"
+
+    def __str__(self):
+        return f"{self.user} — {self.group}"
+
+
+class ChatMessage(models.Model):
+    group = models.ForeignKey(ChatGroup, on_delete=models.CASCADE, related_name="messages")
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name="chat_messages")
+    reply_to = models.ForeignKey(
+        "self",
+        verbose_name="رد على رسالة",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="replies",
+    )
+    reply_to_original_id = models.PositiveBigIntegerField(null=True, blank=True, editable=False)
+    reply_to_sender_name = models.CharField(max_length=120, blank=True, editable=False)
+    reply_to_preview = models.CharField(max_length=300, blank=True, editable=False)
+    text = models.TextField("نص الرسالة", blank=True, max_length=2000)
+    image = models.ImageField(
+        "الصورة المرفقة",
+        upload_to=chat_message_upload_path,
+        storage=PrivateApplicationStorage(),
+        blank=True,
+        validators=[FileExtensionValidator(("jpg", "jpeg", "png", "webp"))],
+    )
+    attachment = models.FileField(
+        "الملف المرفق",
+        upload_to=chat_message_upload_path,
+        storage=PrivateApplicationStorage(),
+        blank=True,
+        validators=[FileExtensionValidator(("pdf", "txt", "csv", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "zip"))],
+    )
+    attachment_name = models.CharField("اسم الملف الأصلي", max_length=255, blank=True)
+    created_at = models.DateTimeField("وقت الإرسال", auto_now_add=True)
+    edited_at = models.DateTimeField("وقت التعديل", null=True, blank=True)
+    demo_growth_enabled = models.BooleanField("زيادة التفاعلات التجريبية تلقائياً", default=False)
+    demo_growth_duration_hours = models.PositiveSmallIntegerField("مدة الزيادة التجريبية بالساعات", default=24)
+    demo_growth_interval_min_seconds = models.PositiveSmallIntegerField(default=5, validators=[MinValueValidator(1), MaxValueValidator(15)])
+    demo_growth_interval_max_seconds = models.PositiveSmallIntegerField(default=15, validators=[MinValueValidator(1), MaxValueValidator(15)])
+    demo_growth_step_min = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(5)])
+    demo_growth_step_max = models.PositiveSmallIntegerField(default=5, validators=[MinValueValidator(1), MaxValueValidator(5)])
+    demo_like_percent = models.PositiveSmallIntegerField(default=30, validators=[MaxValueValidator(100)])
+    demo_heart_percent = models.PositiveSmallIntegerField(default=40, validators=[MaxValueValidator(100)])
+    demo_fire_percent = models.PositiveSmallIntegerField(default=15, validators=[MaxValueValidator(100)])
+    demo_clap_percent = models.PositiveSmallIntegerField(default=10, validators=[MaxValueValidator(100)])
+    demo_dislike_percent = models.PositiveSmallIntegerField(default=5, validators=[MaxValueValidator(100)])
+    demo_growth_ends_at = models.DateTimeField(null=True, blank=True, editable=False)
+    demo_growth_next_at = models.DateTimeField(null=True, blank=True, editable=False)
+
+    class Meta:
+        ordering = ("created_at", "pk")
+        indexes = [models.Index(fields=("group", "created_at"), name="chat_msg_group_created_idx")]
+        verbose_name = "رسالة مجموعة"
+        verbose_name_plural = "رسائل المجموعات"
+
+    def __str__(self):
+        return f"{self.group} — {self.sender} — {self.created_at:%Y-%m-%d %H:%M}"
+
+
+class ChatReaction(models.Model):
+    class Kind(models.TextChoices):
+        LIKE = "like", "إعجاب"
+        HEART = "heart", "قلب"
+        FIRE = "fire", "نار"
+        CLAP = "clap", "تصفيق"
+        DISLIKE = "dislike", "عدم إعجاب"
+
+    message = models.ForeignKey(ChatMessage, on_delete=models.CASCADE, related_name="reactions")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="chat_reactions")
+    kind = models.CharField("نوع التفاعل", max_length=8, choices=Kind.choices)
+    created_at = models.DateTimeField("وقت التفاعل", auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("message", "user"), name="unique_chat_message_reaction")]
+        indexes = [models.Index(fields=("message", "kind"), name="chat_reaction_message_kind_idx")]
+        verbose_name = "تفاعل رسالة"
+        verbose_name_plural = "تفاعلات الرسائل"
+
+
+class DemoChatReactionCount(models.Model):
+    """Clearly marked simulation counters used only for experimental group views."""
+
+    message = models.ForeignKey(ChatMessage, on_delete=models.CASCADE, related_name="demo_reaction_counts")
+    kind = models.CharField("نوع التفاعل", max_length=8, choices=ChatReaction.Kind.choices)
+    count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("message", "kind"), name="unique_demo_chat_reaction_count")]
+        verbose_name = "عداد تفاعل تجريبي"
+        verbose_name_plural = "عدادات التفاعل التجريبية"

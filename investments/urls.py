@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import management_views, views
+from . import chat_management_views, chat_views, management_views, views
 
 urlpatterns = [
     path("", views.home, name="home"),
@@ -23,7 +23,24 @@ urlpatterns = [
     path("deposit/", views.deposit_wallet, name="deposit_wallet"),
     path("deposit/notifications/", views.deposit_notifications, name="deposit_notifications"),
     path("online-counter/", views.online_counter, name="online_counter"),
+    path("chat/", chat_views.chat_groups, name="chat_groups"),
+    path("chat/live-stats/", chat_views.chat_live_stats, name="chat_live_stats"),
+    path("chat/groups/<int:pk>/", chat_views.chat_group_room, name="chat_group_room"),
+    path("chat/groups/<int:pk>/join/", chat_views.chat_group_join, name="chat_group_join"),
+    path("chat/groups/<int:pk>/leave/", chat_views.chat_group_leave, name="chat_group_leave"),
+    path("chat/groups/<int:pk>/send/", chat_views.chat_group_send, name="chat_group_send"),
+    path("chat/messages/<int:pk>/demo-growth/", chat_views.chat_message_demo_growth, name="chat_message_demo_growth"),
+    path("chat/groups/<int:pk>/image/", chat_views.chat_group_image, name="chat_group_image"),
+    path("chat/messages/<int:pk>/attachment/", chat_views.chat_message_attachment, name="chat_message_attachment"),
     path("management/", management_views.dashboard, name="management_dashboard"),
+    path("management/chat-groups/", chat_management_views.chat_groups, name="management_chat_groups"),
+    path("management/chat-groups/<int:pk>/", chat_management_views.chat_group_edit, name="management_chat_group_edit"),
+    path("management/chat-groups/<int:pk>/delete/", chat_management_views.chat_group_delete, name="management_chat_group_delete"),
+    path("management/chat-groups/<int:pk>/members/add/", chat_management_views.chat_group_member_add, name="management_chat_group_member_add"),
+    path("management/chat-groups/<int:pk>/members/<int:user_id>/update/", chat_management_views.chat_group_member_update, name="management_chat_group_member_update"),
+    path("management/chat-groups/<int:pk>/members/<int:user_id>/remove/", chat_management_views.chat_group_member_remove, name="management_chat_group_member_remove"),
+    path("management/chat-groups/<int:pk>/bans/", chat_management_views.chat_group_ban, name="management_chat_group_ban"),
+    path("management/chat-groups/<int:pk>/bans/<int:ban_id>/remove/", chat_management_views.chat_group_unban, name="management_chat_group_unban"),
     path("management/join-applications/", management_views.join_applications, name="management_join_applications"),
     path("management/join-applications/<int:pk>/", management_views.join_application_detail, name="management_join_application_detail"),
     path("management/notifications/", management_views.send_notifications, name="management_send_notifications"),

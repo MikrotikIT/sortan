@@ -1,0 +1,20 @@
+{% extends 'management/base.html' %}
+{% load static %}
+{% block title %}مجموعات المحادثة — إدارة KODI{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/chat-management.css' %}?v=1">{% endblock %}
+{% block content %}
+<section class="management-heading"><div><span class="eyebrow">التواصل</span><h1>مجموعات المحادثة</h1><p>أنشئ مجموعات، وحدد سياسة الرسائل والوسائط والأعضاء من إعداداتها.</p></div></section>
+<section class="management-panel form-panel">
+  <div class="management-panel-head"><div><h2>إنشاء مجموعة</h2><p>يمكنك إضافة الأعضاء وصلاحياتهم وإدارة الحظر بعد الإنشاء.</p></div></div>
+  <form method="post" enctype="multipart/form-data" class="management-form chat-admin-form">{% csrf_token %}
+    {% for field in form %}<div class="admin-field {% if field.field.widget.input_type == 'checkbox' %}admin-check-field{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}
+    <div class="form-actions"><button class="btn btn-primary" type="submit">إنشاء المجموعة</button></div>
+  </form>
+</section>
+<section class="management-panel">
+  <div class="management-panel-head"><div><h2>المجموعات</h2></div><span class="count-pill">{{ groups|length }} مجموعة</span></div>
+  {% if groups %}<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>المجموعة</th><th>الأعضاء الحقيقيون</th><th>العدد التجريبي الإضافي</th><th>الرسائل</th><th>الحالة</th><th>الإجراءات</th></tr></thead><tbody>
+    {% for group in groups %}<tr><td><strong>{{ group.title }}</strong>{% if group.image %}<div><a href="{% url 'chat_group_image' group.pk %}" target="_blank" rel="noopener">عرض الصورة</a></div>{% endif %}</td><td>{{ group.member_count }}</td><td>{{ group.demo_member_offset }}</td><td>{{ group.messages.count }}</td><td>{% if group.is_active %}مفعّلة{% else %}متوقفة{% endif %}</td><td><div class="row-actions"><a class="table-action" href="{% url 'management_chat_group_edit' group.pk %}">الإعدادات والأعضاء</a><form method="post" action="{% url 'management_chat_group_delete' group.pk %}" onsubmit="return confirm('سيتم حذف المجموعة ورسائلها ومرفقاتها. هل تريد المتابعة؟')">{% csrf_token %}<button class="table-action danger-action" type="submit">حذف</button></form></div></td></tr>{% endfor %}
+  </tbody></table></div>{% else %}<div class="admin-empty">لم تنشئ مجموعات بعد.</div>{% endif %}
+</section>
+{% endblock %}

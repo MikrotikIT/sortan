@@ -20,8 +20,20 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "channels",
     "investments.apps.InvestmentsConfig",
 ]
+
+CHANNEL_REDIS_URL = os.environ.get("CHANNEL_REDIS_URL")
+if os.environ.get("DJANGO_SETTINGS_MODULE") == "config.production" or CHANNEL_REDIS_URL:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {"hosts": [CHANNEL_REDIS_URL or "redis://127.0.0.1:6379/1"]},
+        }
+    }
+else:
+    CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -146,6 +158,11 @@ CELERY_BEAT_SCHEDULE = {
     "sync-tron-deposits": {
         "task": "investments.tasks.sync_tron_deposits",
         "schedule": TRON_DEPOSIT_SYNC_INTERVAL_SECONDS,
+    },
+    "advance-demo-chat-metrics": {
+        "task": "investments.tasks.advance_demo_chat_metrics",
+        "schedule": 1.0,
+        "options": {"expires": 3},
     },
 }
 

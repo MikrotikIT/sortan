@@ -1,0 +1,477 @@
+(() => {
+  const root = document.querySelector("[data-chat-room]");
+  const list = root?.querySelector("[data-chat-messages]");
+  if (!root || !list) return;
+
+  const status = root.querySelector("[data-chat-status]");
+  const errorBox = root.querySelector("[data-chat-error]");
+  const userId = Number(root.dataset.currentUser);
+  const canModerate = root.dataset.canModerate === "true";
+  const canPost = root.dataset.canPost === "true";
+  const canReact = root.dataset.canReact === "true";
+  const isAdmin = root.dataset.isAdmin === "true";
+  const demoGrowthUrlTemplate = root.dataset.demoGrowthUrlTemplate || "";
+  const compose = root.querySelector("[data-chat-compose]");
+  const replyIdInput = compose?.querySelector("[data-reply-id]");
+  const replyPreview = compose?.querySelector("[data-reply-preview]");
+  const replySender = compose?.querySelector("[data-reply-sender]");
+  const replyText = compose?.querySelector("[data-reply-text]");
+  const glyphs = { like: "👍", heart: "❤️", fire: "🔥", clap: "👏", dislike: "👎" };
+  const labels = { like: "إعجاب", heart: "قلب", fire: "نار", clap: "تصفيق", dislike: "عدم إعجاب" };
+  let socket;
+  let reconnectTimer;
+  let retryCount = 0;
+  let manuallyClosed = false;
+
+  const escapeText = (value) => String(value ?? "");
+
+  const clearReplySelection = () => {
+    if (replyIdInput) replyIdInput.value = "";
+    if (replyPreview) replyPreview.hidden = true;
+  };
+
+  const selectReplyTarget = (message) => {
+    if (!canPost || !compose || !replyIdInput || !replyPreview) return;
+    replyIdInput.value = String(message.id);
+    if (replySender) replySender.textContent = `رد على ${escapeText(message.sender)}`;
+    if (replyText) {
+      replyText.textContent = message.text || (message.image ? "صورة مرفقة" : message.attachment ? `ملف مرفق: ${message.attachment_name || "ملف"}` : "رسالة");
+    }
+    replyPreview.hidden = false;
+    compose.querySelector('textarea[name="text"]')?.focus();
+  };
+
+  const appendAdminDemoControls = (card, message) => {
+    if (!isAdmin || !demoGrowthUrlTemplate) return;
+    const settings = message.demo_growth_settings || {};
+    const details = document.createElement("details");
+    details.className = "chat-demo-admin-settings";
+    const summary = document.createElement("summary");
+    summary.textContent = settings.enabled ? "إدارة الزيادة التجريبية · مفعّلة" : "إدارة الزيادة التجريبية";
+    details.append(summary);
+
+    const note = document.createElement("p");
+    note.textContent = "هذه الإعدادات للإدارة فقط. الزيادة تجريبية، وإيقافها لا يغلق تفاعلات الأعضاء الحقيقية.";
+    details.append(note);
+
+    const form = document.createElement("form");
+    form.className = "chat-demo-admin-form";
+    form.method = "post";
+    form.action = demoGrowthUrlTemplate.replace(/\/0\/demo-growth\/?$/, `/${Number(message.id)}/demo-growth/`);
+    const csrf = compose?.querySelector('[name="csrfmiddlewaretoken"]')?.value;
+    if (csrf) {
+      const csrfInput = document.createElement("input");
+      csrfInput.type = "hidden";
+      csrfInput.name = "csrfmiddlewaretoken";
+      csrfInput.value = csrf;
+      form.append(csrfInput);
+    }
+
+    const enabledLabel = document.createElement("label");
+    enabledLabel.className = "chat-demo-admin-toggle";
+    const enabled = document.createElement("input");
+    enabled.type = "checkbox";
+    enabled.name = "demo_growth_enabled";
+    enabled.checked = Boolean(settings.enabled);
+    const enabledText = document.createElement("span");
+    enabledText.textContent = "تفعيل الزيادة الآلية لهذه الرسالة";
+    enabledLabel.append(enabled, enabledText);
+    form.append(enabledLabel);
+
+    const addNumberField = (name, labelText, value, min, max) => {
+      const label = document.createElement("label");
+      label.className = "chat-demo-admin-field";
+      const text = document.createElement("span");
+      text.textContent = labelText;
+      const input = document.createElement("input");
+      input.type = "number";
+      input.name = name;
+      input.min = String(min);
+      input.max = String(max);
+      input.required = true;
+      input.value = String(value ?? min);
+      label.append(text, input);
+      form.append(label);
+    };
+
+    const durationLabel = document.createElement("label");
+    durationLabel.className = "chat-demo-admin-field";
+    const durationText = document.createElement("span");
+    durationText.textContent = "مدة الزيادة";
+    const duration = document.createElement("select");
+    duration.name = "demo_growth_duration_hours";
+    [[1, "ساعة"], [6, "6 ساعات"], [12, "12 ساعة"], [24, "يوم"], [48, "يومان"], [72, "3 أيام"]].forEach(([value, label]) => {
+      const option = document.createElement("option");
+      option.value = String(value);
+      option.textContent = label;
+      option.selected = Number(settings.duration_hours || 24) === Number(value);
+      duration.append(option);
+    });
+    durationLabel.append(durationText, duration);
+    form.append(durationLabel);
+
+    addNumberField("demo_growth_interval_min_seconds", "أقل فاصل (ثانية)", settings.interval_min_seconds, 1, 15);
+    addNumberField("demo_growth_interval_max_seconds", "أعلى فاصل (ثانية)", settings.interval_max_seconds, 1, 15);
+    addNumberField("demo_growth_step_min", "أقل زيادة في المرة", settings.step_min, 1, 5);
+    addNumberField("demo_growth_step_max", "أعلى زيادة في المرة", settings.step_max, 1, 5);
+    addNumberField("demo_like_percent", "👍 الإعجاب %", settings.like_percent, 0, 100);
+    addNumberField("demo_heart_percent", "❤️ القلب %", settings.heart_percent, 0, 100);
+    addNumberField("demo_fire_percent", "🔥 النار %", settings.fire_percent, 0, 100);
+    addNumberField("demo_clap_percent", "👏 التصفيق %", settings.clap_percent, 0, 100);
+    addNumberField("demo_dislike_percent", "👎 عدم الإعجاب %", settings.dislike_percent, 0, 100);
+
+    const submit = document.createElement("button");
+    submit.type = "submit";
+    submit.className = "chat-demo-admin-save";
+    submit.textContent = settings.enabled ? "حفظ أو إيقاف الزيادة" : "حفظ أو تفعيل الزيادة";
+    enabled.addEventListener("change", () => {
+      submit.textContent = enabled.checked ? "حفظ أو تفعيل الزيادة" : "حفظ أو إيقاف الزيادة";
+    });
+    form.append(submit);
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      submit.disabled = true;
+      try {
+        const response = await fetch(form.action, {
+          method: "POST",
+          body: new FormData(form),
+          headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" },
+          credentials: "same-origin",
+        });
+        const result = await response.json();
+        if (!response.ok || !result.ok) throw new Error(result.error || "تعذر حفظ إعدادات الزيادة.");
+        renderMessage(result.message);
+      } catch (error) {
+        showError(error.message || "تعذر حفظ إعدادات الزيادة.");
+      } finally {
+        submit.disabled = false;
+      }
+    });
+    details.append(form);
+    card.append(details);
+  };
+
+  const renderReactions = (container, message) => {
+    container.replaceChildren();
+    if (!canReact || !message.reactions_enabled) return;
+    (message.reactions || []).forEach((reaction) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `chat-reaction${message.user_reaction === reaction.kind ? " is-selected" : ""}`;
+      button.dataset.reactionKind = reaction.kind;
+      button.setAttribute("aria-label", `${labels[reaction.kind]}: ${reaction.count || 0}`);
+      button.title = `حقيقي: ${reaction.real_count || 0} · تجريبي: ${reaction.demo_count || 0}`;
+      const glyph = document.createElement("span");
+      glyph.textContent = glyphs[reaction.kind] || "•";
+      const count = document.createElement("b");
+      count.textContent = String(reaction.count || 0);
+      button.append(glyph, count);
+      if (reaction.demo_count) {
+        const demo = document.createElement("small");
+        demo.textContent = `تجريبي +${reaction.demo_count}`;
+        button.append(demo);
+      }
+      button.addEventListener("click", () => sendSocket({ action: "react", message_id: message.id, kind: reaction.kind }));
+      container.append(button);
+    });
+  };
+
+  const renderMessage = (message) => {
+    if (!message || !message.id) return;
+    const previous = list.querySelector(`[data-message-id="${Number(message.id)}"]`);
+    const item = document.createElement("li");
+    item.className = `chat-message${Number(message.sender_id) === userId ? " is-mine" : ""}`;
+    item.dataset.messageId = String(message.id);
+    const card = document.createElement("article");
+    card.className = "chat-message-card";
+
+    const header = document.createElement("header");
+    header.className = "chat-message-header";
+    const author = document.createElement("strong");
+    author.textContent = escapeText(message.sender);
+    const time = document.createElement("time");
+    time.textContent = escapeText(message.created_at);
+    header.append(author, time);
+    if (message.edited) {
+      const edited = document.createElement("small");
+      edited.className = "chat-edited-label";
+      edited.textContent = "معدّلة";
+      header.append(edited);
+    }
+    const ownMessage = Number(message.sender_id) === userId;
+    if (ownMessage || canModerate || canPost) {
+      const tools = document.createElement("div");
+      tools.className = "chat-message-tools";
+      if (canPost) {
+        const reply = document.createElement("button");
+        reply.type = "button";
+        reply.textContent = "رد";
+        reply.addEventListener("click", () => selectReplyTarget(message));
+        tools.append(reply);
+      }
+      if (ownMessage && message.text) {
+        const edit = document.createElement("button");
+        edit.type = "button";
+        edit.textContent = "تعديل";
+        edit.addEventListener("click", () => {
+          const updated = window.prompt("تعديل الرسالة", message.text);
+          if (updated !== null) sendSocket({ action: "edit", message_id: message.id, text: updated });
+        });
+        tools.append(edit);
+      }
+      if (ownMessage || canModerate) {
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "is-danger";
+        remove.textContent = "حذف";
+        remove.addEventListener("click", () => {
+          if (window.confirm("حذف هذه الرسالة؟")) sendSocket({ action: "delete", message_id: message.id });
+        });
+        tools.append(remove);
+      }
+      if (tools.childElementCount) header.append(tools);
+    }
+    card.append(header);
+
+    if (message.reply_to) {
+      const quote = document.createElement(message.reply_to.deleted ? "div" : "button");
+      quote.className = `chat-reply-quote${message.reply_to.deleted ? " is-deleted" : ""}`;
+      quote.dataset.replyTargetId = String(message.reply_to.id);
+      if (!message.reply_to.deleted) {
+        quote.type = "button";
+        quote.addEventListener("click", () => {
+          const target = list.querySelector(`[data-message-id="${Number(message.reply_to.id)}"]`);
+          if (!target) return;
+          target.scrollIntoView({ behavior: "smooth", block: "center" });
+          target.classList.add("is-reply-target");
+          window.setTimeout(() => target.classList.remove("is-reply-target"), 1800);
+        });
+      }
+      quote.textContent = `${escapeText(message.reply_to.sender)}: ${escapeText(message.reply_to.preview)}${message.reply_to.deleted ? " · الرسالة الأصلية محذوفة" : ""}`;
+      card.append(quote);
+    }
+
+    if (message.text) {
+      const body = document.createElement("p");
+      body.className = "chat-message-text";
+      body.textContent = escapeText(message.text);
+      card.append(body);
+    }
+    if (message.image && message.media_url) {
+      const imageLink = document.createElement("a");
+      imageLink.className = "chat-message-image-link";
+      imageLink.href = message.media_url;
+      imageLink.target = "_blank";
+      imageLink.rel = "noopener noreferrer";
+      const image = document.createElement("img");
+      image.src = message.media_url;
+      image.alt = "صورة مرفقة";
+      image.loading = "lazy";
+      imageLink.append(image);
+      card.append(imageLink);
+    } else if (message.attachment && message.media_url) {
+      const attachment = document.createElement("a");
+      attachment.className = "chat-message-attachment";
+      attachment.href = message.media_url;
+      attachment.textContent = `📎 ${escapeText(message.attachment_name || "تنزيل الملف")}`;
+      attachment.setAttribute("download", "");
+      card.append(attachment);
+    }
+
+    if (message.demo_growth_active || message.demo_reactions_present) {
+      const note = document.createElement("small");
+      note.className = "chat-demo-note";
+      note.textContent = message.demo_growth_active
+        ? "تتضمن هذه الرسالة محاكاة تفاعلات تجريبية. التفاعل الحقيقي متاح دائماً."
+        : "تتضمن الأعداد محاكاة تجريبية؛ التفاعل الحقيقي متاح دائماً.";
+      card.append(note);
+    }
+    appendAdminDemoControls(card, message);
+    const reactions = document.createElement("div");
+    reactions.className = "chat-reactions";
+    renderReactions(reactions, message);
+    card.append(reactions);
+    item.append(card);
+    if (previous) previous.replaceWith(item);
+    else list.append(item);
+    return item;
+  };
+
+  const sendSocket = (data) => {
+    if (socket?.readyState !== WebSocket.OPEN) {
+      showError("انقطع الاتصال بالمحادثة. أعد المحاولة بعد عودة الاتصال.");
+      return false;
+    }
+    socket.send(JSON.stringify(data));
+    return true;
+  };
+
+  const showError = (message) => {
+    if (!errorBox) return;
+    errorBox.textContent = message;
+    errorBox.hidden = false;
+    window.setTimeout(() => { errorBox.hidden = true; }, 6000);
+  };
+
+  const updateReactionCounts = (payload) => {
+    const messageItem = list.querySelector(`[data-message-id="${Number(payload.message_id)}"]`);
+    if (!messageItem) return;
+    const buttons = new Map([...messageItem.querySelectorAll("[data-reaction-kind]")].map((button) => [button.dataset.reactionKind, button]));
+    (payload.reactions || []).forEach((reaction) => {
+      const button = buttons.get(reaction.kind);
+      if (!button) return;
+      const count = button.querySelector("b");
+      if (count) count.textContent = String(reaction.count || 0);
+      button.title = `حقيقي: ${reaction.real_count || 0} · تجريبي: ${reaction.demo_count || 0}`;
+      button.setAttribute("aria-label", `${labels[reaction.kind]}: ${reaction.count || 0}`);
+      let demo = button.querySelector("small");
+      if (reaction.demo_count) {
+        if (!demo) { demo = document.createElement("small"); button.append(demo); }
+        demo.textContent = `تجريبي +${reaction.demo_count}`;
+      } else if (demo) demo.remove();
+      if (Object.prototype.hasOwnProperty.call(payload, "user_reaction")) {
+        button.classList.toggle("is-selected", payload.user_reaction === reaction.kind);
+      } else if (Number(payload.actor_id) === userId) {
+        button.classList.toggle("is-selected", payload.actor_reaction === reaction.kind);
+      }
+    });
+  };
+
+  const updateMemberCount = (payload) => {
+    const total = Number(payload.actual_member_count || 0) + Number(payload.demo_member_offset || 0);
+    root.dataset.memberCount = String(payload.actual_member_count || 0);
+    root.dataset.demoMemberOffset = String(payload.demo_member_offset || 0);
+    root.querySelectorAll("[data-room-member-count]").forEach((node) => { node.textContent = String(total); });
+  };
+
+  let pollingStats = false;
+  const refreshLiveStats = async () => {
+    if (pollingStats || document.visibilityState !== "visible") return;
+    const endpoint = root.dataset.chatLiveStatsUrl;
+    if (!endpoint) return;
+    const messageIds = [...list.querySelectorAll("[data-message-id]")]
+      .map((node) => node.dataset.messageId)
+      .filter(Boolean)
+      .slice(-100);
+    const params = new URLSearchParams({
+      groups: root.dataset.groupId || "",
+      messages: messageIds.join(","),
+    });
+    pollingStats = true;
+    try {
+      const response = await fetch(`${endpoint}?${params}`, {
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { "Accept": "application/json" },
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      data.groups?.forEach(updateMemberCount);
+      data.messages?.forEach((message) => updateReactionCounts({ ...message, message_id: message.id }));
+    } catch { /* WebSocket updates remain active if the polling fallback is unavailable. */ }
+    finally { pollingStats = false; }
+  };
+
+  const connect = () => {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    socket = new WebSocket(`${protocol}//${window.location.host}${root.dataset.wsPath}`);
+    socket.addEventListener("open", () => {
+      retryCount = 0;
+      if (status) {
+        status.textContent = "متصل";
+        status.title = "المحادثة متصلة مباشرة";
+        status.classList.add("is-connected");
+      }
+    });
+    socket.addEventListener("message", (event) => {
+      let payload;
+      try { payload = JSON.parse(event.data); } catch { return; }
+      if (payload.type === "ready") return;
+      if (payload.type === "error") { showError(payload.message || "تعذر تنفيذ الإجراء."); return; }
+      if (payload.type === "message_accepted") { compose?.reset(); clearReplySelection(); return; }
+      if (payload.type === "access_revoked" || payload.type === "group_closed") {
+        manuallyClosed = true;
+        if (status) status.textContent = payload.message || "تم إيقاف المجموعة";
+        compose?.querySelectorAll("input,textarea,button").forEach((control) => { control.disabled = true; });
+        socket.close();
+        window.setTimeout(() => window.location.reload(), 900);
+        return;
+      }
+      if (payload.type === "message_created" || payload.type === "message_updated") {
+        const node = renderMessage(payload.message);
+        if (node) list.scrollTop = list.scrollHeight;
+      } else if (payload.type === "message_deleted") {
+        const deletedId = Number(payload.message_id);
+        if (replyIdInput?.value === String(deletedId)) {
+          clearReplySelection();
+          showError("حُذفت الرسالة التي كنت ترد عليها. اختر رسالة أخرى.");
+        }
+        list.querySelectorAll(`[data-reply-target-id="${deletedId}"]`).forEach((quote) => {
+          quote.classList.add("is-deleted");
+          quote.textContent += " · الرسالة الأصلية محذوفة";
+          if (quote instanceof HTMLButtonElement) quote.disabled = true;
+        });
+        list.querySelector(`[data-message-id="${deletedId}"]`)?.remove();
+      } else if (payload.type === "reaction_updated") {
+        updateReactionCounts(payload);
+      } else if (payload.type === "group_stats") {
+        updateMemberCount(payload);
+      }
+    });
+    socket.addEventListener("close", () => {
+      if (status) {
+        status.textContent = "التحديث الفوري غير متصل";
+        status.title = "يمكنك إرسال الرسائل، وسيُعاد الاتصال تلقائياً";
+        status.classList.remove("is-connected");
+      }
+      if (!manuallyClosed) {
+        retryCount += 1;
+        reconnectTimer = window.setTimeout(connect, Math.min(15000, 1000 * retryCount));
+      }
+    });
+    socket.addEventListener("error", () => socket.close());
+  };
+
+  try {
+    const initial = JSON.parse(document.getElementById("chat-initial-messages")?.textContent || "[]");
+    initial.forEach(renderMessage);
+    list.scrollTop = list.scrollHeight;
+  } catch { /* Ignore invalid cached initial data and keep the live room available. */ }
+
+  compose?.querySelector("[data-reply-cancel]")?.addEventListener("click", clearReplySelection);
+  compose?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = compose.querySelector(".chat-send-button");
+    if (button) { button.disabled = true; button.textContent = "جارٍ الإرسال…"; }
+    if (errorBox) errorBox.hidden = true;
+    try {
+      const formData = new FormData(compose);
+      const response = await fetch(compose.action, {
+        method: "POST",
+        body: formData,
+        headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" },
+        credentials: "same-origin",
+      });
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || "تعذر إرسال الرسالة.");
+      renderMessage(result.message);
+      compose.reset();
+      clearReplySelection();
+      list.scrollTop = list.scrollHeight;
+    } catch (error) {
+      showError(error.message || "تعذر إرسال الرسالة.");
+    } finally {
+      if (button) { button.disabled = false; button.textContent = "إرسال"; }
+    }
+  });
+
+  connect();
+  refreshLiveStats();
+  const liveStatsTimer = window.setInterval(refreshLiveStats, 3000);
+  window.addEventListener("beforeunload", () => {
+    manuallyClosed = true;
+    window.clearTimeout(reconnectTimer);
+    window.clearInterval(liveStatsTimer);
+    socket?.close();
+  });
+})();

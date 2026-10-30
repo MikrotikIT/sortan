@@ -1,0 +1,13 @@
+.chat-admin-form{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 18px}
+.chat-admin-form .admin-field:has(textarea[name=blocked_terms]),.chat-admin-form .form-actions{grid-column:1/-1}
+.chat-admin-form .admin-field:has(input[type=file]){grid-column:1/-1}
+.chat-inline-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:end;gap:12px}
+.chat-inline-form .btn{justify-self:start;min-height:40px}
+.chat-member-edit{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.chat-member-edit select{min-height:32px;border:1px solid #dbe5e7;border-radius:6px;background:#fff;padding:5px 8px;color:#263f46;font:11px "Tajawal",sans-serif}
+.chat-member-edit label{display:flex;align-items:center;gap:5px;color:#63777d;font-size:10px}
+.chat-member-edit input{accent-color:#149ecc}
+.chat-banned-head{margin-top:22px;padding-top:16px;border-top:1px solid #edf1f2}
+.chat-banned-head h3{margin:0;color:#314b52;font-size:14px}
+@media(max-width:780px){.chat-inline-form{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.chat-admin-form,.chat-inline-form{grid-template-columns:1fr}.chat-admin-form .admin-field,.chat-admin-form .form-actions{grid-column:1}.chat-inline-form .btn{width:100%}}

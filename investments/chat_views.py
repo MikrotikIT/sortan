@@ -1,0 +1,306 @@
+import logging
+import mimetypes
+
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ObjectDoesNotExist
+from django.db import transaction
+from django.db.models import Count, Q
+from django.http import FileResponse, Http404, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.views.decorators.http import require_GET, require_POST
+
+from .chat_forms import ChatDemoGrowthForm, ChatUploadForm
+from .chat_services import (
+    ChatRuleError,
+    configure_message_demo_growth,
+    group_member_access,
+    serialize_chat_message,
+    user_can_moderate,
+    user_can_post,
+)
+from .models import ChatGroup, ChatGroupBan, ChatMembership, ChatMessage
+from .chat_services import create_uploaded_message
+
+
+logger = logging.getLogger(__name__)
+
+
+def _eligible_user(user):
+    return user.is_authenticated and user.is_active and (user.is_staff or user.approval_status == "approved")
+
+
+def _message_json(message, user_id):
+    message.sender_id = message.sender_id
+    return serialize_chat_message(message, viewer_id=user_id)
+
+
+def _broadcast_group_message(group_id, payload):
+    channel_layer = get_channel_layer()
+    if not channel_layer:
+        return
+    async_to_sync(channel_layer.group_send)(
+        f"chat_group_{group_id}",
+        {"type": "chat.broadcast", "payload": payload},
+    )
+
+
+@login_required
+def chat_groups(request):
+    if not _eligible_user(request.user):
+        return redirect("account_review")
+    groups = list(
+        ChatGroup.objects.filter(is_active=True)
+        .filter(Q(is_public=True) | Q(memberships__user=request.user))
+        .annotate(
+            actual_member_count=Count(
+                "memberships",
+                filter=Q(memberships__user__is_active=True, memberships__user__approval_status="approved"),
+                distinct=True,
+            )
+        )
+        .distinct()
+        .order_by("title", "pk")
+    )
+    member_ids = set(ChatMembership.objects.filter(user=request.user).values_list("group_id", flat=True))
+    banned_ids = set(ChatGroupBan.objects.filter(user=request.user).values_list("group_id", flat=True))
+    for group in groups:
+        group.is_member = request.user.is_staff or group.pk in member_ids
+        group.is_banned = group.pk in banned_ids
+        group.display_member_count = group.actual_member_count + group.demo_member_offset
+        group.image_url = reverse("chat_group_image", args=(group.pk,)) if group.image and not group.is_banned else ""
+    return render(request, "investments/chat_groups.html", {"groups": groups})
+
+
+def _requested_ids(value, limit=100):
+    ids = []
+    for item in (value or "").split(",")[:limit]:
+        try:
+            item_id = int(item)
+        except (TypeError, ValueError):
+            continue
+        if item_id > 0 and item_id not in ids:
+            ids.append(item_id)
+    return ids
+
+
+@login_required
+@require_GET
+def chat_live_stats(request):
+    """Small polling fallback for live counters when a WebSocket is unavailable."""
+    if not _eligible_user(request.user):
+        return JsonResponse({"ok": False}, status=403)
+
+    group_ids = _requested_ids(request.GET.get("groups"))
+    message_ids = _requested_ids(request.GET.get("messages"))
+    groups = ChatGroup.objects.filter(pk__in=group_ids, is_active=True)
+    if not request.user.is_staff:
+        groups = groups.filter(Q(is_public=True) | Q(memberships__user=request.user))
+    groups = groups.annotate(
+        actual_member_count=Count(
+            "memberships",
+            filter=Q(memberships__user__is_active=True, memberships__user__approval_status="approved"),
+            distinct=True,
+        )
+    ).distinct()
+    visible_groups = list(groups)
+
+    member_group_ids = set(
+        ChatMembership.objects.filter(user=request.user, group__is_active=True)
+        .values_list("group_id", flat=True)
+    )
+    if not request.user.is_staff:
+        member_group_ids.difference_update(
+            ChatGroupBan.objects.filter(user=request.user).values_list("group_id", flat=True)
+        )
+    if request.user.is_staff:
+        member_group_ids.update(group.pk for group in visible_groups)
+
+    serialized_messages = []
+    if message_ids and member_group_ids:
+        page_messages = (
+            ChatMessage.objects.filter(pk__in=message_ids, group_id__in=member_group_ids)
+            .select_related("group", "sender", "reply_to", "reply_to__sender")
+            .prefetch_related("reactions", "demo_reaction_counts")
+        )
+        serialized_messages = [
+            serialize_chat_message(message, viewer_id=request.user.pk)
+            for message in page_messages
+        ]
+
+    response = JsonResponse({
+        "ok": True,
+        "groups": [
+            {
+                "id": group.pk,
+                "actual_member_count": group.actual_member_count,
+                "demo_member_offset": group.demo_member_offset,
+                "display_member_count": group.actual_member_count + group.demo_member_offset,
+            }
+            for group in visible_groups
+        ],
+        "messages": serialized_messages,
+    })
+    response["Cache-Control"] = "no-store"
+    return response
+
+
+@login_required
+@require_POST
+def chat_group_join(request, pk):
+    if not _eligible_user(request.user):
+        return redirect("account_review")
+    group = get_object_or_404(ChatGroup, pk=pk, is_active=True, is_public=True)
+    if ChatGroupBan.objects.filter(group=group, user=request.user).exists():
+        messages.error(request, "أنت محظور من هذه المجموعة.")
+        return redirect("chat_groups")
+    if ChatMembership.objects.filter(group=group, user=request.user).exists():
+        return redirect("chat_group_room", pk=group.pk)
+    with transaction.atomic():
+        group = ChatGroup.objects.select_for_update().get(pk=group.pk)
+        if group.max_members and group.member_count >= group.max_members:
+            messages.error(request, "وصلت المجموعة إلى الحد الأقصى للأعضاء.")
+            return redirect("chat_groups")
+        ChatMembership.objects.get_or_create(group=group, user=request.user)
+    messages.success(request, f"انضممت إلى مجموعة {group.title}.")
+    return redirect("chat_group_room", pk=group.pk)
+
+
+@login_required
+@require_POST
+def chat_group_leave(request, pk):
+    if not _eligible_user(request.user):
+        return redirect("account_review")
+    group = get_object_or_404(ChatGroup, pk=pk)
+    ChatMembership.objects.filter(group=group, user=request.user).delete()
+    _broadcast_group_message(group.pk, {"type": "member_removed", "target_user_id": request.user.pk})
+    messages.success(request, f"غادرت مجموعة {group.title}.")
+    return redirect("chat_groups")
+
+
+@login_required
+def chat_group_room(request, pk):
+    if not _eligible_user(request.user):
+        return redirect("account_review")
+    group = get_object_or_404(ChatGroup, pk=pk, is_active=True)
+    membership = ChatMembership.objects.filter(group=group, user=request.user).first()
+    is_banned = ChatGroupBan.objects.filter(group=group, user=request.user).exists()
+    if not request.user.is_staff and not membership and (not group.is_public or is_banned):
+        raise Http404
+
+    messages_data = []
+    can_post = False
+    can_moderate = False
+    if request.user.is_staff or membership:
+        page_messages = list(
+            ChatMessage.objects.filter(group=group)
+            .select_related("group", "sender", "reply_to", "reply_to__sender")
+            .prefetch_related("reactions", "demo_reaction_counts")
+            .order_by("-created_at", "-pk")[:100]
+        )
+        page_messages.reverse()
+        messages_data = [_message_json(message, request.user.pk) for message in page_messages]
+        can_post = user_can_post(request.user, group)
+        can_moderate = user_can_moderate(request.user, group)
+
+    context = {
+        "group": group,
+        "membership": membership,
+        "is_banned": is_banned,
+        "actual_member_count": group.member_count,
+        "display_member_count": group.member_count + group.demo_member_offset,
+        "messages_data": messages_data,
+        "can_post": can_post,
+        "can_moderate": can_moderate,
+        "ws_path": f"/ws/chat/groups/{group.pk}/",
+        "demo_growth_url_template": reverse("chat_message_demo_growth", args=(0,)),
+    }
+    return render(request, "investments/chat_room.html", context)
+
+
+@login_required
+@require_POST
+def chat_group_send(request, pk):
+    if not _eligible_user(request.user):
+        return JsonResponse({"ok": False, "error": "يلزم اعتماد الحساب لاستخدام المحادثة."}, status=403)
+    group = get_object_or_404(ChatGroup, pk=pk, is_active=True)
+    if not group_member_access(request.user, group) or not user_can_post(request.user, group):
+        return JsonResponse({"ok": False, "error": "لا تملك صلاحية الإرسال في هذه المجموعة."}, status=403)
+    form = ChatUploadForm(request.POST, request.FILES, group=group)
+    if not form.is_valid():
+        errors = [str(error) for errors in form.errors.values() for error in errors]
+        return JsonResponse({"ok": False, "error": errors[0] if errors else "راجع بيانات الرسالة."}, status=400)
+    try:
+        message_data = create_uploaded_message(group.pk, request.user.pk, form)
+    except ChatRuleError as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+    try:
+        _broadcast_group_message(group.pk, {"type": "message_created", "message": message_data})
+    except Exception:
+        logger.exception("Could not broadcast chat message %s", message_data["id"])
+    return JsonResponse({"ok": True, "message": message_data})
+
+
+@login_required
+@require_POST
+def chat_message_demo_growth(request, pk):
+    if not request.user.is_staff:
+        return JsonResponse({"ok": False, "error": "إعداد الزيادة التجريبية متاح للإدارة فقط."}, status=403)
+    message = get_object_or_404(ChatMessage.objects.select_related("group"), pk=pk)
+    form = ChatDemoGrowthForm(request.POST, group=message.group)
+    if not form.is_valid():
+        errors = [str(error) for field_errors in form.errors.values() for error in field_errors]
+        return JsonResponse({"ok": False, "error": errors[0] if errors else "راجع إعدادات الزيادة."}, status=400)
+    try:
+        message_data = configure_message_demo_growth(message.pk, request.user.pk, form.cleaned_data)
+    except ChatRuleError as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+    try:
+        _broadcast_group_message(message.group_id, {"type": "message_updated", "message": message_data})
+    except Exception:
+        logger.exception("Could not broadcast demo reaction settings for message %s", message.pk)
+    return JsonResponse({"ok": True, "message": message_data})
+
+
+def _private_file_response(request, file_field, *, as_attachment, filename=""):
+    try:
+        file_field.open("rb")
+        response = FileResponse(
+            file_field,
+            as_attachment=as_attachment,
+            filename=filename or file_field.name.rsplit("/", 1)[-1],
+            content_type=("application/octet-stream" if as_attachment else mimetypes.guess_type(file_field.name)[0] or "image/webp"),
+        )
+    except (FileNotFoundError, OSError, ValueError, ObjectDoesNotExist):
+        raise Http404
+    response["Cache-Control"] = "private, no-store"
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+@login_required
+def chat_group_image(request, pk):
+    group = get_object_or_404(ChatGroup, pk=pk)
+    if not group.image or not group_member_access(request.user, group, allow_public_preview=group.is_public):
+        raise Http404
+    return _private_file_response(request, group.image, as_attachment=False)
+
+
+@login_required
+def chat_message_attachment(request, pk):
+    message = get_object_or_404(ChatMessage.objects.select_related("group"), pk=pk)
+    if not group_member_access(request.user, message.group) or not message.group.is_active:
+        raise Http404
+    if message.image:
+        return _private_file_response(request, message.image, as_attachment=False)
+    if message.attachment:
+        return _private_file_response(
+            request,
+            message.attachment,
+            as_attachment=True,
+            filename=message.attachment_name,
+        )
+    raise Http404

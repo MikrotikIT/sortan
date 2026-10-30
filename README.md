@@ -13,10 +13,39 @@ py -m pip install -r requirements.txt
 py manage.py migrate
 py manage.py create_demo_accounts
 py manage.py create_missing_wallets
-py manage.py runserver
+uvicorn config.asgi:application --reload
 ```
 
-افتح `http://127.0.0.1:8000/` للمستخدمين، و`http://127.0.0.1:8000/management/` للوحة الإدارة الخاصة، و`http://127.0.0.1:8000/admin/` لإدارة Django.
+يشغّل Uvicorn تطبيق ASGI محلياً، لذلك تعمل معه اتصالات WebSocket للمحادثات. افتح `http://127.0.0.1:8000/` للمستخدمين، و`http://127.0.0.1:8000/management/` للوحة الإدارة الخاصة، و`http://127.0.0.1:8000/admin/` لإدارة Django.
+
+لتشغيل الزيادة التجريبية للأعضاء والتفاعلات، شغّل Redis وCelery Worker وCelery Beat كما هو موضح في قسم إعداد محافظ TRON أدناه. الإدارة فقط تختار الرسالة وتضبط زيادتها التجريبية؛ الأعداد التجريبية منفصلة عن العضويات والتفاعلات الحقيقية وتظهر بوسم واضح. انتهاء المدة أو إلغاء الزيادة يوقف التوليد الآلي فقط، وتظل تفاعلات الأعضاء متاحة ما دامت مفعّلة للمجموعة.
+
+للتشغيل المحلي الكامل للمحادثات والزيادة الفورية في Windows، يلزم أن يعمل Redis وUvicorn وCelery Worker وBeat. إذا كان Redis مثبتاً في WSL، افتح نافذة طرفية واتركه يعمل:
+
+```powershell
+wsl.exe -d Ubuntu-24.04 -- redis-server --bind 127.0.0.1 --port 6379
+```
+
+في نافذة ثانية شغّل Uvicorn مع طبقة Redis حتى تصل تحديثات Celery إلى المحادثة:
+
+```powershell
+$env:CHANNEL_REDIS_URL = "redis://127.0.0.1:6379/1"
+uvicorn config.asgi:application --host 127.0.0.1 --port 8000 --reload
+```
+
+وفي نافذتين إضافيتين، شغّل Celery Worker وBeat. استخدم إعدادات Redis نفسها في كل نافذة:
+
+```powershell
+$env:CELERY_BROKER_URL = "redis://127.0.0.1:6379/0"
+$env:CHANNEL_REDIS_URL = "redis://127.0.0.1:6379/1"
+python -m celery -A config worker --pool=solo --loglevel=info
+```
+
+```powershell
+$env:CELERY_BROKER_URL = "redis://127.0.0.1:6379/0"
+$env:CHANNEL_REDIS_URL = "redis://127.0.0.1:6379/1"
+python -m celery -A config beat --loglevel=info
+```
 
 حسابا التجربة:
 
@@ -40,7 +69,7 @@ py manage.py runserver
 2. احفظه سراً في متغير البيئة `WALLET_ENCRYPTION_KEY`، واضبط `TRONGRID_API_KEY` من حساب TronGrid. استخدم المفتاح نفسه باستمرار وخزّن نسخة احتياطية آمنة؛ فقدانه يمنع فك تشفير مفاتيح المحافظ. أثناء التطوير المحلي فقط، إذا لم تحدد مفتاح Fernet، يستخدم التطبيق مفتاحاً مشتقاً من `DJANGO_SECRET_KEY`.
 3. إذا انتقلت من مفتاح التطوير إلى مفتاح Fernet مستقل، اضبط `WALLET_ENCRYPTION_KEY` ثم شغّل `py manage.py reencrypt_wallet_keys` قبل تغيير `DJANGO_SECRET_KEY`.
 4. شغّل Redis (أو اضبط CELERY_BROKER_URL لوسيط متاح)، ثم شغّل الواركر وBeat كلاهما في نافذة منفصلة:
-   إذا كان Docker مثبتاً ولا يعمل Redis لديك، شغّله أولاً: docker run --name Kodi TV-redis -p 127.0.0.1:6379:6379 -d redis:7-alpine
+   إذا كان Docker مثبتاً ولا يعمل Redis لديك، شغّله أولاً: `docker run --name kodi-tv-redis -p 127.0.0.1:6379:6379 -d redis:7-alpine`
 
    python -m celery -A config worker --pool=solo --loglevel=info
    python -m celery -A config beat --loglevel=info

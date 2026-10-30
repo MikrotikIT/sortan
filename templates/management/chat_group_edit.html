@@ -1,0 +1,38 @@
+{% extends 'management/base.html' %}
+{% load static %}
+{% block title %}إعدادات {{ group.title }} — KODI{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/chat-management.css' %}?v=1">{% endblock %}
+{% block content %}
+<section class="management-heading"><div><span class="eyebrow">إدارة المجموعة</span><h1>{{ group.title }}</h1><p>الأعضاء الحقيقيون: {{ actual_member_count }}{% if group.demo_member_offset %} · يظهر {{ display_member_count }} مع العدد التجريبي الإضافي{% endif %}</p></div><a class="btn btn-quiet" href="{% url 'management_chat_groups' %}">قائمة المجموعات</a></section>
+<section class="management-panel form-panel">
+  <div class="management-panel-head"><div><h2>إعدادات المجموعة</h2><p>القيم التجريبية تميّز بوضوح في واجهة المجموعة.</p></div></div>
+  <form method="post" enctype="multipart/form-data" class="management-form chat-admin-form">{% csrf_token %}
+    {% for field in form %}<div class="admin-field {% if field.field.widget.input_type == 'checkbox' %}admin-check-field{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}
+    <div class="form-actions"><button class="btn btn-primary" type="submit">حفظ الإعدادات</button><a class="btn btn-quiet" href="{% url 'chat_group_room' group.pk %}">فتح المجموعة</a></div>
+  </form>
+</section>
+<section class="management-panel">
+  <div class="management-panel-head"><div><h2>إضافة عضو</h2><p>أضف عميلًا مقبولاً، ثم حدّد دوره وصلاحية النشر.</p></div></div>
+  <form method="post" action="{% url 'management_chat_group_member_add' group.pk %}" class="chat-inline-form">{% csrf_token %}
+    {% for field in member_form %}<div class="admin-field {% if field.field.widget.input_type == 'checkbox' %}admin-check-field{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}
+    <button class="btn btn-primary" type="submit">إضافة</button>
+  </form>
+</section>
+<section class="management-panel">
+  <div class="management-panel-head"><div><h2>الأعضاء</h2></div><span class="count-pill">{{ actual_member_count }} عضو حقيقي</span></div>
+  {% if members %}<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>رقم العميل</th><th>الصلاحيات</th><th>الإجراءات</th></tr></thead><tbody>
+    {% for membership in members %}<tr><td dir="ltr">{{ membership.user.phone }}</td><td><form method="post" action="{% url 'management_chat_group_member_update' group.pk membership.user_id %}" class="chat-member-edit">{% csrf_token %}<select name="role" aria-label="الدور"><option value="member" {% if membership.role == 'member' %}selected{% endif %}>عضو</option><option value="moderator" {% if membership.role == 'moderator' %}selected{% endif %}>مشرف</option></select><label><input type="checkbox" name="can_post" {% if membership.can_post %}checked{% endif %}> نشر عند اختيار أعضاء</label><button class="table-action" type="submit">حفظ</button></form></td><td><div class="row-actions"><form method="post" action="{% url 'management_chat_group_member_remove' group.pk membership.user_id %}" onsubmit="return confirm('إزالة هذا العضو من المجموعة؟')">{% csrf_token %}<button class="table-action danger-action" type="submit">إزالة</button></form><form method="post" action="{% url 'management_chat_group_ban' group.pk %}">{% csrf_token %}<input type="hidden" name="phone" value="{{ membership.user.phone }}"><input type="hidden" name="reason" value="حظر من إدارة المجموعة"><button class="table-action danger-action" type="submit">حظر</button></form></div></td></tr>{% endfor %}
+  </tbody></table></div>{% else %}<div class="admin-empty">لا يوجد أعضاء حقيقيون بعد.</div>{% endif %}
+</section>
+<section class="management-panel">
+  <div class="management-panel-head"><div><h2>حظر عضو</h2><p>المحظور لا يستطيع مشاهدة المجموعة أو الانضمام إليها. رفع الحظر لا يعيده تلقائياً إلى العضوية.</p></div></div>
+  <form method="post" action="{% url 'management_chat_group_ban' group.pk %}" class="chat-inline-form">{% csrf_token %}
+    {% for field in ban_form %}<div class="admin-field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}
+    <button class="btn btn-quiet" type="submit">حظر العميل</button>
+  </form>
+  <div class="management-panel-head chat-banned-head"><div><h3>قائمة المحظورين</h3></div><span class="count-pill">{{ bans|length }}</span></div>
+  {% if bans %}<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>العميل</th><th>السبب</th><th>تاريخ الحظر</th><th>الإجراء</th></tr></thead><tbody>
+    {% for ban in bans %}<tr><td dir="ltr">{{ ban.user.phone }}</td><td>{{ ban.reason|default:"—" }}</td><td>{{ ban.created_at|date:"Y-m-d H:i" }}</td><td><form method="post" action="{% url 'management_chat_group_unban' group.pk ban.pk %}">{% csrf_token %}<button class="table-action" type="submit">رفع الحظر</button></form></td></tr>{% endfor %}
+  </tbody></table></div>{% else %}<div class="admin-empty">لا يوجد أشخاص محظورون.</div>{% endif %}
+</section>
+{% endblock %}

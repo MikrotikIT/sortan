@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{{ group.title }} — KODI{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/group-chat.css' %}?v=3">{% endblock %}
+{% block content %}
+<section class="chat-room" data-chat-room data-ws-path="{{ ws_path }}" data-chat-live-stats-url="{% url 'chat_live_stats' %}" data-group-id="{{ group.pk }}" data-current-user="{{ request.user.pk }}" data-can-moderate="{{ can_moderate|yesno:'true,false' }}" data-can-post="{{ can_post|yesno:'true,false' }}" data-is-admin="{{ request.user.is_staff|yesno:'true,false' }}" data-demo-growth-url-template="{{ demo_growth_url_template }}" data-can-react="{{ group.reactions_enabled|yesno:'true,false' }}" data-member-count="{{ actual_member_count }}" data-demo-member-offset="{{ group.demo_member_offset }}">
+  <header class="chat-room-header">
+    <a class="chat-back-link" href="{% url 'chat_groups' %}" aria-label="العودة للمجموعات">→</a>
+    {% if group.image and not is_banned %}<img class="chat-group-avatar" src="{% url 'chat_group_image' group.pk %}" alt="">{% else %}<span class="chat-group-avatar chat-group-avatar-placeholder" aria-hidden="true">✦</span>{% endif %}
+    <div class="chat-room-title"><h1>{{ group.title }}</h1><p>{{ group.description|default:"مجموعة محادثة" }}</p><small class="chat-members-line"><b data-room-member-count>{{ display_member_count }}</b> عضواً{% if group.demo_member_offset or group.demo_member_growth_enabled %}<em>يشمل عدد محاكاة تجريبياً</em>{% endif %}</small></div>
+    <span class="chat-connection-status" data-chat-status>جارٍ الاتصال…</span>
+  </header>
+  {% if is_banned %}<div class="chat-notice chat-notice-danger">حسابك محظور من هذه المجموعة.</div>
+  {% elif not membership and not request.user.is_staff %}<div class="chat-join-prompt"><div><strong>انضم للمجموعة لعرض الرسائل والمشاركة</strong><small>العدد الظاهر يوضح العدد الحقيقي والإضافة التجريبية بشكل منفصل.</small></div><form method="post" action="{% url 'chat_group_join' group.pk %}">{% csrf_token %}<button class="btn btn-primary" type="submit">انضمام للمجموعة</button></form></div>
+  {% else %}
+    {% if not can_post %}<div class="chat-notice">المحادثة مقفلة أو النشر متاح لأعضاء محددين فقط.</div>{% endif %}
+    <div class="chat-message-list-wrap"><ol class="chat-message-list" data-chat-messages aria-live="polite" aria-relevant="additions text"></ol></div>
+    {% if can_post %}
+    <form class="chat-compose" data-chat-compose method="post" enctype="multipart/form-data" action="{% url 'chat_group_send' group.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="reply_to" data-reply-id>
+      <div class="chat-reply-compose" data-reply-preview hidden><div><strong data-reply-sender></strong><small data-reply-text></small></div><button type="button" data-reply-cancel aria-label="إلغاء الرد">إلغاء</button></div>
+      <div class="chat-compose-main"><textarea name="text" maxlength="2000" rows="2" placeholder="اكتب رسالتك…" aria-label="نص الرسالة"></textarea>
+        <div class="chat-compose-controls">
+          {% if group.allow_images %}<label class="chat-file-control" title="إرفاق صورة">صورة<input type="file" name="image" accept="image/jpeg,image/png,image/webp"></label>{% endif %}
+          {% if group.allow_files %}<label class="chat-file-control" title="إرفاق ملف">ملف<input type="file" name="attachment" accept=".pdf,.txt,.csv,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip"></label>{% endif %}
+          <button class="btn btn-primary chat-send-button" type="submit">إرسال</button>
+        </div>
+      </div>
+      <div class="chat-upload-error" data-chat-error role="status" hidden></div>
+    </form>
+    {% endif %}
+  {% endif %}
+</section>
+{{ messages_data|json_script:"chat-initial-messages" }}
+{% endblock %}
+{% block extra_js %}<script src="{% static 'js/group-chat.js' %}?v=4" defer></script>{% endblock %}
