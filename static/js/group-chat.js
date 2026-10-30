@@ -695,7 +695,17 @@
     let button = event.submitter instanceof HTMLButtonElement ? event.submitter : null;
     if (!button || button.hidden) button = attachmentPreview?.hidden ? composeSendButton : attachmentSendButton;
     const buttonText = button?.textContent || "إرسال";
-    if (button) { button.disabled = true; button.textContent = "جارٍ الإرسال…"; }
+    const buttonLabel = button?.getAttribute("aria-label");
+    const iconOnlyButton = button?.hasAttribute("data-compose-send");
+    if (button) {
+      button.disabled = true;
+      if (iconOnlyButton) {
+        button.classList.add("is-loading");
+        button.setAttribute("aria-label", "جارٍ الإرسال…");
+      } else {
+        button.textContent = "جارٍ الإرسال…";
+      }
+    }
     if (errorBox) errorBox.hidden = true;
     try {
       const formData = new FormData(compose);
@@ -716,7 +726,15 @@
     } catch (error) {
       showError(error.message || "تعذر إرسال الرسالة.");
     } finally {
-      if (button) { button.disabled = false; button.textContent = buttonText; }
+      if (button) {
+        button.disabled = false;
+        if (iconOnlyButton) {
+          button.classList.remove("is-loading");
+          if (buttonLabel) button.setAttribute("aria-label", buttonLabel);
+        } else {
+          button.textContent = buttonText;
+        }
+      }
     }
   });
 

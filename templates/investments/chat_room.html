@@ -2,7 +2,7 @@
 {% load static %}
 {% block body_class %}chat-room-page{% endblock %}
 {% block title %}{{ group.title }} — KODI{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/group-chat.css' %}?v=4"><link rel="stylesheet" href="{% static 'css/chat-fullscreen.css' %}?v=2"><link rel="stylesheet" href="{% static 'css/chat-ui.css' %}?v=8">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/group-chat.css' %}?v=4"><link rel="stylesheet" href="{% static 'css/chat-fullscreen.css' %}?v=2"><link rel="stylesheet" href="{% static 'css/chat-ui.css' %}?v=9">{% endblock %}
 {% block content %}
 <section class="chat-room" data-chat-room data-ws-path="{{ ws_path }}" data-history-url="{{ history_url }}" data-has-older-messages="{{ has_older_messages|yesno:'true,false' }}" data-chat-live-stats-url="{% url 'chat_live_stats' %}" data-group-id="{{ group.pk }}" data-current-user="{{ request.user.pk }}" data-can-moderate="{{ can_moderate|yesno:'true,false' }}" data-can-post="{{ can_post|yesno:'true,false' }}" data-is-admin="{{ request.user.is_staff|yesno:'true,false' }}" data-demo-growth-url-template="{{ demo_growth_url_template }}" data-can-react="{{ group.reactions_enabled|yesno:'true,false' }}" data-member-count="{{ actual_member_count }}" data-demo-member-offset="{{ group.demo_member_offset }}">
   <header class="chat-room-header">
@@ -21,8 +21,8 @@
       {% csrf_token %}
       <input type="hidden" name="reply_to" data-reply-id>
       <div class="chat-reply-compose" data-reply-preview hidden><div><strong data-reply-sender></strong><small data-reply-text></small></div><button type="button" data-reply-cancel aria-label="إلغاء الرد">إلغاء</button></div>
-      <div class="chat-compose-main"><textarea name="text" maxlength="2000" rows="2" placeholder="اكتب رسالتك…" aria-label="نص الرسالة"></textarea>
-        <div class="chat-compose-controls">
+      <div class="chat-compose-main">
+        <div class="chat-composer">
           {% if group.allow_images or group.allow_files %}
           <details class="chat-attachment-menu">
             <summary aria-label="إرفاق صورة أو ملف" title="إرفاق صورة أو ملف"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></summary>
@@ -32,7 +32,8 @@
             </div>
           </details>
           {% endif %}
-          <button class="btn btn-primary chat-send-button" data-compose-send type="submit">إرسال</button>
+          <textarea name="text" maxlength="2000" rows="1" placeholder="اكتب رسالتك…" aria-label="نص الرسالة"></textarea>
+          <button class="btn btn-primary chat-send-button chat-send-icon-button" data-compose-send type="submit" aria-label="إرسال الرسالة" title="إرسال الرسالة"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg></button>
         </div>
       </div>
       <div class="chat-attachment-preview" data-attachment-preview hidden>

@@ -744,7 +744,7 @@
 }
 
 .chat-attachment-preview[hidden],
-.chat-compose-controls [data-compose-send][hidden] {
+.chat-composer [data-compose-send][hidden] {
   display: none !important;
 }
 
@@ -916,6 +916,149 @@
   .chat-message-card {
     min-width: 0;
     max-width: 93%;
+  }
+}
+
+.chat-compose-main {
+  width: min(100%, 1100px);
+  align-items: center;
+  gap: 0;
+}
+
+.chat-composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  width: 100%;
+  min-height: 50px;
+  padding: 5px 6px;
+  border: 1px solid #dce6e8;
+  border-radius: 26px;
+  background: #f6f8f9;
+  box-shadow: 0 2px 7px rgba(24, 56, 65, .04);
+  transition: border-color .16s ease, background .16s ease, box-shadow .16s ease;
+}
+
+.chat-composer:focus-within {
+  border-color: #9ccbd4;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(20, 158, 204, .08);
+}
+
+.chat-composer textarea {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  max-height: 132px;
+  padding: 8px 7px;
+  border: 0;
+  border-radius: 18px;
+  outline: 0;
+  background: transparent;
+  color: #263f46;
+  box-shadow: none;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: none;
+}
+
+.chat-composer textarea:focus {
+  border: 0;
+  outline: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.chat-composer textarea::placeholder {
+  color: #8a999d;
+}
+
+.chat-composer .chat-attachment-menu {
+  flex: 0 0 auto;
+  margin-bottom: 1px;
+}
+
+.chat-composer .chat-attachment-menu > summary {
+  width: 35px;
+  height: 38px;
+  border: 0;
+  background: transparent;
+  color: #71858a;
+}
+
+.chat-composer .chat-attachment-menu > summary:hover {
+  border-radius: 50%;
+  background: #e9eff0;
+}
+
+.chat-composer .chat-send-icon-button {
+  display: grid;
+  flex: 0 0 38px;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  min-height: 38px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #19a777;
+  color: #fff;
+  box-shadow: 0 2px 5px rgba(25, 167, 119, .2);
+  transition: background .15s ease, transform .15s ease, opacity .15s ease;
+}
+
+.chat-send-icon-button svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.chat-send-icon-button:disabled,
+.chat-send-icon-button.is-loading {
+  opacity: .72;
+}
+
+@media (hover: hover) {
+  .chat-composer .chat-send-icon-button:hover {
+    transform: scale(1.04);
+    background: #128b62;
+  }
+}
+
+@media (max-width: 760px) {
+  .chat-compose-main {
+    align-items: center;
+    flex-direction: row;
+  }
+
+  .chat-composer {
+    min-height: 48px;
+    gap: 4px;
+    padding: 4px 5px;
+  }
+
+  .chat-composer textarea {
+    min-height: 38px;
+    padding: 8px 5px;
+    font-size: 14px;
+  }
+
+  .chat-composer .chat-attachment-menu > summary {
+    width: 32px;
+    height: 36px;
+  }
+
+  .chat-composer .chat-send-icon-button {
+    flex-basis: 36px;
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
   }
 }
 
