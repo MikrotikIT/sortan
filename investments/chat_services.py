@@ -10,6 +10,7 @@ from django.utils.html import strip_tags
 from django.urls import reverse
 from django.utils.text import get_valid_filename
 
+from .countries import masked_phone_number
 from .models import ChatGroup, ChatGroupBan, ChatMembership, ChatMessage, ChatReaction, JoinApplication, User
 
 
@@ -113,7 +114,7 @@ def _check_text_rules(group, user, text):
 
 def _get_sender_name(user):
     name = JoinApplication.objects.filter(user_id=user.pk).values_list("full_name", flat=True).first()
-    return name or user.masked_phone
+    return name or masked_phone_number(user.phone, user.resolved_country_code, hidden_digits=2)
 
 
 def _reply_preview(message):

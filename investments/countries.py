@@ -336,7 +336,7 @@ def normalize_phone_number(value, country_code):
     return f"+{dial_code}{national_number}"
 
 
-def masked_phone_number(phone, country_code=""):
+def masked_phone_number(phone, country_code="", *, hidden_digits=3):
     try:
         _, digits = clean_phone_input(phone)
     except ValueError:
@@ -350,8 +350,16 @@ def masked_phone_number(phone, country_code=""):
         national_number = digits
         if dial_code and national_number.startswith("0"):
             national_number = national_number[1:]
-    visible_digits = max(1, len(national_number) - 3) if national_number else 0
-    masked = f"{national_number[:visible_digits]}***" if national_number else "***"
+    if national_number:
+        try:
+            hidden_digits = int(hidden_digits)
+        except (TypeError, ValueError):
+            hidden_digits = 3
+        hidden_digits = min(max(1, hidden_digits), len(national_number))
+        visible_digits = len(national_number) - hidden_digits
+        masked = f"{national_number[:visible_digits]}{'*' * hidden_digits}"
+    else:
+        masked = "***"
     if dial_code:
         return f"+{dial_code} {masked}"
     return f"+{masked}" if str(phone).strip().startswith("+") else masked
