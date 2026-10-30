@@ -114,7 +114,8 @@ def _check_text_rules(group, user, text):
 
 def _get_sender_name(user):
     name = JoinApplication.objects.filter(user_id=user.pk).values_list("full_name", flat=True).first()
-    return name or masked_phone_number(user.phone, user.resolved_country_code, hidden_digits=2)
+    phone = masked_phone_number(user.phone, user.resolved_country_code, hidden_digits=2)
+    return f"{name.strip()[:80]} · {phone}" if name and name.strip() else phone
 
 
 def _reply_preview(message):
