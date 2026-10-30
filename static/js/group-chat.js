@@ -136,6 +136,58 @@
     options.style.top = `${top}px`;
   };
 
+  const positionMessageActionMenu = (menu) => {
+    if (!menu.open) return;
+    const trigger = menu.querySelector("summary");
+    const options = menu.querySelector(".chat-message-action-options");
+    if (!trigger || !options) return;
+    const anchor = trigger.getBoundingClientRect();
+    const panel = options.getBoundingClientRect();
+    const padding = 8;
+    const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    let left = anchor.left;
+    if (left + panel.width > viewportWidth - padding) left = anchor.right - panel.width;
+    left = Math.min(Math.max(padding, left), Math.max(padding, viewportWidth - panel.width - padding));
+    let top = anchor.bottom + 5;
+    if (top + panel.height > viewportHeight - padding) top = anchor.top - panel.height - 5;
+    top = Math.min(Math.max(padding, top), Math.max(padding, viewportHeight - panel.height - padding));
+    options.style.left = `${left}px`;
+    options.style.top = `${top}px`;
+  };
+
+  const copyTextToClipboard = async (value) => {
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(value);
+        return;
+      } catch { /* Fall back to a temporary selection for browsers with restricted clipboard access. */ }
+    }
+    const field = document.createElement("textarea");
+    field.value = value;
+    field.setAttribute("readonly", "");
+    field.style.position = "fixed";
+    field.style.opacity = "0";
+    document.body.append(field);
+    field.select();
+    const copied = document.execCommand("copy");
+    field.remove();
+    if (!copied) throw new Error("تعذر نسخ الرسالة.");
+  };
+
+  const showCopyFeedback = (card) => {
+    let feedback = card.querySelector(".chat-copy-feedback");
+    if (!feedback) {
+      feedback = document.createElement("small");
+      feedback.className = "chat-copy-feedback";
+      feedback.setAttribute("role", "status");
+      card.append(feedback);
+    }
+    feedback.textContent = "تم نسخ الرسالة";
+    window.clearTimeout(feedback.dismissTimer);
+    feedback.dismissTimer = window.setTimeout(() => feedback.remove(), 1800);
+  };
+
   const createReactionPicker = (messageId) => {
     const picker = document.createElement("details");
     picker.className = "chat-reaction-picker";
@@ -405,34 +457,66 @@
       header.append(edited);
     }
     const ownMessage = Number(message.sender_id) === userId;
-    if (ownMessage || canModerate || canPost) {
-      const tools = document.createElement("div");
-      tools.className = "chat-message-tools";
-      if (ownMessage && message.text) {
-        const edit = document.createElement("button");
-        edit.type = "button";
-        edit.textContent = "تعديل";
-        edit.addEventListener("click", () => {
-          const updated = window.prompt("تعديل الرسالة", message.text);
-          if (updated !== null) sendSocket({ action: "edit", message_id: message.id, text: updated });
-        });
-        tools.append(edit);
-      }
-      if (ownMessage || canModerate) {
-        const remove = document.createElement("button");
-        remove.type = "button";
-        remove.className = "is-danger";
-        remove.textContent = "حذف";
-        remove.addEventListener("click", () => {
-          if (window.confirm("حذف هذه الرسالة؟")) sendSocket({ action: "delete", message_id: message.id });
-        });
-        tools.append(remove);
-      }
-      if (tools.childElementCount) {
-        card.classList.add("has-message-tools");
-        header.append(tools);
-      }
+    const tools = document.createElement("div");
+    tools.className = "chat-message-tools";
+    const actionMenu = document.createElement("details");
+    actionMenu.className = "chat-message-actions-menu";
+    actionMenu.dataset.messageActionsMenu = "";
+    const menuToggle = document.createElement("summary");
+    menuToggle.setAttribute("aria-label", "خيارات الرسالة");
+    menuToggle.title = "خيارات الرسالة";
+    menuToggle.append(createSvgIcon("chat-message-menu-icon", [], [
+      { cx: 12, cy: 5, r: 1.5 },
+      { cx: 12, cy: 12, r: 1.5 },
+      { cx: 12, cy: 19, r: 1.5 },
+    ]));
+    const menuOptions = document.createElement("div");
+    menuOptions.className = "chat-message-action-options";
+    const addMessageAction = (label, className, onClick) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = className || "";
+      button.textContent = label;
+      button.addEventListener("click", onClick);
+      menuOptions.append(button);
+    };
+
+    if (ownMessage && message.text) {
+      addMessageAction("تعديل", "", () => {
+        actionMenu.open = false;
+        const updated = window.prompt("تعديل الرسالة", message.text);
+        if (updated !== null) sendSocket({ action: "edit", message_id: message.id, text: updated });
+      });
     }
+    if (ownMessage || canModerate) {
+      addMessageAction("حذف", "is-danger", () => {
+        actionMenu.open = false;
+        if (window.confirm("حذف هذه الرسالة؟")) sendSocket({ action: "delete", message_id: message.id });
+      });
+    }
+    addMessageAction("نسخ", "", async () => {
+      const value = message.text || (message.media_url ? new URL(message.media_url, window.location.origin).href : "");
+      if (!value) {
+        actionMenu.open = false;
+        showError("لا يوجد محتوى لنسخه.");
+        return;
+      }
+      try {
+        await copyTextToClipboard(value);
+        actionMenu.open = false;
+        showCopyFeedback(card);
+      } catch (error) {
+        showError(error.message || "تعذر نسخ الرسالة.");
+      }
+    });
+    actionMenu.append(menuToggle, menuOptions);
+    actionMenu.addEventListener("toggle", () => {
+      if (actionMenu.open) window.requestAnimationFrame(() => positionMessageActionMenu(actionMenu));
+      else { menuOptions.style.removeProperty("left"); menuOptions.style.removeProperty("top"); }
+    });
+    tools.append(actionMenu);
+    card.classList.add("has-message-tools");
+    header.append(tools);
     card.append(header);
 
     if (message.reply_to) {
@@ -742,10 +826,12 @@
 
   listViewport.addEventListener("scroll", () => {
     root.querySelectorAll("[data-reaction-picker][open]").forEach((picker) => { picker.open = false; });
+    root.querySelectorAll("[data-message-actions-menu][open]").forEach((menu) => { menu.open = false; });
     if (listViewport.scrollTop <= 72) loadOlderMessages();
   }, { passive: true });
   window.addEventListener("resize", () => {
     root.querySelectorAll("[data-reaction-picker][open]").forEach(positionReactionMenu);
+    root.querySelectorAll("[data-message-actions-menu][open]").forEach(positionMessageActionMenu);
   });
 
   compose?.querySelector("[data-reply-cancel]")?.addEventListener("click", clearReplySelection);
