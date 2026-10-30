@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block title %}مجموعات المحادثة — KODI{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/group-chat.css' %}?v=1">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/group-chat.css' %}?v=2"><link rel="stylesheet" href="{% static 'css/chat-ui.css' %}?v=1">{% endblock %}
 {% block content %}
 <section class="chat-page-heading"><div><span class="eyebrow">تواصل المجتمع</span><h1>مجموعات المحادثة</h1><p>انضم إلى المجموعات المتاحة وتابع المحادثات.</p></div></section>
 {% if groups %}<section class="chat-groups-grid" data-chat-groups data-live-stats-url="{% url 'chat_live_stats' %}" aria-label="المجموعات المتاحة">

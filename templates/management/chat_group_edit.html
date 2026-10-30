@@ -1,7 +1,7 @@
 {% extends 'management/base.html' %}
 {% load static %}
 {% block title %}إعدادات {{ group.title }} — KODI{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/chat-management.css' %}?v=1">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/chat-management.css' %}?v=2">{% endblock %}
 {% block content %}
 <section class="management-heading"><div><span class="eyebrow">إدارة المجموعة</span><h1>{{ group.title }}</h1><p>الأعضاء الحقيقيون: {{ actual_member_count }}{% if group.demo_member_offset %} · يظهر {{ display_member_count }} مع العدد التجريبي الإضافي{% endif %}</p></div><a class="btn btn-quiet" href="{% url 'management_chat_groups' %}">قائمة المجموعات</a></section>
 <section class="management-panel form-panel">
