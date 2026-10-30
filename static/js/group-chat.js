@@ -15,6 +15,11 @@
   const demoGrowthUrlTemplate = root.dataset.demoGrowthUrlTemplate || "";
   const compose = root.querySelector("[data-chat-compose]");
   const messageInput = compose?.querySelector('textarea[name="text"]');
+  const attachmentInputs = [...(compose?.querySelectorAll('.chat-attachment-options input[type="file"]') || [])];
+  const attachmentPreview = compose?.querySelector("[data-attachment-preview]");
+  const attachmentPreviewItems = compose?.querySelector("[data-attachment-preview-items]");
+  const composeSendButton = compose?.querySelector("[data-compose-send]");
+  const attachmentSendButton = compose?.querySelector("[data-attachment-send]");
   const replyIdInput = compose?.querySelector("[data-reply-id]");
   const replyPreview = compose?.querySelector("[data-reply-preview]");
   const replySender = compose?.querySelector("[data-reply-sender]");
@@ -44,6 +49,52 @@
     messageInput.style.height = "auto";
     messageInput.style.height = `${Math.min(messageInput.scrollHeight, 132)}px`;
     messageInput.style.overflowY = messageInput.scrollHeight > 132 ? "auto" : "hidden";
+  };
+
+  let previewObjectUrls = [];
+  const refreshAttachmentPreview = () => {
+    previewObjectUrls.forEach((url) => URL.revokeObjectURL(url));
+    previewObjectUrls = [];
+    if (!attachmentPreview || !attachmentPreviewItems) return;
+    attachmentPreviewItems.replaceChildren();
+    const selectedFiles = attachmentInputs.flatMap((input) => [...(input.files || [])]);
+    attachmentPreview.hidden = selectedFiles.length === 0;
+    if (composeSendButton) composeSendButton.hidden = selectedFiles.length > 0;
+    selectedFiles.forEach((file) => {
+      const item = document.createElement("div");
+      item.className = "chat-attachment-preview-item";
+      if (file.type.startsWith("image/")) {
+        const image = document.createElement("img");
+        const objectUrl = URL.createObjectURL(file);
+        previewObjectUrls.push(objectUrl);
+        image.src = objectUrl;
+        image.alt = `معاينة ${file.name}`;
+        item.append(image);
+      } else {
+        const icon = document.createElement("span");
+        icon.className = "chat-attachment-preview-icon";
+        icon.textContent = "📎";
+        icon.setAttribute("aria-hidden", "true");
+        item.append(icon);
+      }
+      const details = document.createElement("div");
+      details.className = "chat-attachment-preview-details";
+      const name = document.createElement("strong");
+      name.textContent = file.name;
+      const size = document.createElement("small");
+      const bytes = Number(file.size || 0);
+      size.textContent = bytes < 1024 * 1024
+        ? `${Math.max(1, Math.round(bytes / 1024))} كيلوبايت`
+        : `${(bytes / (1024 * 1024)).toFixed(1)} ميغابايت`;
+      details.append(name, size);
+      item.append(details);
+      attachmentPreviewItems.append(item);
+    });
+  };
+
+  const clearSelectedAttachments = () => {
+    attachmentInputs.forEach((input) => { input.value = ""; });
+    refreshAttachmentPreview();
   };
 
   const clearReplySelection = () => {
@@ -175,7 +226,7 @@
   const renderReactions = (container, message) => {
     container.replaceChildren();
     if (!canReact || !message.reactions_enabled) return;
-    (message.reactions || []).forEach((reaction) => {
+    (message.reactions || []).filter((reaction) => Number(reaction.count || 0) > 0).forEach((reaction) => {
       const button = document.createElement("button");
       button.type = "button";
       button.className = `chat-reaction${message.user_reaction === reaction.kind ? " is-selected" : ""}`;
@@ -195,6 +246,29 @@
       button.addEventListener("click", () => sendSocket({ action: "react", message_id: message.id, kind: reaction.kind }));
       container.append(button);
     });
+    const picker = document.createElement("details");
+    picker.className = "chat-reaction-picker";
+    picker.dataset.reactionPicker = "";
+    const toggle = document.createElement("summary");
+    toggle.textContent = "+";
+    toggle.setAttribute("aria-label", "إضافة تفاعل");
+    toggle.title = "إضافة تفاعل";
+    picker.append(toggle);
+    const options = document.createElement("div");
+    options.className = "chat-reaction-options";
+    Object.entries(glyphs).forEach(([kind, glyph]) => {
+      const option = document.createElement("button");
+      option.type = "button";
+      option.textContent = glyph;
+      option.title = labels[kind];
+      option.setAttribute("aria-label", labels[kind]);
+      option.addEventListener("click", () => {
+        if (sendSocket({ action: "react", message_id: message.id, kind })) picker.open = false;
+      });
+      options.append(option);
+    });
+    picker.append(options);
+    container.append(picker);
   };
 
   const renderMessage = (message, { prepend = false } = {}) => {
@@ -395,25 +469,71 @@
   const updateReactionCounts = (payload) => {
     const messageItem = list.querySelector(`[data-message-id="${Number(payload.message_id)}"]`);
     if (!messageItem) return;
-    const buttons = new Map([...messageItem.querySelectorAll("[data-reaction-kind]")].map((button) => [button.dataset.reactionKind, button]));
+    const container = messageItem.querySelector(".chat-reactions");
+    if (!container || !canReact) return;
+    let selectedKind = container.querySelector("[data-reaction-kind].is-selected")?.dataset.reactionKind || null;
+    if (Object.prototype.hasOwnProperty.call(payload, "user_reaction")) {
+      selectedKind = payload.user_reaction;
+    } else if (Number(payload.actor_id) === userId) {
+      selectedKind = payload.actor_reaction;
+    }
     (payload.reactions || []).forEach((reaction) => {
-      const button = buttons.get(reaction.kind);
-      if (!button) return;
+      const total = Number(reaction.count || 0);
+      let button = container.querySelector(`[data-reaction-kind="${reaction.kind}"]`);
+      if (total <= 0) {
+        button?.remove();
+        return;
+      }
+      if (!button) {
+        button = document.createElement("button");
+        button.type = "button";
+        button.className = "chat-reaction";
+        button.dataset.reactionKind = reaction.kind;
+        const glyph = document.createElement("span");
+        glyph.textContent = glyphs[reaction.kind] || "•";
+        const count = document.createElement("b");
+        button.append(glyph, count);
+        button.addEventListener("click", () => sendSocket({ action: "react", message_id: payload.message_id, kind: reaction.kind }));
+      }
+      button.classList.toggle("is-selected", selectedKind === reaction.kind);
       const count = button.querySelector("b");
-      if (count) count.textContent = String(reaction.count || 0);
+      if (count) count.textContent = String(total);
       button.title = `حقيقي: ${reaction.real_count || 0} · تجريبي: ${reaction.demo_count || 0}`;
-      button.setAttribute("aria-label", `${labels[reaction.kind]}: ${reaction.count || 0}`);
+      button.setAttribute("aria-label", `${labels[reaction.kind]}: ${total}`);
       let demo = button.querySelector("small");
       if (reaction.demo_count) {
         if (!demo) { demo = document.createElement("small"); button.append(demo); }
         demo.textContent = `تجريبي +${reaction.demo_count}`;
       } else if (demo) demo.remove();
-      if (Object.prototype.hasOwnProperty.call(payload, "user_reaction")) {
-        button.classList.toggle("is-selected", payload.user_reaction === reaction.kind);
-      } else if (Number(payload.actor_id) === userId) {
-        button.classList.toggle("is-selected", payload.actor_reaction === reaction.kind);
-      }
+      const picker = container.querySelector("[data-reaction-picker]");
+      container.insertBefore(button, picker || null);
     });
+    if (!container.querySelector("[data-reaction-picker]")) {
+      const messageId = Number(payload.message_id);
+      const picker = document.createElement("details");
+      picker.className = "chat-reaction-picker";
+      picker.dataset.reactionPicker = "";
+      const toggle = document.createElement("summary");
+      toggle.textContent = "+";
+      toggle.setAttribute("aria-label", "إضافة تفاعل");
+      toggle.title = "إضافة تفاعل";
+      picker.append(toggle);
+      const options = document.createElement("div");
+      options.className = "chat-reaction-options";
+      Object.entries(glyphs).forEach(([kind, glyph]) => {
+        const option = document.createElement("button");
+        option.type = "button";
+        option.textContent = glyph;
+        option.title = labels[kind];
+        option.setAttribute("aria-label", labels[kind]);
+        option.addEventListener("click", () => {
+          if (sendSocket({ action: "react", message_id: messageId, kind })) picker.open = false;
+        });
+        options.append(option);
+      });
+      picker.append(options);
+      container.append(picker);
+    }
   };
 
   const updateMemberCount = (payload) => {
@@ -524,10 +644,25 @@
 
   compose?.querySelector("[data-reply-cancel]")?.addEventListener("click", clearReplySelection);
   messageInput?.addEventListener("input", resizeMessageInput);
+  attachmentInputs.forEach((input) => {
+    input.addEventListener("change", () => {
+      if (input.files?.length) input.closest("details")?.removeAttribute("open");
+      refreshAttachmentPreview();
+    });
+  });
+  compose?.querySelector("[data-attachment-cancel]")?.addEventListener("click", clearSelectedAttachments);
+  root.addEventListener("click", (event) => {
+    root.querySelectorAll("details[open]").forEach((details) => {
+      if (!details.contains(event.target)) details.open = false;
+    });
+  });
+  refreshAttachmentPreview();
   resizeMessageInput();
   compose?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const button = compose.querySelector(".chat-send-button");
+    let button = event.submitter instanceof HTMLButtonElement ? event.submitter : null;
+    if (!button || button.hidden) button = attachmentPreview?.hidden ? composeSendButton : attachmentSendButton;
+    const buttonText = button?.textContent || "إرسال";
     if (button) { button.disabled = true; button.textContent = "جارٍ الإرسال…"; }
     if (errorBox) errorBox.hidden = true;
     try {
@@ -542,13 +677,14 @@
       if (!response.ok || !result.ok) throw new Error(result.error || "تعذر إرسال الرسالة.");
       renderMessage(result.message);
       compose.reset();
+      refreshAttachmentPreview();
       clearReplySelection();
       resizeMessageInput();
       scrollToLatest("smooth");
     } catch (error) {
       showError(error.message || "تعذر إرسال الرسالة.");
     } finally {
-      if (button) { button.disabled = false; button.textContent = "إرسال"; }
+      if (button) { button.disabled = false; button.textContent = buttonText; }
     }
   });
 
