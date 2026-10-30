@@ -10,7 +10,6 @@ from django.utils.html import strip_tags
 from django.urls import reverse
 from django.utils.text import get_valid_filename
 
-from .countries import masked_phone_number
 from .models import ChatGroup, ChatGroupBan, ChatMembership, ChatMessage, ChatReaction, JoinApplication, User
 
 
@@ -112,10 +111,16 @@ def _check_text_rules(group, user, text):
     return text
 
 
+def _display_sender_name(value):
+    name = str(value or "").split(" · ", 1)[0].strip()
+    if not name or any(character.isdigit() for character in name):
+        return "عضو"
+    return name[:80]
+
+
 def _get_sender_name(user):
     name = JoinApplication.objects.filter(user_id=user.pk).values_list("full_name", flat=True).first()
-    phone = masked_phone_number(user.phone, user.resolved_country_code, hidden_digits=2)
-    return f"{name.strip()[:80]} · {phone}" if name and name.strip() else phone
+    return _display_sender_name(name or user.get_full_name())
 
 
 def _reply_preview(message):
@@ -150,14 +155,14 @@ def serialize_chat_message(message, viewer_id=None):
     if reply:
         reply_data = {
             "id": message.reply_to_original_id or reply.pk,
-            "sender": message.reply_to_sender_name or _get_sender_name(reply.sender),
+            "sender": _get_sender_name(reply.sender),
             "preview": message.reply_to_preview or _reply_preview(reply),
             "deleted": False,
         }
     elif message.reply_to_original_id:
         reply_data = {
             "id": message.reply_to_original_id,
-            "sender": message.reply_to_sender_name or "عضو",
+            "sender": _display_sender_name(message.reply_to_sender_name),
             "preview": message.reply_to_preview or "رسالة",
             "deleted": True,
         }

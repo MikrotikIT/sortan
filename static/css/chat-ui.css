@@ -920,6 +920,69 @@
   text-align: center;
 }
 
+.chat-message-actions-menu > summary {
+  width: 25px;
+  height: 27px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: #70858a;
+}
+
+.chat-message-actions-menu > summary:hover,
+.chat-message-actions-menu[open] > summary {
+  border-color: transparent;
+  background: transparent;
+  color: #267f91;
+}
+
+.chat-message-menu-icon {
+  width: 19px;
+  height: 19px;
+}
+
+.chat-message-header {
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+
+.chat-message-header > strong {
+  display: block;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: clamp(80px, 40vw, 240px);
+  overflow: hidden;
+  overflow-wrap: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-message-header time,
+.chat-message-header .chat-edited-label {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.chat-message-card .chat-message-header {
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+
+.chat-message-card .chat-message-header > strong {
+  min-width: 0;
+  max-width: clamp(80px, 40vw, 240px);
+  overflow: hidden;
+  overflow-wrap: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-message-card .chat-message-header time,
+.chat-message-card .chat-message-header .chat-edited-label {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 @media (max-width: 340px) {
   .chat-room-title p {
     display: none;

@@ -2,7 +2,7 @@
 {% load static %}
 {% block body_class %}chat-room-page{% endblock %}
 {% block title %}{{ group.title }} — KODI{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/group-chat.css' %}?v=4"><link rel="stylesheet" href="{% static 'css/chat-fullscreen.css' %}?v=2"><link rel="stylesheet" href="{% static 'css/chat-ui.css' %}?v=12">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/group-chat.css' %}?v=4"><link rel="stylesheet" href="{% static 'css/chat-fullscreen.css' %}?v=2"><link rel="stylesheet" href="{% static 'css/chat-ui.css' %}?v=13">{% endblock %}
 {% block content %}
 <section class="chat-room" data-chat-room data-ws-path="{{ ws_path }}" data-history-url="{{ history_url }}" data-has-older-messages="{{ has_older_messages|yesno:'true,false' }}" data-chat-live-stats-url="{% url 'chat_live_stats' %}" data-group-id="{{ group.pk }}" data-current-user="{{ request.user.pk }}" data-can-moderate="{{ can_moderate|yesno:'true,false' }}" data-can-post="{{ can_post|yesno:'true,false' }}" data-is-admin="{{ request.user.is_staff|yesno:'true,false' }}" data-demo-growth-url-template="{{ demo_growth_url_template }}" data-can-react="{{ group.reactions_enabled|yesno:'true,false' }}" data-member-count="{{ actual_member_count }}" data-demo-member-offset="{{ group.demo_member_offset }}">
   <header class="chat-room-header">
@@ -50,4 +50,4 @@
 </section>
 {{ messages_data|json_script:"chat-initial-messages" }}
 {% endblock %}
-{% block extra_js %}<script src="{% static 'js/group-chat.js' %}?v=14" defer></script>{% endblock %}
+{% block extra_js %}<script src="{% static 'js/group-chat.js' %}?v=15" defer></script>{% endblock %}

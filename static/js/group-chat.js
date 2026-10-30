@@ -446,6 +446,7 @@
     header.className = "chat-message-header";
     const author = document.createElement("strong");
     author.textContent = escapeText(message.sender);
+    author.title = escapeText(message.sender);
     const time = document.createElement("time");
     time.textContent = escapeText(dateInfo.time);
     if (dateInfo.day && dateInfo.time) time.dateTime = `${dateInfo.day}T${dateInfo.time}`;

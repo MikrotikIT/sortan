@@ -8,7 +8,7 @@ from django.core.exceptions import ValidationError
 from django.utils.html import strip_tags
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-from .models import Film, InvestmentVoucher, PlatformSettings, SupportOption, User
+from .models import Film, InvestmentVoucher, JoinApplication, PlatformSettings, SupportOption, User
 from .notification_services import sanitize_notification_html
 from .services import parse_deposit_activity_examples, parse_withdrawal_referral_rules
 
@@ -270,6 +270,51 @@ class CustomerBlockForm(forms.Form):
         if not reason:
             raise ValidationError("اكتب سبباً لحظر الحساب.")
         return reason
+
+
+class CustomerInfoForm(forms.Form):
+    full_name = forms.CharField(label="الاسم والنسبة", max_length=160)
+    father_name = forms.CharField(label="اسم الأب", max_length=120, required=False)
+    mother_name = forms.CharField(label="اسم الأم", max_length=120, required=False)
+    gender = forms.ChoiceField(
+        label="الجنس",
+        required=False,
+        choices=(("", "غير محدد"), *JoinApplication.GENDER_CHOICES),
+    )
+    marital_status = forms.ChoiceField(
+        label="الوضع العائلي",
+        required=False,
+        choices=(("", "غير محدد"), *JoinApplication.MARITAL_STATUS_CHOICES),
+    )
+    financial_status = forms.ChoiceField(
+        label="الوضع المادي",
+        required=False,
+        choices=(("", "غير محدد"), *JoinApplication.FINANCIAL_STATUS_CHOICES),
+    )
+
+
+class CustomerPasswordForm(forms.Form):
+    password1 = forms.CharField(
+        label="كلمة المرور الجديدة",
+        max_length=128,
+        strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+        help_text="لا توجد شروط للأحرف الكبيرة أو الأرقام.",
+    )
+    password2 = forms.CharField(
+        label="تأكيد كلمة المرور",
+        max_length=128,
+        strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        password = cleaned.get("password1")
+        confirmation = cleaned.get("password2")
+        if password and confirmation and password != confirmation:
+            self.add_error("password2", "كلمتا المرور غير متطابقتين.")
+        return cleaned
 
 
 class ManualDepositForm(forms.Form):

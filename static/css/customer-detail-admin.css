@@ -1,0 +1,47 @@
+.customer-admin-forms {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, .85fr);
+  align-items: start;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.customer-admin-forms .management-panel {
+  min-width: 0;
+  margin: 0;
+}
+
+.customer-profile-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.customer-profile-form .admin-field:first-of-type,
+.customer-profile-form .form-actions {
+  grid-column: 1 / -1;
+}
+
+.customer-password-form {
+  grid-template-columns: 1fr;
+  align-content: start;
+}
+
+.customer-password-form .form-actions {
+  grid-column: auto;
+}
+
+@media (max-width: 1050px) {
+  .customer-admin-forms {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .customer-profile-form {
+    grid-template-columns: 1fr;
+  }
+
+  .customer-profile-form .admin-field:first-of-type,
+  .customer-profile-form .form-actions {
+    grid-column: auto;
+  }
+}

@@ -19,7 +19,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_POST
 
-from .management_forms import CustomerBlockForm, FilmForm, InternalBalanceCreditForm, JoinApplicationDecisionForm, ManualDepositForm, NotificationForm, PlatformSettingsForm, SupportOptionForm, VoucherAmountForm, VoucherIssueForm
+from .management_forms import CustomerBlockForm, CustomerInfoForm, CustomerPasswordForm, FilmForm, InternalBalanceCreditForm, JoinApplicationDecisionForm, ManualDepositForm, NotificationForm, PlatformSettingsForm, SupportOptionForm, VoucherAmountForm, VoucherIssueForm
 from .models import Deposit, Film, InternalBalanceCredit, Investment, InvestmentVoucher, JoinApplication, ServiceHeartbeat, SupportOption, User, UserNotification, Wallet, WalletSyncRun, WithdrawalRequest
 from .services import approve_deposit, deposit_status_for_amount, get_platform_settings, pay_withdrawal, reject_deposit, reject_withdrawal
 from .wallet_services import decrypt_private_key, ensure_wallet, sync_all_wallets
@@ -659,22 +659,67 @@ def unblock_customer(request, pk):
 @staff_required
 def customer_detail(request, pk):
     customer = get_object_or_404(User.objects.select_related("referred_by"), pk=pk, is_staff=False)
-    notification_form = NotificationForm(request.POST or None)
-    if request.method == "POST" and notification_form.is_valid():
-        UserNotification.objects.create(
-            recipient=customer,
-            sender=request.user,
-            title=notification_form.cleaned_data["title"],
-            body_html=notification_form.cleaned_data["body_html"],
-        )
-        messages.success(request, f"تم إرسال إشعار إلى العميل {customer.phone}.")
-        return redirect("management_customer_detail", pk=customer.pk)
+    customer_application = JoinApplication.objects.filter(user=customer).first()
+    profile_initial = {
+        "full_name": customer_application.full_name if customer_application else customer.get_full_name(),
+        "father_name": customer_application.father_name if customer_application else "",
+        "mother_name": customer_application.mother_name if customer_application else "",
+        "gender": customer_application.gender if customer_application else "",
+        "marital_status": customer_application.marital_status if customer_application else "",
+        "financial_status": customer_application.financial_status if customer_application else "",
+    }
+    profile_form = CustomerInfoForm(initial=profile_initial)
+    password_form = CustomerPasswordForm()
+    notification_form = NotificationForm()
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "profile":
+            profile_form = CustomerInfoForm(request.POST)
+            if profile_form.is_valid():
+                with transaction.atomic():
+                    customer = get_object_or_404(User.objects.select_for_update(), pk=pk, is_staff=False)
+                    customer_application = JoinApplication.objects.select_for_update().filter(user=customer).first()
+                    if customer_application is None:
+                        customer_application = JoinApplication(user=customer, profile_image="")
+                    for field in (
+                        "full_name", "father_name", "mother_name", "gender", "marital_status", "financial_status"
+                    ):
+                        setattr(customer_application, field, profile_form.cleaned_data[field])
+                    customer_application.save()
+                    name_parts = profile_form.cleaned_data["full_name"].split(maxsplit=1)
+                    customer.first_name = name_parts[0]
+                    customer.last_name = name_parts[1] if len(name_parts) > 1 else ""
+                    customer.save(update_fields=("first_name", "last_name"))
+                messages.success(request, f"تم تحديث معلومات العميل {customer.phone}.")
+                return redirect("management_customer_detail", pk=customer.pk)
+        elif action == "password":
+            password_form = CustomerPasswordForm(request.POST)
+            if password_form.is_valid():
+                customer.set_password(password_form.cleaned_data["password1"])
+                customer.save(update_fields=("password",))
+                messages.success(request, f"تم تغيير كلمة مرور العميل {customer.phone}.")
+                return redirect("management_customer_detail", pk=customer.pk)
+        elif action == "notification":
+            notification_form = NotificationForm(request.POST)
+            if notification_form.is_valid():
+                UserNotification.objects.create(
+                    recipient=customer,
+                    sender=request.user,
+                    title=notification_form.cleaned_data["title"],
+                    body_html=notification_form.cleaned_data["body_html"],
+                )
+                messages.success(request, f"تم إرسال إشعار إلى العميل {customer.phone}.")
+                return redirect("management_customer_detail", pk=customer.pk)
     wallet, _ = ensure_wallet(customer)
     return render(
         request,
         "management/customer_detail.html",
         {
             "customer": customer,
+            "customer_application": customer_application,
+            "profile_form": profile_form,
+            "password_form": password_form,
             "referral_link": request.build_absolute_uri(
                 f"{reverse('register')}?{urlencode({'ref': customer.referral_code})}"
             ),
