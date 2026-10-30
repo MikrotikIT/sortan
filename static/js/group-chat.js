@@ -34,6 +34,66 @@
   let loadingOlderMessages = false;
 
   const escapeText = (value) => String(value ?? "");
+  const messageDateInfo = (message) => {
+    const stamp = String(message.created_at || "");
+    const match = stamp.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/);
+    return {
+      day: message.created_day || match?.[1] || "",
+      time: message.created_time || match?.[2] || stamp,
+    };
+  };
+
+  const dayDividerLabel = (dayKey) => {
+    const match = dayKey.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return dayKey;
+    const [, yearText, monthText, dayText] = match;
+    const year = Number(yearText);
+    const month = Number(monthText);
+    const day = Number(dayText);
+    const today = new Date();
+    const dayNumber = Date.UTC(year, month - 1, day);
+    const todayNumber = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+    const difference = Math.round((todayNumber - dayNumber) / 86400000);
+    if (difference === 0) return "اليوم";
+    if (difference === 1) return "أمس";
+    const date = new Date(year, month - 1, day);
+    const options = { calendar: "gregory", day: "numeric", month: "long" };
+    if (year !== today.getFullYear()) options.year = "numeric";
+    return new Intl.DateTimeFormat("ar", options).format(date);
+  };
+
+  const createDayDivider = (day) => {
+    const divider = document.createElement("li");
+    divider.className = "chat-day-divider";
+    divider.dataset.day = day;
+    const label = document.createElement("span");
+    label.textContent = dayDividerLabel(day);
+    divider.append(label);
+    return divider;
+  };
+
+  const syncDayDividers = () => {
+    [...list.children].filter((item) => item.classList.contains("chat-day-divider")).forEach((item) => item.remove());
+    let previousDay = null;
+    [...list.children].filter((item) => item.hasAttribute("data-message-id")).forEach((messageItem) => {
+      const day = messageItem.dataset.messageDay || "";
+      if (day && day !== previousDay) list.insertBefore(createDayDivider(day), messageItem);
+      previousDay = day;
+    });
+  };
+
+  const syncLastDayDivider = () => {
+    const messages = [...list.children].filter((item) => item.hasAttribute("data-message-id"));
+    const current = messages[messages.length - 1];
+    if (!current) return;
+    const day = current.dataset.messageDay || "";
+    const previousDay = messages[messages.length - 2]?.dataset.messageDay || "";
+    if (!day || day === previousDay) return;
+    const adjacentDivider = current.previousElementSibling;
+    if (adjacentDivider?.classList.contains("chat-day-divider") && adjacentDivider.dataset.day === day) return;
+    list.insertBefore(createDayDivider(day), current);
+  };
+
   const createSvgIcon = (className, paths, circles = []) => {
     const namespace = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(namespace, "svg");
@@ -325,6 +385,8 @@
     const item = document.createElement("li");
     item.className = `chat-message${Number(message.sender_id) === userId ? " is-mine" : ""}`;
     item.dataset.messageId = String(message.id);
+    const dateInfo = messageDateInfo(message);
+    item.dataset.messageDay = dateInfo.day;
     const card = document.createElement("article");
     card.className = "chat-message-card";
 
@@ -333,7 +395,8 @@
     const author = document.createElement("strong");
     author.textContent = escapeText(message.sender);
     const time = document.createElement("time");
-    time.textContent = escapeText(message.created_at);
+    time.textContent = escapeText(dateInfo.time);
+    if (dateInfo.day && dateInfo.time) time.dateTime = `${dateInfo.day}T${dateInfo.time}`;
     header.append(author, time);
     if (message.edited) {
       const edited = document.createElement("small");
@@ -446,7 +509,7 @@
 
   const loadOlderMessages = async () => {
     if (!hasOlderMessages || loadingOlderMessages) return;
-    const firstMessage = list.firstElementChild;
+    const firstMessage = list.querySelector("[data-message-id]");
     const beforeId = firstMessage?.dataset.messageId;
     if (!beforeId) return;
 
@@ -471,6 +534,7 @@
       const olderMessages = result.messages || [];
       hasOlderMessages = Boolean(result.has_more);
       [...olderMessages].reverse().forEach((message) => renderMessage(message, { prepend: true }));
+      syncDayDividers();
       if (historyStatus) {
         historyStatus.hidden = true;
         if (!hasOlderMessages) {
@@ -627,6 +691,7 @@
       if (payload.type === "message_created" || payload.type === "message_updated") {
         const followLatest = isNearLatest() || Number(payload.message?.sender_id) === userId;
         renderMessage(payload.message);
+        if (payload.type === "message_created") syncLastDayDivider();
         if (payload.type === "message_created" && followLatest) scrollToLatest("smooth");
       } else if (payload.type === "message_deleted") {
         const deletedId = Number(payload.message_id);
@@ -640,6 +705,7 @@
           if (quote instanceof HTMLButtonElement) quote.disabled = true;
         });
         list.querySelector(`[data-message-id="${deletedId}"]`)?.remove();
+        syncDayDividers();
       } else if (payload.type === "reaction_updated") {
         updateReactionCounts(payload);
       } else if (payload.type === "group_stats") {
@@ -663,6 +729,7 @@
   try {
     const initial = JSON.parse(document.getElementById("chat-initial-messages")?.textContent || "[]");
     initial.forEach(renderMessage);
+    syncDayDividers();
     scrollToLatest();
   } catch { /* Ignore invalid cached initial data and keep the live room available. */ }
 
@@ -718,6 +785,7 @@
       const result = await response.json();
       if (!response.ok || !result.ok) throw new Error(result.error || "تعذر إرسال الرسالة.");
       renderMessage(result.message);
+      syncLastDayDivider();
       compose.reset();
       refreshAttachmentPreview();
       clearReplySelection();
