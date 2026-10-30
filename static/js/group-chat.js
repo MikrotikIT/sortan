@@ -5,6 +5,7 @@
   if (!root || !list || !listViewport) return;
 
   const status = root.querySelector("[data-chat-status]");
+  const historyStatus = root.querySelector("[data-chat-history-status]");
   const errorBox = root.querySelector("[data-chat-error]");
   const userId = Number(root.dataset.currentUser);
   const canModerate = root.dataset.canModerate === "true";
@@ -24,6 +25,8 @@
   let reconnectTimer;
   let retryCount = 0;
   let manuallyClosed = false;
+  let hasOlderMessages = root.dataset.hasOlderMessages === "true";
+  let loadingOlderMessages = false;
 
   const escapeText = (value) => String(value ?? "");
 
@@ -194,7 +197,7 @@
     });
   };
 
-  const renderMessage = (message) => {
+  const renderMessage = (message, { prepend = false } = {}) => {
     if (!message || !message.id) return;
     const previous = list.querySelector(`[data-message-id="${Number(message.id)}"]`);
     const item = document.createElement("li");
@@ -311,8 +314,66 @@
     card.append(reactions);
     item.append(card);
     if (previous) previous.replaceWith(item);
+    else if (prepend) list.prepend(item);
     else list.append(item);
     return item;
+  };
+
+  const loadOlderMessages = async () => {
+    if (!hasOlderMessages || loadingOlderMessages) return;
+    const firstMessage = list.firstElementChild;
+    const beforeId = firstMessage?.dataset.messageId;
+    if (!beforeId) return;
+
+    loadingOlderMessages = true;
+    const originalTop = firstMessage.getBoundingClientRect().top;
+    if (historyStatus) {
+      historyStatus.hidden = false;
+      historyStatus.classList.remove("is-error", "is-end");
+      historyStatus.textContent = "جارٍ تحميل الرسائل الأقدم…";
+    }
+    try {
+      const url = new URL(root.dataset.historyUrl, window.location.origin);
+      url.searchParams.set("before", beforeId);
+      const response = await fetch(url, {
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { "Accept": "application/json" },
+      });
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || "تعذر تحميل الرسائل الأقدم.");
+
+      const olderMessages = result.messages || [];
+      hasOlderMessages = Boolean(result.has_more);
+      [...olderMessages].reverse().forEach((message) => renderMessage(message, { prepend: true }));
+      if (historyStatus) {
+        historyStatus.hidden = true;
+        if (!hasOlderMessages) {
+          historyStatus.textContent = "وصلت إلى بداية المحادثة";
+          historyStatus.classList.add("is-end");
+          historyStatus.hidden = false;
+          window.setTimeout(() => { historyStatus.hidden = true; }, 2400);
+        }
+      }
+
+      if (olderMessages.length) {
+        window.requestAnimationFrame(() => {
+          const preservedMessage = list.querySelector(`[data-message-id="${Number(beforeId)}"]`);
+          if (preservedMessage) {
+            listViewport.scrollTop += preservedMessage.getBoundingClientRect().top - originalTop;
+          }
+        });
+      }
+    } catch (error) {
+      if (historyStatus) {
+        historyStatus.textContent = error.message || "تعذر تحميل الرسائل الأقدم.";
+        historyStatus.classList.add("is-error");
+        historyStatus.hidden = false;
+        window.setTimeout(() => { historyStatus.hidden = true; }, 3000);
+      }
+    } finally {
+      loadingOlderMessages = false;
+    }
   };
 
   const sendSocket = (data) => {
@@ -456,6 +517,10 @@
     initial.forEach(renderMessage);
     scrollToLatest();
   } catch { /* Ignore invalid cached initial data and keep the live room available. */ }
+
+  listViewport.addEventListener("scroll", () => {
+    if (listViewport.scrollTop <= 72) loadOlderMessages();
+  }, { passive: true });
 
   compose?.querySelector("[data-reply-cancel]")?.addEventListener("click", clearReplySelection);
   messageInput?.addEventListener("input", resizeMessageInput);

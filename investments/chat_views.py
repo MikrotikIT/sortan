@@ -192,6 +192,7 @@ def chat_group_room(request, pk):
         raise Http404
 
     messages_data = []
+    has_older_messages = False
     can_post = False
     can_moderate = False
     if request.user.is_staff or membership:
@@ -202,6 +203,7 @@ def chat_group_room(request, pk):
             .order_by("-created_at", "-pk")[:100]
         )
         page_messages.reverse()
+        has_older_messages = len(page_messages) == 100
         messages_data = [_message_json(message, request.user.pk) for message in page_messages]
         can_post = user_can_post(request.user, group)
         can_moderate = user_can_moderate(request.user, group)
@@ -213,12 +215,46 @@ def chat_group_room(request, pk):
         "actual_member_count": group.member_count,
         "display_member_count": group.member_count + group.demo_member_offset,
         "messages_data": messages_data,
+        "has_older_messages": has_older_messages,
         "can_post": can_post,
         "can_moderate": can_moderate,
         "ws_path": f"/ws/chat/groups/{group.pk}/",
+        "history_url": reverse("chat_group_history", args=(group.pk,)),
         "demo_growth_url_template": reverse("chat_message_demo_growth", args=(0,)),
     }
     return render(request, "investments/chat_room.html", context)
+
+
+@login_required
+@require_GET
+def chat_group_history(request, pk):
+    if not _eligible_user(request.user):
+        return JsonResponse({"ok": False, "error": "يلزم اعتماد الحساب لاستخدام المحادثة."}, status=403)
+    group = get_object_or_404(ChatGroup, pk=pk, is_active=True)
+    if not group_member_access(request.user, group):
+        return JsonResponse({"ok": False, "error": "لا تملك صلاحية مشاهدة رسائل هذه المجموعة."}, status=403)
+    try:
+        before_id = int(request.GET.get("before", ""))
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "error": "مؤشر الرسالة غير صالح."}, status=400)
+
+    cursor = get_object_or_404(ChatMessage, pk=before_id, group=group)
+    older_messages = list(
+        ChatMessage.objects.filter(group=group)
+        .filter(Q(created_at__lt=cursor.created_at) | Q(created_at=cursor.created_at, pk__lt=cursor.pk))
+        .select_related("group", "sender", "reply_to", "reply_to__sender")
+        .prefetch_related("reactions", "demo_reaction_counts")
+        .order_by("-created_at", "-pk")[:51]
+    )
+    has_more = len(older_messages) > 50
+    older_messages = list(reversed(older_messages[:50]))
+    response = JsonResponse({
+        "ok": True,
+        "messages": [_message_json(message, request.user.pk) for message in older_messages],
+        "has_more": has_more,
+    })
+    response["Cache-Control"] = "no-store"
+    return response
 
 
 @login_required

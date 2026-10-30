@@ -26,6 +26,7 @@ urlpatterns = [
     path("chat/", chat_views.chat_groups, name="chat_groups"),
     path("chat/live-stats/", chat_views.chat_live_stats, name="chat_live_stats"),
     path("chat/groups/<int:pk>/", chat_views.chat_group_room, name="chat_group_room"),
+    path("chat/groups/<int:pk>/history/", chat_views.chat_group_history, name="chat_group_history"),
     path("chat/groups/<int:pk>/join/", chat_views.chat_group_join, name="chat_group_join"),
     path("chat/groups/<int:pk>/leave/", chat_views.chat_group_leave, name="chat_group_leave"),
     path("chat/groups/<int:pk>/send/", chat_views.chat_group_send, name="chat_group_send"),
