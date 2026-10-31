@@ -666,7 +666,7 @@ def unblock_customer(request, pk):
 
 @staff_required
 def customer_detail(request, pk):
-    customer = get_object_or_404(User.objects.select_related("referred_by"), pk=pk, is_staff=False)
+    customer = get_object_or_404(User.objects.select_related("referred_by"), pk=pk)
     customer_application = JoinApplication.objects.filter(user=customer).first()
     profile_initial = {
         "full_name": customer_application.full_name if customer_application else customer.get_full_name(),
@@ -686,7 +686,7 @@ def customer_detail(request, pk):
             profile_form = CustomerInfoForm(request.POST)
             if profile_form.is_valid():
                 with transaction.atomic():
-                    customer = get_object_or_404(User.objects.select_for_update(), pk=pk, is_staff=False)
+                    customer = get_object_or_404(User.objects.select_for_update(), pk=pk)
                     customer_application = JoinApplication.objects.select_for_update().filter(user=customer).first()
                     if customer_application is None:
                         customer_application = JoinApplication(user=customer, profile_image="")
@@ -702,6 +702,9 @@ def customer_detail(request, pk):
                 messages.success(request, f"تم تحديث معلومات العميل {customer.phone}.")
                 return redirect("management_customer_detail", pk=customer.pk)
         elif action == "password":
+            if customer.is_staff:
+                messages.error(request, "لا يمكن تغيير كلمة مرور حسابات الإدارة من قسم العملاء.")
+                return redirect("management_customer_detail", pk=customer.pk)
             password_form = CustomerPasswordForm(request.POST)
             if password_form.is_valid():
                 customer.set_password(password_form.cleaned_data["password1"])
@@ -719,7 +722,10 @@ def customer_detail(request, pk):
                 )
                 messages.success(request, f"تم إرسال إشعار إلى العميل {customer.phone}.")
                 return redirect("management_customer_detail", pk=customer.pk)
-    wallet, _ = ensure_wallet(customer)
+    if customer.is_staff:
+        wallet = Wallet.objects.filter(user=customer).first()
+    else:
+        wallet, _ = ensure_wallet(customer)
     return render(
         request,
         "management/customer_detail.html",
