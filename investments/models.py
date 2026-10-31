@@ -694,6 +694,7 @@ class ChatMembership(models.Model):
     role = models.CharField("الدور", max_length=12, choices=Role.choices, default=Role.MEMBER)
     can_post = models.BooleanField("مسموح له بالمحادثة عند تحديد أعضاء معينين", default=False)
     joined_at = models.DateTimeField("تاريخ الانضمام", auto_now_add=True)
+    last_read_message_id = models.PositiveBigIntegerField("آخر رسالة مقروءة", null=True, blank=True, editable=False)
 
     class Meta:
         ordering = ("joined_at", "pk")

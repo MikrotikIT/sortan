@@ -13,6 +13,7 @@
   const canReact = root.dataset.canReact === "true";
   const isAdmin = root.dataset.isAdmin === "true";
   const demoGrowthUrlTemplate = root.dataset.demoGrowthUrlTemplate || "";
+  const readUrl = root.dataset.readUrl || "";
   const compose = root.querySelector("[data-chat-compose]");
   const messageInput = compose?.querySelector('textarea[name="text"]');
   const attachmentInputs = [...(compose?.querySelectorAll('.chat-attachment-options input[type="file"]') || [])];
@@ -30,10 +31,28 @@
   let reconnectTimer;
   let retryCount = 0;
   let manuallyClosed = false;
+  let lastReadMessageId = 0;
   let hasOlderMessages = root.dataset.hasOlderMessages === "true";
   let loadingOlderMessages = false;
 
   const escapeText = (value) => String(value ?? "");
+  const markMessageRead = async (messageId) => {
+    const id = Number(messageId);
+    const csrf = compose?.querySelector('[name="csrfmiddlewaretoken"]')?.value;
+    if (!readUrl || isAdmin || !csrf || !Number.isSafeInteger(id) || id <= lastReadMessageId) return;
+    lastReadMessageId = id;
+    try {
+      const response = await fetch(readUrl, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Accept": "application/json", "X-CSRFToken": csrf },
+        body: new URLSearchParams({ message_id: String(id) }),
+      });
+      if (!response.ok && lastReadMessageId === id) lastReadMessageId = 0;
+    } catch {
+      if (lastReadMessageId === id) lastReadMessageId = 0;
+    }
+  };
   const messageDateInfo = (message) => {
     const stamp = String(message.created_at || "");
     const match = stamp.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/);
@@ -783,6 +802,9 @@
       if (payload.type === "message_created" || payload.type === "message_updated") {
         const followLatest = isNearLatest() || Number(payload.message?.sender_id) === userId;
         renderMessage(payload.message);
+        if (payload.type === "message_created" && followLatest && document.visibilityState === "visible") {
+          markMessageRead(payload.message?.id);
+        }
         if (payload.type === "message_created") syncLastDayDivider();
         if (payload.type === "message_created" && followLatest) scrollToLatest("smooth");
       } else if (payload.type === "message_deleted") {
@@ -828,6 +850,10 @@
   listViewport.addEventListener("scroll", () => {
     root.querySelectorAll("[data-reaction-picker][open]").forEach((picker) => { picker.open = false; });
     root.querySelectorAll("[data-message-actions-menu][open]").forEach((menu) => { menu.open = false; });
+    if (isNearLatest() && document.visibilityState === "visible") {
+      const latestMessage = [...list.querySelectorAll("[data-message-id]")].at(-1);
+      markMessageRead(latestMessage?.dataset.messageId);
+    }
     if (listViewport.scrollTop <= 72) loadOlderMessages();
   }, { passive: true });
   window.addEventListener("resize", () => {

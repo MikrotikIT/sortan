@@ -21,6 +21,7 @@ from django.views.decorators.http import require_GET, require_POST
 from .forms import InvestmentForm, JoinApplicationForm, LoginForm, RegistrationForm, WithdrawalForm
 from .models import Deposit, Film, Investment, InvestmentVoucher, JoinApplication, PlatformSettings, SupportOption, UserNotification, WithdrawalRequest
 from .notification_services import sanitize_notification_html
+from .chat_services import get_chat_unread_counts
 from .services import get_platform_settings, parse_deposit_activity_examples, parse_withdrawal_referral_rules, settle_due_investments, withdraw_available_at
 from .wallet_services import ensure_wallet
 
@@ -32,12 +33,14 @@ def home(request):
         return redirect("login")
     settle_due_investments(request.user)
     request.user.refresh_from_db(fields=("balance", "earnings_balance"))
+    _, chat_unread_total = get_chat_unread_counts(request.user)
     return render(
         request,
         "investments/home.html",
         {
             "platform_settings": get_platform_settings(),
             "support_options": SupportOption.objects.filter(is_active=True),
+            "chat_unread_total": chat_unread_total,
         },
     )
 

@@ -1,0 +1,7 @@
+.chat-group-title-line{display:flex;align-items:center;justify-content:space-between;gap:9px;min-width:0}
+.chat-group-title-line>strong{min-width:0;overflow:hidden;color:#203c44;font-size:14px;text-overflow:ellipsis;white-space:nowrap}
+.chat-group-unread-badge{display:inline-flex;flex:0 0 auto;align-items:center;gap:4px;padding:4px 8px;border:1px solid #f4d6d3;border-radius:999px;background:#fff1f0;color:#a9433d;font-size:10px;font-weight:700;white-space:nowrap}
+.chat-group-unread-badge b{font:800 11px "DM Sans","Tajawal",sans-serif}
+.chat-group-unread-badge[hidden],.chat-unread-total[hidden]{display:none!important}
+.chat-unread-total{display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center;min-width:25px;height:25px;padding:0 7px;border:1px solid #f3d4d1;border-radius:999px;background:#fff0ef;color:#b13e39;font:800 11px/1 "DM Sans","Tajawal",sans-serif;direction:ltr;box-shadow:0 3px 9px rgba(177,62,57,.11)}
+@media(max-width:600px){.chat-unread-total{min-width:23px;height:23px;padding:0 6px;font-size:10px}.chat-group-unread-badge{padding:3px 6px;font-size:9px}}

@@ -4,7 +4,7 @@ from datetime import timedelta
 from random import randint
 
 from django.db import transaction
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.utils import timezone
 from django.utils.html import strip_tags
 from django.urls import reverse
@@ -33,6 +33,38 @@ DEMO_SETTINGS_DEFAULTS = {
     "demo_clap_percent": 10,
     "demo_dislike_percent": 5,
 }
+
+
+def get_chat_unread_counts(user, group_ids=None):
+    """Return unread message counts for the user's active group memberships."""
+    if not user or not user.is_authenticated or user.is_staff:
+        return {}, 0
+
+    memberships = ChatMembership.objects.filter(user=user, group__is_active=True)
+    if group_ids is not None:
+        group_ids = set(group_ids)
+        if not group_ids:
+            return {}, 0
+        memberships = memberships.filter(group_id__in=group_ids)
+    banned_group_ids = ChatGroupBan.objects.filter(user=user).values_list("group_id", flat=True)
+    memberships = memberships.exclude(group_id__in=banned_group_ids).values_list(
+        "group_id", "last_read_message_id"
+    )
+
+    unread_filter = Q()
+    for group_id, last_read_message_id in memberships:
+        unread_filter |= Q(group_id=group_id, pk__gt=last_read_message_id or 0)
+    if not unread_filter:
+        return {}, 0
+
+    counts = dict(
+        ChatMessage.objects.filter(unread_filter)
+        .exclude(sender_id=user.pk)
+        .values("group_id")
+        .annotate(total=Count("pk"))
+        .values_list("group_id", "total")
+    )
+    return counts, sum(counts.values())
 
 
 class ChatRuleError(Exception):

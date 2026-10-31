@@ -17,6 +17,7 @@ from .chat_forms import ChatDemoGrowthForm, ChatUploadForm
 from .chat_services import (
     ChatRuleError,
     configure_message_demo_growth,
+    get_chat_unread_counts,
     group_member_access,
     serialize_chat_message,
     user_can_moderate,
@@ -67,12 +68,51 @@ def chat_groups(request):
     )
     member_ids = set(ChatMembership.objects.filter(user=request.user).values_list("group_id", flat=True))
     banned_ids = set(ChatGroupBan.objects.filter(user=request.user).values_list("group_id", flat=True))
+    unread_counts, _ = get_chat_unread_counts(request.user, [group.pk for group in groups])
     for group in groups:
         group.is_member = request.user.is_staff or group.pk in member_ids
         group.is_banned = group.pk in banned_ids
         group.display_member_count = group.actual_member_count + group.demo_member_offset
+        group.unread_count = unread_counts.get(group.pk, 0)
         group.image_url = reverse("chat_group_image", args=(group.pk,)) if group.image and not group.is_banned else ""
     return render(request, "investments/chat_groups.html", {"groups": groups})
+
+
+@login_required
+@require_GET
+def chat_unread_count(request):
+    if not _eligible_user(request.user):
+        return JsonResponse({"ok": False}, status=403)
+    unread_counts, unread_total = get_chat_unread_counts(request.user)
+    response = JsonResponse({"ok": True, "total": unread_total, "groups": unread_counts})
+    response["Cache-Control"] = "no-store"
+    return response
+
+
+@login_required
+@require_POST
+def chat_group_mark_read(request, pk):
+    if not _eligible_user(request.user):
+        return JsonResponse({"ok": False}, status=403)
+    group = get_object_or_404(ChatGroup, pk=pk, is_active=True)
+    if not group_member_access(request.user, group):
+        return JsonResponse({"ok": False}, status=403)
+    if request.user.is_staff:
+        return JsonResponse({"ok": True})
+
+    try:
+        message_id = int(request.POST.get("message_id", ""))
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "error": "معرّف الرسالة غير صالح."}, status=400)
+    if not ChatMessage.objects.filter(pk=message_id, group=group).exists():
+        return JsonResponse({"ok": False, "error": "الرسالة غير موجودة في هذه المجموعة."}, status=404)
+
+    ChatMembership.objects.filter(group=group, user=request.user).filter(
+        Q(last_read_message_id__isnull=True) | Q(last_read_message_id__lt=message_id)
+    ).update(last_read_message_id=message_id)
+    response = JsonResponse({"ok": True, "last_read_message_id": message_id})
+    response["Cache-Control"] = "no-store"
+    return response
 
 
 def _requested_ids(value, limit=100):
@@ -205,6 +245,11 @@ def chat_group_room(request, pk):
         page_messages.reverse()
         has_older_messages = len(page_messages) == 100
         messages_data = [_message_json(message, request.user.pk) for message in page_messages]
+        if membership and page_messages:
+            latest_message_id = page_messages[-1].pk
+            ChatMembership.objects.filter(pk=membership.pk).filter(
+                Q(last_read_message_id__isnull=True) | Q(last_read_message_id__lt=latest_message_id)
+            ).update(last_read_message_id=latest_message_id)
         can_post = user_can_post(request.user, group)
         can_moderate = user_can_moderate(request.user, group)
 
@@ -220,6 +265,7 @@ def chat_group_room(request, pk):
         "can_moderate": can_moderate,
         "ws_path": f"/ws/chat/groups/{group.pk}/",
         "history_url": reverse("chat_group_history", args=(group.pk,)),
+        "read_url": reverse("chat_group_mark_read", args=(group.pk,)),
         "demo_growth_url_template": reverse("chat_message_demo_growth", args=(0,)),
     }
     return render(request, "investments/chat_room.html", context)

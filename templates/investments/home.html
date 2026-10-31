@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/customer-home.css' %}?v=country-1"><link rel="stylesheet" href="{% static 'css/support-options.css' %}?v=support-images-2">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/customer-home.css' %}?v=country-1"><link rel="stylesheet" href="{% static 'css/support-options.css' %}?v=support-images-2"><link rel="stylesheet" href="{% static 'css/chat-unread.css' %}?v=1">{% endblock %}
 {% block title %}الرئيسية — Kodi TV{% endblock %}
 {% block breadcrumb %}الرئيسية{% endblock %}
 {% block content %}
@@ -59,7 +59,7 @@
   </div>
   {% endif %}
   <a class="customer-shortcut" href="{% url 'chat_groups' %}">
-    <span class="shortcut-icon shortcut-chat" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-5.5A7.5 7.5 0 1 1 20 11.5Z"/><path d="M8 11h.01M12 11h.01M16 11h.01"/></svg></span><span><strong>مجموعات المحادثة</strong><small>تواصل مع أعضاء مجموعاتك</small></span><span class="shortcut-arrow" aria-hidden="true">←</span>
+    <span class="shortcut-icon shortcut-chat" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-5.5A7.5 7.5 0 1 1 20 11.5Z"/><path d="M8 11h.01M12 11h.01M16 11h.01"/></svg></span><span><strong>مجموعات المحادثة</strong><small>تواصل مع أعضاء مجموعاتك</small></span><span class="chat-unread-total" data-chat-unread-total data-count-url="{% url 'chat_unread_count' %}" aria-label="{{ chat_unread_total }} رسالة غير مقروءة في جميع المجموعات" {% if not chat_unread_total %}hidden{% endif %}>{% if chat_unread_total > 99 %}99+{% else %}{{ chat_unread_total }}{% endif %}</span><span class="shortcut-arrow" aria-hidden="true">←</span>
   </a>
 </section>
 {% if support_options %}
@@ -83,4 +83,4 @@
 </div>
 {% endif %}
 {% endblock %}
-{% block extra_js %}<script src="{% static 'js/customer-home.js' %}"></script>{% endblock %}
+{% block extra_js %}<script src="{% static 'js/customer-home.js' %}"></script><script src="{% static 'js/chat-unread.js' %}?v=1" defer></script>{% endblock %}
