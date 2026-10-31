@@ -10,7 +10,7 @@ from django.utils.html import strip_tags
 from django.urls import reverse
 from django.utils.text import get_valid_filename
 
-from .models import ChatGroup, ChatGroupBan, ChatMembership, ChatMessage, ChatReaction, JoinApplication, User
+from .models import ChatGroup, ChatGroupBan, ChatGroupReadState, ChatMembership, ChatMessage, ChatReaction, JoinApplication, User
 
 
 REACTION_GLYPHS = {
@@ -36,23 +36,36 @@ DEMO_SETTINGS_DEFAULTS = {
 
 
 def get_chat_unread_counts(user, group_ids=None):
-    """Return unread message counts for the user's active group memberships."""
-    if not user or not user.is_authenticated or user.is_staff:
+    """Return unread counts for active groups visible to this user."""
+    if not user or not user.is_authenticated:
         return {}, 0
 
-    memberships = ChatMembership.objects.filter(user=user, group__is_active=True)
     if group_ids is not None:
         group_ids = set(group_ids)
         if not group_ids:
             return {}, 0
-        memberships = memberships.filter(group_id__in=group_ids)
-    banned_group_ids = ChatGroupBan.objects.filter(user=user).values_list("group_id", flat=True)
-    memberships = memberships.exclude(group_id__in=banned_group_ids).values_list(
-        "group_id", "last_read_message_id"
-    )
+
+    if user.is_staff:
+        groups = ChatGroup.objects.filter(is_active=True)
+        if group_ids is not None:
+            groups = groups.filter(pk__in=group_ids)
+        active_group_ids = list(groups.values_list("pk", flat=True))
+        read_state = dict(
+            ChatGroupReadState.objects.filter(user=user, group_id__in=active_group_ids)
+            .values_list("group_id", "last_read_message_id")
+        )
+        thresholds = ((group_id, read_state.get(group_id)) for group_id in active_group_ids)
+    else:
+        memberships = ChatMembership.objects.filter(user=user, group__is_active=True)
+        if group_ids is not None:
+            memberships = memberships.filter(group_id__in=group_ids)
+        banned_group_ids = ChatGroupBan.objects.filter(user=user).values_list("group_id", flat=True)
+        thresholds = memberships.exclude(group_id__in=banned_group_ids).values_list(
+            "group_id", "last_read_message_id"
+        )
 
     unread_filter = Q()
-    for group_id, last_read_message_id in memberships:
+    for group_id, last_read_message_id in thresholds:
         unread_filter |= Q(group_id=group_id, pk__gt=last_read_message_id or 0)
     if not unread_filter:
         return {}, 0
@@ -65,6 +78,17 @@ def get_chat_unread_counts(user, group_ids=None):
         .values_list("group_id", "total")
     )
     return counts, sum(counts.values())
+
+
+def mark_chat_group_read(user, group, message_id):
+    if user.is_staff:
+        state, _ = ChatGroupReadState.objects.get_or_create(group=group, user=user)
+        read_state = ChatGroupReadState.objects.filter(pk=state.pk)
+    else:
+        read_state = ChatMembership.objects.filter(group=group, user=user)
+    return read_state.filter(
+        Q(last_read_message_id__isnull=True) | Q(last_read_message_id__lt=message_id)
+    ).update(last_read_message_id=message_id)
 
 
 class ChatRuleError(Exception):

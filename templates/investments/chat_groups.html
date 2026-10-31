@@ -13,7 +13,7 @@
     </a>
     <div class="chat-group-card-actions">
       {% if group.is_banned %}<span class="chat-status chat-status-blocked">محظور من هذه المجموعة</span>
-      {% elif group.is_member %}<a class="btn btn-primary" href="{% url 'chat_group_room' group.pk %}">فتح المحادثة</a><form method="post" action="{% url 'chat_group_leave' group.pk %}">{% csrf_token %}<button class="chat-leave-button" type="submit">مغادرة</button></form>
+      {% elif group.is_member %}<a class="btn btn-primary" href="{% url 'chat_group_room' group.pk %}">فتح المحادثة</a>{% if not request.user.is_staff %}<form method="post" action="{% url 'chat_group_leave' group.pk %}">{% csrf_token %}<button class="chat-leave-button" type="submit">مغادرة</button></form>{% endif %}
       {% elif group.is_public %}<form method="post" action="{% url 'chat_group_join' group.pk %}">{% csrf_token %}<button class="btn btn-primary" type="submit">انضمام</button></form>{% endif %}
     </div>
   </article>{% endfor %}

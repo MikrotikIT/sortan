@@ -19,6 +19,7 @@ from .chat_services import (
     configure_message_demo_growth,
     get_chat_unread_counts,
     group_member_access,
+    mark_chat_group_read,
     serialize_chat_message,
     user_can_moderate,
     user_can_post,
@@ -53,9 +54,11 @@ def _broadcast_group_message(group_id, payload):
 def chat_groups(request):
     if not _eligible_user(request.user):
         return redirect("account_review")
+    groups_queryset = ChatGroup.objects.filter(is_active=True)
+    if not request.user.is_staff:
+        groups_queryset = groups_queryset.filter(Q(is_public=True) | Q(memberships__user=request.user))
     groups = list(
-        ChatGroup.objects.filter(is_active=True)
-        .filter(Q(is_public=True) | Q(memberships__user=request.user))
+        groups_queryset
         .annotate(
             actual_member_count=Count(
                 "memberships",
@@ -71,7 +74,7 @@ def chat_groups(request):
     unread_counts, _ = get_chat_unread_counts(request.user, [group.pk for group in groups])
     for group in groups:
         group.is_member = request.user.is_staff or group.pk in member_ids
-        group.is_banned = group.pk in banned_ids
+        group.is_banned = not request.user.is_staff and group.pk in banned_ids
         group.display_member_count = group.actual_member_count + group.demo_member_offset
         group.unread_count = unread_counts.get(group.pk, 0)
         group.image_url = reverse("chat_group_image", args=(group.pk,)) if group.image and not group.is_banned else ""
@@ -97,9 +100,6 @@ def chat_group_mark_read(request, pk):
     group = get_object_or_404(ChatGroup, pk=pk, is_active=True)
     if not group_member_access(request.user, group):
         return JsonResponse({"ok": False}, status=403)
-    if request.user.is_staff:
-        return JsonResponse({"ok": True})
-
     try:
         message_id = int(request.POST.get("message_id", ""))
     except (TypeError, ValueError):
@@ -107,9 +107,7 @@ def chat_group_mark_read(request, pk):
     if not ChatMessage.objects.filter(pk=message_id, group=group).exists():
         return JsonResponse({"ok": False, "error": "الرسالة غير موجودة في هذه المجموعة."}, status=404)
 
-    ChatMembership.objects.filter(group=group, user=request.user).filter(
-        Q(last_read_message_id__isnull=True) | Q(last_read_message_id__lt=message_id)
-    ).update(last_read_message_id=message_id)
+    mark_chat_group_read(request.user, group, message_id)
     response = JsonResponse({"ok": True, "last_read_message_id": message_id})
     response["Cache-Control"] = "no-store"
     return response
@@ -245,11 +243,9 @@ def chat_group_room(request, pk):
         page_messages.reverse()
         has_older_messages = len(page_messages) == 100
         messages_data = [_message_json(message, request.user.pk) for message in page_messages]
-        if membership and page_messages:
+        if (membership or request.user.is_staff) and page_messages:
             latest_message_id = page_messages[-1].pk
-            ChatMembership.objects.filter(pk=membership.pk).filter(
-                Q(last_read_message_id__isnull=True) | Q(last_read_message_id__lt=latest_message_id)
-            ).update(last_read_message_id=latest_message_id)
+            mark_chat_group_read(request.user, group, latest_message_id)
         can_post = user_can_post(request.user, group)
         can_moderate = user_can_moderate(request.user, group)
 

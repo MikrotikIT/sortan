@@ -706,6 +706,15 @@ class ChatMembership(models.Model):
         return f"{self.group} — {self.user}"
 
 
+class ChatGroupReadState(models.Model):
+    group = models.ForeignKey(ChatGroup, on_delete=models.CASCADE, related_name="read_states")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="chat_group_read_states")
+    last_read_message_id = models.PositiveBigIntegerField(null=True, blank=True, editable=False)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("group", "user"), name="unique_chat_group_read_state")]
+
+
 class ChatGroupBan(models.Model):
     group = models.ForeignKey(ChatGroup, on_delete=models.CASCADE, related_name="bans")
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="chat_group_bans")
