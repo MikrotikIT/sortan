@@ -35,6 +35,9 @@
   let loadingOlderMessages = false;
 
   const escapeText = (value) => String(value ?? "");
+  const clearChildren = (element) => {
+    while (element.firstChild) element.removeChild(element.firstChild);
+  };
   const markMessageRead = async (messageId) => {
     const id = Number(messageId);
     const csrf = root.querySelector('[name="csrfmiddlewaretoken"]')?.value;
@@ -257,7 +260,7 @@
     previewObjectUrls.forEach((url) => URL.revokeObjectURL(url));
     previewObjectUrls = [];
     if (!attachmentPreview || !attachmentPreviewItems) return;
-    attachmentPreviewItems.replaceChildren();
+    clearChildren(attachmentPreviewItems);
     const selectedFiles = attachmentInputs.flatMap((input) => [...(input.files || [])]);
     attachmentPreview.hidden = selectedFiles.length === 0;
     if (composeSendButton) composeSendButton.hidden = selectedFiles.length > 0;
@@ -420,7 +423,7 @@
   };
 
   const renderReactions = (container, message) => {
-    container.replaceChildren();
+    clearChildren(container);
     if (!canReact || !message.reactions_enabled) return;
     (message.reactions || []).filter((reaction) => Number(reaction.count || 0) > 0).forEach((reaction) => {
       const button = document.createElement("button");
@@ -827,13 +830,21 @@
     initial.forEach(renderMessage);
     syncDayDividers();
     scrollToLatest();
-  } catch { /* Ignore invalid cached initial data and keep the live room available. */ }
+  } catch (error) {
+    console.error("Could not render initial group chat messages", error);
+    if (historyStatus) {
+      historyStatus.textContent = "تعذر عرض الرسائل. حدّث الصفحة وحاول مجدداً.";
+      historyStatus.classList.add("is-error");
+      historyStatus.hidden = false;
+    }
+  }
 
   listViewport.addEventListener("scroll", () => {
     root.querySelectorAll("[data-reaction-picker][open]").forEach((picker) => { picker.open = false; });
     root.querySelectorAll("[data-message-actions-menu][open]").forEach((menu) => { menu.open = false; });
     if (isNearLatest() && document.visibilityState === "visible") {
-      const latestMessage = [...list.querySelectorAll("[data-message-id]")].at(-1);
+      const messages = list.querySelectorAll("[data-message-id]");
+      const latestMessage = messages[messages.length - 1];
       markMessageRead(latestMessage?.dataset.messageId);
     }
     if (listViewport.scrollTop <= 72) loadOlderMessages();
