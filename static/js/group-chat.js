@@ -669,11 +669,20 @@
     return item;
   };
 
+  let basicRenderNoticeShown = false;
   const renderMessageSafely = (message, options) => {
     try {
       return renderMessage(message, options);
     } catch (error) {
       console.error("Could not render a group chat message; using basic rendering", error);
+      if (!basicRenderNoticeShown && historyStatus) {
+        basicRenderNoticeShown = true;
+        const errorName = error?.name || "Error";
+        const errorMessage = error?.message || String(error);
+        historyStatus.textContent = `استخدم التطبيق عرضاً مبسطاً للرسائل. سبب المشكلة: ${errorName}: ${errorMessage}`;
+        historyStatus.classList.add("is-error");
+        historyStatus.hidden = false;
+      }
       try {
         return renderBasicMessage(message, options);
       } catch (fallbackError) {
