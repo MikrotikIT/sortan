@@ -196,15 +196,17 @@ def chat_live_stats(request):
 def chat_group_join(request, pk):
     if not _eligible_user(request.user):
         return redirect("account_review")
-    group = get_object_or_404(ChatGroup, pk=pk, is_active=True, is_public=True)
-    if ChatGroupBan.objects.filter(group=group, user=request.user).exists():
+    group = get_object_or_404(ChatGroup, pk=pk, is_active=True)
+    if not request.user.is_staff and not group.is_public:
+        raise Http404
+    if not request.user.is_staff and ChatGroupBan.objects.filter(group=group, user=request.user).exists():
         messages.error(request, "أنت محظور من هذه المجموعة.")
         return redirect("chat_groups")
     if ChatMembership.objects.filter(group=group, user=request.user).exists():
         return redirect("chat_group_room", pk=group.pk)
     with transaction.atomic():
         group = ChatGroup.objects.select_for_update().get(pk=group.pk)
-        if group.max_members and group.member_count >= group.max_members:
+        if not request.user.is_staff and group.max_members and group.member_count >= group.max_members:
             messages.error(request, "وصلت المجموعة إلى الحد الأقصى للأعضاء.")
             return redirect("chat_groups")
         ChatMembership.objects.get_or_create(
