@@ -434,11 +434,6 @@
       const count = document.createElement("b");
       count.textContent = String(reaction.count || 0);
       button.append(glyph, count);
-      if (reaction.demo_count) {
-        const demo = document.createElement("small");
-        demo.textContent = `+${reaction.demo_count}`;
-        button.append(demo);
-      }
       button.addEventListener("click", () => sendSocket({ action: "react", message_id: message.id, kind: reaction.kind }));
       container.append(button);
     });
@@ -712,11 +707,6 @@
       const count = button.querySelector("b");
       if (count) count.textContent = String(total);
       button.setAttribute("aria-label", `${labels[reaction.kind]}: ${total}`);
-      let demo = button.querySelector("small");
-      if (reaction.demo_count) {
-        if (!demo) { demo = document.createElement("small"); button.append(demo); }
-        demo.textContent = `+${reaction.demo_count}`;
-      } else if (demo) demo.remove();
       const picker = container.querySelector("[data-reaction-picker]");
       container.insertBefore(button, picker || null);
     });
