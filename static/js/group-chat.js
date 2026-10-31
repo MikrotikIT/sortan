@@ -456,10 +456,17 @@
     const author = document.createElement("strong");
     author.textContent = escapeText(message.sender);
     author.title = escapeText(message.sender);
+    header.append(author);
+    if (message.sender_is_admin) {
+      const role = document.createElement("span");
+      role.className = "chat-admin-badge";
+      role.textContent = "مشرف";
+      header.append(role);
+    }
     const time = document.createElement("time");
     time.textContent = escapeText(dateInfo.time);
     if (dateInfo.day && dateInfo.time) time.dateTime = `${dateInfo.day}T${dateInfo.time}`;
-    header.append(author, time);
+    header.append(time);
     if (message.edited) {
       const edited = document.createElement("small");
       edited.className = "chat-edited-label";

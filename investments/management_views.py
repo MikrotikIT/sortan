@@ -568,7 +568,10 @@ def withdrawals(request):
 def customers(request):
     query = request.GET.get("q", "").strip()
     status = request.GET.get("status", "")
-    items = User.objects.filter(is_staff=False).select_related("referred_by").annotate(
+    account_type = request.GET.get("type", "all")
+    if account_type not in {"all", "customers", "staff"}:
+        account_type = "all"
+    items = User.objects.all().select_related("referred_by").annotate(
         investment_count=Count("investments", distinct=True),
         deposit_count=Count("deposits", filter=Q(deposits__status=Deposit.Status.APPROVED), distinct=True),
         referral_count=Count("referrals", distinct=True),
@@ -576,14 +579,18 @@ def customers(request):
             "vouchers", filter=Q(vouchers__status=InvestmentVoucher.Status.AVAILABLE), distinct=True
         ),
     ).order_by("-date_joined")
+    if account_type == "customers":
+        items = items.filter(is_staff=False)
+    elif account_type == "staff":
+        items = items.filter(is_staff=True)
     if query:
         items = items.filter(Q(phone__icontains=query) | Q(referral_code__icontains=query))
     if status == "active":
-        items = items.filter(is_active=True, approval_status="approved")
+        items = items.filter(is_active=True).filter(Q(is_staff=True) | Q(approval_status="approved"))
     elif status == "inactive":
         items = items.filter(is_active=False)
     elif status == "blocked":
-        items = items.filter(approval_status="blocked")
+        items = items.filter(is_staff=False, approval_status="blocked")
     date_from, date_to = _date_filters(request)
     items = _apply_date_range(items, "date_joined", date_from, date_to)
     page_obj, pagination_query = _paginate(request, items)
@@ -595,6 +602,7 @@ def customers(request):
             "page_obj": page_obj,
             "pagination_query": pagination_query,
             "query": query,
+            "filter_type": account_type,
             "filter_status": status,
             "date_from": date_from,
             "date_to": date_to,

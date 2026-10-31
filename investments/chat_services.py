@@ -226,6 +226,7 @@ def serialize_chat_message(message, viewer_id=None):
         "id": message.pk,
         "sender_id": message.sender_id,
         "sender": _get_sender_name(message.sender),
+        "sender_is_admin": bool(message.sender.is_staff),
         "text": message.text,
         "reply_to": reply_data,
         "created_at": timezone.localtime(message.created_at).strftime("%Y-%m-%d %H:%M"),

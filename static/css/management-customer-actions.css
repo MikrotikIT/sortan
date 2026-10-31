@@ -9,6 +9,9 @@
 .customer-state-active{background:#eaf7ef;color:#18764f}
 .customer-state-inactive{background:#f1f3f4;color:#65777c}
 .customer-state-blocked{background:#fff0ee;color:#a64038}
+.customer-state-admin{background:#f0edfb;color:#6551a5}
+.customer-state-customer{background:#edf6fa;color:#24718d}
+.customer-admin-note{color:#a1abad;font-size:12px}
 .customer-block-dialog{width:min(470px,calc(100% - 28px));padding:0;border:0;border-radius:15px;box-shadow:0 24px 80px rgba(9,30,39,.28);color:#233b43}
 .customer-block-dialog::backdrop{background:rgba(5,23,29,.58);backdrop-filter:blur(2px)}
 .customer-block-dialog form{display:grid;gap:11px;padding:24px}
