@@ -11,6 +11,7 @@
   const canModerate = root.dataset.canModerate === "true";
   const canPost = root.dataset.canPost === "true";
   const canReact = root.dataset.canReact === "true";
+  const isAdmin = root.dataset.isAdmin === "true";
   const demoGrowthUrlTemplate = root.dataset.demoGrowthUrlTemplate || "";
   const readUrl = root.dataset.readUrl || "";
   const compose = root.querySelector("[data-chat-compose]");
