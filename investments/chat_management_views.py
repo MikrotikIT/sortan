@@ -86,11 +86,19 @@ def chat_group_member_add(request, pk):
     elif not ChatMembership.objects.filter(group=group, user=user).exists() and group.max_members and group.member_count >= group.max_members:
         messages.error(request, "وصلت المجموعة إلى الحد الأقصى للأعضاء.")
     else:
-        ChatMembership.objects.update_or_create(
+        membership, created = ChatMembership.objects.get_or_create(
             group=group,
             user=user,
-            defaults={"role": form.cleaned_data["role"], "can_post": form.cleaned_data["can_post"]},
+            defaults={
+                "role": form.cleaned_data["role"],
+                "can_post": form.cleaned_data["can_post"],
+                "notifications_muted": group.notifications_muted_by_default,
+            },
         )
+        if not created:
+            membership.role = form.cleaned_data["role"]
+            membership.can_post = form.cleaned_data["can_post"]
+            membership.save(update_fields=("role", "can_post"))
         messages.success(request, f"تمت إضافة {user.phone} إلى المجموعة.")
     return redirect("management_chat_group_edit", pk=group.pk)
 

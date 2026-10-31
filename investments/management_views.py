@@ -22,6 +22,7 @@ from django.views.decorators.http import require_POST
 from .management_forms import CustomerBlockForm, CustomerInfoForm, CustomerPasswordForm, FilmForm, InternalBalanceCreditForm, JoinApplicationDecisionForm, ManualDepositForm, NotificationForm, PlatformSettingsForm, SupportOptionForm, VoucherAmountForm, VoucherIssueForm
 from .firebase_credentials import save_service_account_upload, service_account_status
 from .models import Deposit, Film, InternalBalanceCredit, Investment, InvestmentVoucher, JoinApplication, ServiceHeartbeat, SupportOption, User, UserNotification, Wallet, WalletSyncRun, WithdrawalRequest
+from .push_services import queue_bulk_notification_push
 from .services import approve_deposit, deposit_status_for_amount, get_platform_settings, pay_withdrawal, reject_deposit, reject_withdrawal
 from .wallet_services import decrypt_private_key, ensure_wallet, sync_all_wallets
 from config.celery import app as celery_app
@@ -210,6 +211,11 @@ def send_notifications(request):
         ]
         with transaction.atomic():
             UserNotification.objects.bulk_create(notifications, batch_size=500)
+        queue_bulk_notification_push(
+            (notification.recipient_id for notification in notifications),
+            title=form.cleaned_data["title"],
+            body_html=form.cleaned_data["body_html"],
+        )
         messages.success(request, f"تم إرسال الإشعار إلى {len(notifications)} عميل.")
         return redirect("management_send_notifications")
     return render(

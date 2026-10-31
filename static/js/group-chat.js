@@ -11,7 +11,6 @@
   const canModerate = root.dataset.canModerate === "true";
   const canPost = root.dataset.canPost === "true";
   const canReact = root.dataset.canReact === "true";
-  const isAdmin = root.dataset.isAdmin === "true";
   const demoGrowthUrlTemplate = root.dataset.demoGrowthUrlTemplate || "";
   const readUrl = root.dataset.readUrl || "";
   const compose = root.querySelector("[data-chat-compose]");
@@ -38,8 +37,8 @@
   const escapeText = (value) => String(value ?? "");
   const markMessageRead = async (messageId) => {
     const id = Number(messageId);
-    const csrf = compose?.querySelector('[name="csrfmiddlewaretoken"]')?.value;
-    if (!readUrl || isAdmin || !csrf || !Number.isSafeInteger(id) || id <= lastReadMessageId) return;
+    const csrf = root.querySelector('[name="csrfmiddlewaretoken"]')?.value;
+    if (!readUrl || !csrf || !Number.isSafeInteger(id) || id <= lastReadMessageId) return;
     lastReadMessageId = id;
     try {
       const response = await fetch(readUrl, {

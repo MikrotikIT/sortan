@@ -30,6 +30,7 @@ urlpatterns = [
     path("chat/live-stats/", chat_views.chat_live_stats, name="chat_live_stats"),
     path("chat/groups/<int:pk>/", chat_views.chat_group_room, name="chat_group_room"),
     path("chat/groups/<int:pk>/read/", chat_views.chat_group_mark_read, name="chat_group_mark_read"),
+    path("chat/groups/<int:pk>/notifications/", chat_views.chat_group_toggle_notifications, name="chat_group_toggle_notifications"),
     path("chat/groups/<int:pk>/history/", chat_views.chat_group_history, name="chat_group_history"),
     path("chat/groups/<int:pk>/join/", chat_views.chat_group_join, name="chat_group_join"),
     path("chat/groups/<int:pk>/leave/", chat_views.chat_group_leave, name="chat_group_leave"),

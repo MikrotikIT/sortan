@@ -388,6 +388,9 @@ def create_text_message(group_id, user_id, text, reply_to_id=None):
         raise ChatRuleError("اكتب نص الرسالة أو أرفق صورة أو ملفاً.")
     reply_snapshot = _reply_snapshot(_get_reply_target(group, reply_to_id))
     message = ChatMessage.objects.create(group=group, sender=user, text=text, **reply_snapshot)
+    from .push_services import queue_group_message_push
+
+    queue_group_message_push(message.pk)
     return serialize_chat_message(message, viewer_id=user.pk)
 
 
@@ -418,6 +421,9 @@ def create_uploaded_message(group_id, user_id, form):
         **reply_snapshot,
     )
     message.sender = user
+    from .push_services import queue_group_message_push
+
+    queue_group_message_push(message.pk)
     return serialize_chat_message(message, viewer_id=user.pk)
 
 

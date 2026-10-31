@@ -7,15 +7,121 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from celery import shared_task
 from django.db import transaction
-from django.db.models import Count, F
+from django.db.models import Count, F, Q
+from django.urls import reverse
 from django.utils import timezone
 
 from .chat_services import REACTION_GLYPHS, REACTION_ORDER, serialize_chat_message
-from .models import ChatGroup, ChatMessage, ChatReaction, DemoChatReactionCount, ServiceHeartbeat
+from .models import (
+    ChatGroup,
+    ChatGroupBan,
+    ChatGroupReadState,
+    ChatMembership,
+    ChatMessage,
+    ChatReaction,
+    DemoChatReactionCount,
+    ServiceHeartbeat,
+    UserNotification,
+)
+from .notification_services import notification_push_body
+from .push_services import send_push_to_user, send_push_to_users
 from .wallet_services import sync_all_wallets
 
 
 logger = logging.getLogger(__name__)
+
+
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 4})
+def send_user_notification_push(self, notification_id):
+    notification = UserNotification.objects.select_related("recipient").filter(pk=notification_id).first()
+    if not notification:
+        return {"success_count": 0, "failure_count": 0}
+
+    body = notification_push_body(notification.body_html) or "لديك إشعار جديد."
+    data = {
+        "type": "site_notification",
+        "notification_id": str(notification.pk),
+        "url": reverse("notification_open", args=(notification.pk,)),
+    }
+    return send_push_to_user(
+        notification.recipient,
+        title=notification.title,
+        body=body,
+        data=data,
+    )
+
+
+@shared_task
+def send_bulk_notification_push(user_ids, title, body, data):
+    result = {"success_count": 0, "failure_count": 0}
+    for start in range(0, len(user_ids), 1000):
+        batch_result = send_push_to_users(
+            user_ids[start : start + 1000],
+            title=title,
+            body=body,
+            data=data,
+        )
+        result["success_count"] += batch_result["success_count"]
+        result["failure_count"] += batch_result["failure_count"]
+    return result
+
+
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 4})
+def send_group_message_push(self, message_id):
+    message = (
+        ChatMessage.objects.select_related("group", "sender")
+        .filter(pk=message_id, group__is_active=True)
+        .first()
+    )
+    if not message:
+        return {"success_count": 0, "failure_count": 0}
+
+    banned_user_ids = ChatGroupBan.objects.filter(group_id=message.group_id).values_list("user_id", flat=True)
+    memberships = list(
+        ChatMembership.objects.filter(
+            group_id=message.group_id,
+            user__is_active=True,
+            notifications_muted=False,
+        )
+        .filter(Q(user__is_staff=True) | Q(user__approval_status="approved"))
+        .exclude(user_id=message.sender_id)
+        .exclude(user_id__in=banned_user_ids)
+        .select_related("user")
+    )
+    staff_ids = [membership.user_id for membership in memberships if membership.user.is_staff]
+    staff_read_states = dict(
+        ChatGroupReadState.objects.filter(group_id=message.group_id, user_id__in=staff_ids)
+        .values_list("user_id", "last_read_message_id")
+    )
+
+    recipient_ids = []
+    for membership in memberships:
+        last_read_message_id = (
+            staff_read_states.get(membership.user_id)
+            if membership.user.is_staff
+            else membership.last_read_message_id
+        )
+        if last_read_message_id is None or last_read_message_id < message.pk:
+            recipient_ids.append(membership.user_id)
+
+    if not recipient_ids:
+        return {"success_count": 0, "failure_count": 0}
+
+    preview = message.text.strip()
+    if not preview:
+        preview = "أرسل صورة" if message.image else "أرسل ملفاً" if message.attachment else "رسالة جديدة"
+    sender_name = message.sender.get_full_name().strip() or "عضو"
+    return send_push_to_users(
+        recipient_ids,
+        title=message.group.title,
+        body=f"{sender_name}: {preview[:180]}",
+        data={
+            "type": "group_message",
+            "group_id": str(message.group_id),
+            "message_id": str(message.pk),
+            "url": reverse("chat_group_room", args=(message.group_id,)),
+        },
+    )
 
 
 def _broadcast_chat(group_id, payload):

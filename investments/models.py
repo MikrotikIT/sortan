@@ -646,6 +646,11 @@ class ChatGroup(models.Model):
         choices=MessageMode.choices,
         default=MessageMode.EVERYONE,
     )
+    notifications_muted_by_default = models.BooleanField(
+        "كتم إشعارات المجموعة للأعضاء الجدد تلقائياً",
+        default=False,
+        help_text="يطبق على العضويات الجديدة فقط، ويمكن لكل عضو تغيير الكتم لاحقاً.",
+    )
     allow_images = models.BooleanField("السماح بإرسال الصور", default=True)
     allow_files = models.BooleanField("السماح بإرفاق الملفات", default=False)
     allow_links = models.BooleanField("السماح بالروابط", default=True)
@@ -693,6 +698,7 @@ class ChatMembership(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="chat_memberships")
     role = models.CharField("الدور", max_length=12, choices=Role.choices, default=Role.MEMBER)
     can_post = models.BooleanField("مسموح له بالمحادثة عند تحديد أعضاء معينين", default=False)
+    notifications_muted = models.BooleanField("كتم إشعارات هذه المجموعة", default=False)
     joined_at = models.DateTimeField("تاريخ الانضمام", auto_now_add=True)
     last_read_message_id = models.PositiveBigIntegerField("آخر رسالة مقروءة", null=True, blank=True, editable=False)
 

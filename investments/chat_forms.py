@@ -71,7 +71,7 @@ class ChatGroupForm(forms.ModelForm):
             "title", "description", "image", "is_active", "is_public", "max_members",
             "demo_member_offset", "demo_member_growth_enabled", "demo_member_interval_min_seconds",
             "demo_member_interval_max_seconds", "demo_member_increment_min", "demo_member_increment_max",
-            "message_mode", "allow_images", "allow_files", "allow_links", "reactions_enabled",
+            "message_mode", "notifications_muted_by_default", "allow_images", "allow_files", "allow_links", "reactions_enabled",
             "slow_mode_seconds", "blocked_terms",
         )
         widgets = {
@@ -94,6 +94,7 @@ class ChatGroupForm(forms.ModelForm):
             "demo_member_interval_min_seconds": "اختيار عشوائي للفاصل بين الزيادات، من 1 إلى 15 ثانية.",
             "demo_member_increment_min": "اختيار عشوائي للزيادة في كل مرة، من 1 إلى 5.",
             "message_mode": "يمكن ضبط الأعضاء المسموح لهم من قائمة أعضاء المجموعة.",
+            "notifications_muted_by_default": "يضبط إشعارات الأعضاء الذين ينضمون لاحقاً؛ ويمكن لكل عضو إلغاء الكتم من صفحة المجموعة.",
             "slow_mode_seconds": "الفاصل الأدنى بين رسائل العضو. الحد الأقصى 300 ثانية.",
             "blocked_terms": "كل عبارة في سطر مستقل؛ الرسائل التي تحتويها تُرفض.",
         }

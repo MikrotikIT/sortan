@@ -2,13 +2,15 @@
 {% load static %}
 {% block body_class %}chat-room-page{% endblock %}
 {% block title %}{{ group.title }} — KODI{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/group-chat.css' %}?v=5"><link rel="stylesheet" href="{% static 'css/chat-fullscreen.css' %}?v=2"><link rel="stylesheet" href="{% static 'css/chat-ui.css' %}?v=13">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/group-chat.css' %}?v=6"><link rel="stylesheet" href="{% static 'css/chat-fullscreen.css' %}?v=2"><link rel="stylesheet" href="{% static 'css/chat-ui.css' %}?v=13">{% endblock %}
 {% block content %}
 <section class="chat-room" data-chat-room data-ws-path="{{ ws_path }}" data-history-url="{{ history_url }}" data-read-url="{{ read_url }}" data-has-older-messages="{{ has_older_messages|yesno:'true,false' }}" data-chat-live-stats-url="{% url 'chat_live_stats' %}" data-group-id="{{ group.pk }}" data-current-user="{{ request.user.pk }}" data-can-moderate="{{ can_moderate|yesno:'true,false' }}" data-can-post="{{ can_post|yesno:'true,false' }}" data-is-admin="{{ request.user.is_staff|yesno:'true,false' }}" data-demo-growth-url-template="{{ demo_growth_url_template }}" data-can-react="{{ group.reactions_enabled|yesno:'true,false' }}" data-member-count="{{ actual_member_count }}" data-demo-member-offset="{{ group.demo_member_offset }}">
+  <span hidden>{% csrf_token %}</span>
   <header class="chat-room-header">
     <a class="chat-back-link" href="{% url 'chat_groups' %}" aria-label="العودة للمجموعات">→</a>
     {% if group.image and not is_banned %}<img class="chat-group-avatar" src="{% url 'chat_group_image' group.pk %}" alt="">{% else %}<span class="chat-group-avatar chat-group-avatar-placeholder" aria-hidden="true">✦</span>{% endif %}
     <div class="chat-room-title"><h1>{{ group.title }}</h1><p>{{ group.description|default:"مجموعة محادثة" }}</p><small class="chat-members-line"><b data-room-member-count>{{ display_member_count }}</b> عضواً</small></div>
+    {% if membership and not is_banned %}<form method="post" action="{% url 'chat_group_toggle_notifications' group.pk %}" class="chat-notification-toggle-form">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><button class="chat-notification-toggle{% if membership.notifications_muted %} is-muted{% endif %}" type="submit" aria-label="{% if membership.notifications_muted %}إلغاء كتم إشعارات {{ group.title }}{% else %}كتم إشعارات {{ group.title }}{% endif %}">{% if membership.notifications_muted %}إلغاء الكتم{% else %}كتم الإشعارات{% endif %}</button></form>{% endif %}
     <span class="chat-connection-status" data-chat-status>جارٍ الاتصال…</span>
   </header>
   {% if is_banned %}<div class="chat-notice chat-notice-danger">حسابك محظور من هذه المجموعة.</div>

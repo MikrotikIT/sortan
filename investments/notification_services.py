@@ -3,6 +3,8 @@ import re
 from html.parser import HTMLParser
 from urllib.parse import urlsplit
 
+from django.utils.html import strip_tags
+
 
 ALLOWED_TAGS = {
     "a", "b", "blockquote", "br", "code", "del", "div", "em", "h1", "h2",
@@ -104,3 +106,15 @@ class _NotificationHTMLSanitizer(HTMLParser):
 
 def sanitize_notification_html(source):
     return _NotificationHTMLSanitizer().finish(source or "")
+
+
+def notification_push_body(source, *, limit=240):
+    """Convert a formatted site notification into a short plain-text push body."""
+    safe_html = sanitize_notification_html(source)
+    safe_html = re.sub(
+        r"(?i)<br\s*/?>|</(?:p|div|li|h[1-6]|tr|blockquote)\s*>",
+        " ",
+        safe_html,
+    )
+    text = html.unescape(strip_tags(safe_html))
+    return re.sub(r"\s+", " ", text).strip()[:limit]

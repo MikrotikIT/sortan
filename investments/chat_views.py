@@ -11,6 +11,7 @@ from django.db.models import Count, Q
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET, require_POST
 
 from .chat_forms import ChatDemoGrowthForm, ChatUploadForm
@@ -69,11 +70,15 @@ def chat_groups(request):
         .distinct()
         .order_by("title", "pk")
     )
-    member_ids = set(ChatMembership.objects.filter(user=request.user).values_list("group_id", flat=True))
+    memberships = dict(
+        ChatMembership.objects.filter(user=request.user).values_list("group_id", "notifications_muted")
+    )
     banned_ids = set(ChatGroupBan.objects.filter(user=request.user).values_list("group_id", flat=True))
     unread_counts, _ = get_chat_unread_counts(request.user, [group.pk for group in groups])
     for group in groups:
-        group.is_member = request.user.is_staff or group.pk in member_ids
+        group.has_membership = group.pk in memberships
+        group.notifications_muted = memberships.get(group.pk, False)
+        group.is_member = request.user.is_staff or group.has_membership
         group.is_banned = not request.user.is_staff and group.pk in banned_ids
         group.display_member_count = group.actual_member_count + group.demo_member_offset
         group.unread_count = unread_counts.get(group.pk, 0)
@@ -202,7 +207,11 @@ def chat_group_join(request, pk):
         if group.max_members and group.member_count >= group.max_members:
             messages.error(request, "وصلت المجموعة إلى الحد الأقصى للأعضاء.")
             return redirect("chat_groups")
-        ChatMembership.objects.get_or_create(group=group, user=request.user)
+        ChatMembership.objects.get_or_create(
+            group=group,
+            user=request.user,
+            defaults={"notifications_muted": group.notifications_muted_by_default},
+        )
     messages.success(request, f"انضممت إلى مجموعة {group.title}.")
     return redirect("chat_group_room", pk=group.pk)
 
@@ -217,6 +226,38 @@ def chat_group_leave(request, pk):
     _broadcast_group_message(group.pk, {"type": "member_removed", "target_user_id": request.user.pk})
     messages.success(request, f"غادرت مجموعة {group.title}.")
     return redirect("chat_groups")
+
+
+@login_required
+@require_POST
+def chat_group_toggle_notifications(request, pk):
+    if not _eligible_user(request.user):
+        return redirect("account_review")
+    group = get_object_or_404(ChatGroup, pk=pk, is_active=True)
+    if not group_member_access(request.user, group):
+        raise Http404
+    with transaction.atomic():
+        membership = get_object_or_404(
+            ChatMembership.objects.select_for_update(),
+            group=group,
+            user=request.user,
+        )
+        membership.notifications_muted = not membership.notifications_muted
+        membership.save(update_fields=("notifications_muted",))
+
+    if membership.notifications_muted:
+        messages.success(request, f"تم كتم إشعارات مجموعة {group.title}.")
+    else:
+        messages.success(request, f"تم إلغاء كتم إشعارات مجموعة {group.title}.")
+
+    destination = request.POST.get("next", "")
+    if not url_has_allowed_host_and_scheme(
+        destination,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        destination = reverse("chat_group_room", args=(group.pk,))
+    return redirect(destination)
 
 
 @login_required
