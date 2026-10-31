@@ -173,6 +173,7 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 PRIVATE_MEDIA_ROOT = Path(os.environ.get("DJANGO_PRIVATE_MEDIA_ROOT", BASE_DIR / "private_media"))
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+FIREBASE_PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID", "kodi-fbcf3")
 
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "dashboard"

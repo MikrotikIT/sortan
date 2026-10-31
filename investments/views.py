@@ -19,7 +19,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
 from .forms import InvestmentForm, JoinApplicationForm, LoginForm, RegistrationForm, WithdrawalForm
-from .models import Deposit, Film, Investment, InvestmentVoucher, JoinApplication, PlatformSettings, SupportOption, UserNotification, WithdrawalRequest
+from .models import Deposit, Film, Investment, InvestmentVoucher, JoinApplication, PlatformSettings, PushDevice, SupportOption, UserNotification, WithdrawalRequest
 from .notification_services import sanitize_notification_html
 from .chat_services import get_chat_unread_counts
 from .services import get_platform_settings, parse_deposit_activity_examples, parse_withdrawal_referral_rules, settle_due_investments, withdraw_available_at
@@ -167,6 +167,9 @@ def join_application_photo(request, pk):
 @login_required
 def sign_out(request):
     if request.method == "POST":
+        token = request.session.get("push_device_token")
+        if token:
+            PushDevice.objects.filter(user=request.user, token=token).delete()
         logout(request)
     return redirect("login")
 

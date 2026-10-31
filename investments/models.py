@@ -825,3 +825,23 @@ class DemoChatReactionCount(models.Model):
         constraints = [models.UniqueConstraint(fields=("message", "kind"), name="unique_demo_chat_reaction_count")]
         verbose_name = "عداد تفاعل تجريبي"
         verbose_name_plural = "عدادات التفاعل التجريبية"
+
+
+class PushDevice(models.Model):
+    class Platform(models.TextChoices):
+        ANDROID = "android", "Android"
+        IOS = "ios", "iOS"
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="push_devices")
+    token = models.CharField("رمز الإشعار", max_length=4096, unique=True)
+    platform = models.CharField("النظام", max_length=12, choices=Platform.choices, default=Platform.ANDROID)
+    created_at = models.DateTimeField("تاريخ التسجيل", auto_now_add=True)
+    updated_at = models.DateTimeField("آخر تحديث", auto_now=True)
+
+    class Meta:
+        ordering = ("-updated_at", "-pk")
+        verbose_name = "جهاز للإشعارات"
+        verbose_name_plural = "أجهزة الإشعارات"
+
+    def __str__(self):
+        return f"{self.user.phone} — {self.get_platform_display()}"

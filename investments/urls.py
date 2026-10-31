@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import chat_management_views, chat_views, management_views, views
+from . import chat_management_views, chat_views, management_views, push_views, views
 
 urlpatterns = [
     path("", views.home, name="home"),
@@ -15,6 +15,8 @@ urlpatterns = [
     path("notifications/read-all/", views.notifications_mark_all_read, name="notifications_mark_all_read"),
     path("notifications/<int:pk>/read/", views.notification_mark_read, name="notification_mark_read"),
     path("notifications/unread-count/", views.notification_unread_count, name="notification_unread_count"),
+    path("push/devices/register/", push_views.register_push_device, name="push_device_register"),
+    path("push/devices/unregister/", push_views.unregister_push_device, name="push_device_unregister"),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("invest/", views.create_investment, name="create_investment"),
     path("withdrawals/", views.withdrawals, name="withdrawals"),
