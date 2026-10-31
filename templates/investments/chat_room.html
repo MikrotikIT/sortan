@@ -8,11 +8,11 @@
   <header class="chat-room-header">
     <a class="chat-back-link" href="{% url 'chat_groups' %}" aria-label="العودة للمجموعات">→</a>
     {% if group.image and not is_banned %}<img class="chat-group-avatar" src="{% url 'chat_group_image' group.pk %}" alt="">{% else %}<span class="chat-group-avatar chat-group-avatar-placeholder" aria-hidden="true">✦</span>{% endif %}
-    <div class="chat-room-title"><h1>{{ group.title }}</h1><p>{{ group.description|default:"مجموعة محادثة" }}</p><small class="chat-members-line"><b data-room-member-count>{{ display_member_count }}</b> عضواً{% if group.demo_member_offset or group.demo_member_growth_enabled %}<em title="يشمل العدد إضافة تجريبية">تجريبي</em>{% endif %}</small></div>
+    <div class="chat-room-title"><h1>{{ group.title }}</h1><p>{{ group.description|default:"مجموعة محادثة" }}</p><small class="chat-members-line"><b data-room-member-count>{{ display_member_count }}</b> عضواً</small></div>
     <span class="chat-connection-status" data-chat-status>جارٍ الاتصال…</span>
   </header>
   {% if is_banned %}<div class="chat-notice chat-notice-danger">حسابك محظور من هذه المجموعة.</div>
-  {% elif not membership and not request.user.is_staff %}<div class="chat-join-prompt"><div><strong>انضم للمجموعة لعرض الرسائل والمشاركة</strong><small>العدد الظاهر يوضح العدد الحقيقي والإضافة التجريبية بشكل منفصل.</small></div><form method="post" action="{% url 'chat_group_join' group.pk %}">{% csrf_token %}<button class="btn btn-primary" type="submit">انضمام للمجموعة</button></form></div>
+  {% elif not membership and not request.user.is_staff %}<div class="chat-join-prompt"><div><strong>انضم للمجموعة لعرض الرسائل والمشاركة</strong></div><form method="post" action="{% url 'chat_group_join' group.pk %}">{% csrf_token %}<button class="btn btn-primary" type="submit">انضمام للمجموعة</button></form></div>
   {% else %}
     {% if not can_post %}<div class="chat-notice">المحادثة مقفلة أو النشر متاح لأعضاء محددين فقط.</div>{% endif %}
     <div class="chat-message-list-wrap"><div class="chat-history-indicator" data-chat-history-status role="status" aria-live="polite" hidden></div><ol class="chat-message-list" data-chat-messages aria-live="polite" aria-relevant="additions text"></ol></div>

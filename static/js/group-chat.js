@@ -320,12 +320,8 @@
     const details = document.createElement("details");
     details.className = "chat-demo-admin-settings";
     const summary = document.createElement("summary");
-    summary.textContent = settings.enabled ? "إدارة الزيادة التجريبية · مفعّلة" : "إدارة الزيادة التجريبية";
+    summary.textContent = settings.enabled ? "إدارة · مفعّلة" : "إدارة";
     details.append(summary);
-
-    const note = document.createElement("p");
-    note.textContent = "هذه الإعدادات للإدارة فقط. الزيادة تجريبية، وإيقافها لا يغلق تفاعلات الأعضاء الحقيقية.";
-    details.append(note);
 
     const form = document.createElement("form");
     form.className = "chat-demo-admin-form";
@@ -433,7 +429,6 @@
       button.className = `chat-reaction${message.user_reaction === reaction.kind ? " is-selected" : ""}`;
       button.dataset.reactionKind = reaction.kind;
       button.setAttribute("aria-label", `${labels[reaction.kind]}: ${reaction.count || 0}`);
-      button.title = `حقيقي: ${reaction.real_count || 0} · تجريبي: ${reaction.demo_count || 0}`;
       const glyph = document.createElement("span");
       glyph.textContent = glyphs[reaction.kind] || "•";
       const count = document.createElement("b");
@@ -441,7 +436,7 @@
       button.append(glyph, count);
       if (reaction.demo_count) {
         const demo = document.createElement("small");
-        demo.textContent = `تجريبي +${reaction.demo_count}`;
+        demo.textContent = `+${reaction.demo_count}`;
         button.append(demo);
       }
       button.addEventListener("click", () => sendSocket({ action: "react", message_id: message.id, kind: reaction.kind }));
@@ -587,14 +582,6 @@
       card.append(attachment);
     }
 
-    if (message.demo_growth_active || message.demo_reactions_present) {
-      const note = document.createElement("small");
-      note.className = "chat-demo-note";
-      note.textContent = message.demo_growth_active
-        ? "تتضمن هذه الرسالة محاكاة تفاعلات تجريبية. التفاعل الحقيقي متاح دائماً."
-        : "تتضمن الأعداد محاكاة تجريبية؛ التفاعل الحقيقي متاح دائماً.";
-      card.append(note);
-    }
     appendAdminDemoControls(card, message);
     const reactions = document.createElement("div");
     reactions.className = "chat-reactions";
@@ -724,12 +711,11 @@
       button.classList.toggle("is-selected", selectedKind === reaction.kind);
       const count = button.querySelector("b");
       if (count) count.textContent = String(total);
-      button.title = `حقيقي: ${reaction.real_count || 0} · تجريبي: ${reaction.demo_count || 0}`;
       button.setAttribute("aria-label", `${labels[reaction.kind]}: ${total}`);
       let demo = button.querySelector("small");
       if (reaction.demo_count) {
         if (!demo) { demo = document.createElement("small"); button.append(demo); }
-        demo.textContent = `تجريبي +${reaction.demo_count}`;
+        demo.textContent = `+${reaction.demo_count}`;
       } else if (demo) demo.remove();
       const picker = container.querySelector("[data-reaction-picker]");
       container.insertBefore(button, picker || null);

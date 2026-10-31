@@ -8,7 +8,7 @@
   {% for group in groups %}<article class="chat-group-card">
     <a class="chat-group-card-main" href="{% url 'chat_group_room' group.pk %}">
       {% if group.image_url %}<img class="chat-group-avatar" src="{{ group.image_url }}" alt="" loading="lazy">{% else %}<span class="chat-group-avatar chat-group-avatar-placeholder" aria-hidden="true">✦</span>{% endif %}
-      <span class="chat-group-card-copy"><span class="chat-group-title-line"><strong>{{ group.title }}</strong><span class="chat-group-unread-badge" data-chat-unread-group="{{ group.pk }}" aria-label="{{ group.unread_count }} رسالة غير مقروءة" {% if not group.unread_count %}hidden{% endif %}><b>{{ group.unread_count }}</b> غير مقروءة</span></span><small>{{ group.description|default:"مجموعة محادثة"|truncatechars:110 }}</small><span class="chat-group-count"><b data-group-member-count="{{ group.pk }}">{{ group.display_member_count }}</b> عضو{% if group.demo_member_offset or group.demo_member_growth_enabled %}<em>عدد تجريبي</em>{% endif %}</span></span>
+      <span class="chat-group-card-copy"><span class="chat-group-title-line"><strong>{{ group.title }}</strong><span class="chat-group-unread-badge" data-chat-unread-group="{{ group.pk }}" aria-label="{{ group.unread_count }} رسالة غير مقروءة" {% if not group.unread_count %}hidden{% endif %}><b>{{ group.unread_count }}</b> غير مقروءة</span></span><small>{{ group.description|default:"مجموعة محادثة"|truncatechars:110 }}</small><span class="chat-group-count"><b data-group-member-count="{{ group.pk }}">{{ group.display_member_count }}</b> عضو</span></span>
       <span class="chat-group-arrow" aria-hidden="true">←</span>
     </a>
     <div class="chat-group-card-actions">
