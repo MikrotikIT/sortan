@@ -411,7 +411,7 @@
         });
         const result = await response.json();
         if (!response.ok || !result.ok) throw new Error(result.error || "تعذر حفظ إعدادات الزيادة.");
-        renderMessage(result.message);
+        renderMessageSafely(result.message);
       } catch (error) {
         showError(error.message || "تعذر حفظ إعدادات الزيادة.");
       } finally {
@@ -609,6 +609,86 @@
     return item;
   };
 
+  const renderBasicMessage = (message, { prepend = false } = {}) => {
+    if (!message || !message.id) return null;
+    const previous = list.querySelector(`[data-message-id="${Number(message.id)}"]`);
+    const item = document.createElement("li");
+    item.className = `chat-message${Number(message.sender_id) === userId ? " is-mine" : ""}`;
+    item.setAttribute("data-message-id", String(message.id));
+    if (message.created_day) item.setAttribute("data-message-day", String(message.created_day));
+
+    const card = document.createElement("article");
+    card.className = "chat-message-card";
+    const header = document.createElement("header");
+    header.className = "chat-message-header";
+    const author = document.createElement("strong");
+    author.textContent = String(message.sender || "عضو");
+    header.appendChild(author);
+    if (message.sender_is_admin) {
+      const badge = document.createElement("span");
+      badge.className = "chat-admin-badge";
+      badge.textContent = "مشرف";
+      header.appendChild(badge);
+    }
+    const time = document.createElement("time");
+    time.textContent = String(message.created_time || "");
+    header.appendChild(time);
+    card.appendChild(header);
+
+    if (message.reply_to) {
+      const reply = document.createElement("div");
+      reply.className = "chat-reply-quote";
+      reply.textContent = `${message.reply_to.sender || "عضو"}: ${message.reply_to.preview || "رسالة"}`;
+      card.appendChild(reply);
+    }
+    if (message.text) {
+      const body = document.createElement("p");
+      body.className = "chat-message-text";
+      body.textContent = String(message.text);
+      card.appendChild(body);
+    }
+    if (message.media_url) {
+      const media = document.createElement("a");
+      media.className = message.image ? "chat-message-image-link" : "chat-message-attachment";
+      media.href = String(message.media_url);
+      if (message.image) {
+        const image = document.createElement("img");
+        image.src = String(message.media_url);
+        image.alt = "صورة مرفقة";
+        media.appendChild(image);
+      } else {
+        media.textContent = String(message.attachment_name || "تنزيل الملف");
+      }
+      card.appendChild(media);
+    }
+
+    item.appendChild(card);
+    if (previous && previous.parentNode) previous.parentNode.replaceChild(item, previous);
+    else if (prepend) list.insertBefore(item, list.firstChild);
+    else list.appendChild(item);
+    return item;
+  };
+
+  const renderMessageSafely = (message, options) => {
+    try {
+      return renderMessage(message, options);
+    } catch (error) {
+      console.error("Could not render a group chat message; using basic rendering", error);
+      try {
+        return renderBasicMessage(message, options);
+      } catch (fallbackError) {
+        console.error("Could not render a group chat message in basic mode", fallbackError);
+        if (historyStatus) {
+          const details = fallbackError?.message ? ` (${fallbackError.message})` : "";
+          historyStatus.textContent = `تعذر عرض الرسائل${details}. حدّث الصفحة وحاول مجدداً.`;
+          historyStatus.classList.add("is-error");
+          historyStatus.hidden = false;
+        }
+        return null;
+      }
+    }
+  };
+
   const loadOlderMessages = async () => {
     if (!hasOlderMessages || loadingOlderMessages) return;
     const firstMessage = list.querySelector("[data-message-id]");
@@ -635,7 +715,7 @@
 
       const olderMessages = result.messages || [];
       hasOlderMessages = Boolean(result.has_more);
-      [...olderMessages].reverse().forEach((message) => renderMessage(message, { prepend: true }));
+      [...olderMessages].reverse().forEach((message) => renderMessageSafely(message, { prepend: true }));
       syncDayDividers();
       if (historyStatus) {
         historyStatus.hidden = true;
@@ -786,7 +866,7 @@
       }
       if (payload.type === "message_created" || payload.type === "message_updated") {
         const followLatest = isNearLatest() || Number(payload.message?.sender_id) === userId;
-        renderMessage(payload.message);
+        renderMessageSafely(payload.message);
         if (payload.type === "message_created" && followLatest && document.visibilityState === "visible") {
           markMessageRead(payload.message?.id);
         }
@@ -827,13 +907,14 @@
 
   try {
     const initial = JSON.parse(document.getElementById("chat-initial-messages")?.textContent || "[]");
-    initial.forEach(renderMessage);
+    initial.forEach((message) => renderMessageSafely(message));
     syncDayDividers();
     scrollToLatest();
   } catch (error) {
     console.error("Could not render initial group chat messages", error);
     if (historyStatus) {
-      historyStatus.textContent = "تعذر عرض الرسائل. حدّث الصفحة وحاول مجدداً.";
+      const details = error?.message ? ` (${error.message})` : "";
+      historyStatus.textContent = `تعذر عرض الرسائل${details}. حدّث الصفحة وحاول مجدداً.`;
       historyStatus.classList.add("is-error");
       historyStatus.hidden = false;
     }
@@ -897,7 +978,7 @@
       });
       const result = await response.json();
       if (!response.ok || !result.ok) throw new Error(result.error || "تعذر إرسال الرسالة.");
-      renderMessage(result.message);
+      renderMessageSafely(result.message);
       syncLastDayDivider();
       compose.reset();
       refreshAttachmentPreview();
