@@ -31,6 +31,7 @@
       <a href="{% url 'management_withdrawals' %}">السحب</a>
       <a href="{% url 'management_system_health' %}">صحة الخدمات</a>
       <a href="{% url 'management_settings' %}">الإعدادات</a>
+      {% if request.user.is_superuser %}<a href="{% url 'management_firebase_settings' %}">إعدادات Firebase</a>{% endif %}
     </nav>
     <div class="management-user">
       <a href="{% url 'admin:index' %}">إدارة Django ↗</a>

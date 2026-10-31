@@ -54,6 +54,7 @@ urlpatterns = [
     path("management/films/<int:pk>/edit/", management_views.film_edit, name="management_film_edit"),
     path("management/films/<int:pk>/toggle/", management_views.film_toggle, name="management_film_toggle"),
     path("management/settings/", management_views.platform_settings, name="management_settings"),
+    path("management/firebase-settings/", management_views.firebase_settings, name="management_firebase_settings"),
     path("management/support-options/", management_views.support_options, name="management_support_options"),
     path("management/support-options/<int:pk>/edit/", management_views.support_option_edit, name="management_support_option_edit"),
     path("management/support-options/<int:pk>/delete/", management_views.support_option_delete, name="management_support_option_delete"),

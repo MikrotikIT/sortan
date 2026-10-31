@@ -8,3 +8,7 @@ media/
 /private_media/
 celerybeat-schedule*
 apache.txt
+
+# Firebase Admin SDK credentials are server-only and must never be committed.
+*-firebase-adminsdk-*.json
+*service-account*.json

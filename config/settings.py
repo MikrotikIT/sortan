@@ -174,6 +174,12 @@ MEDIA_ROOT = BASE_DIR / "media"
 PRIVATE_MEDIA_ROOT = Path(os.environ.get("DJANGO_PRIVATE_MEDIA_ROOT", BASE_DIR / "private_media"))
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 FIREBASE_PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID", "kodi-fbcf3")
+FIREBASE_SERVICE_ACCOUNT_FILE = Path(
+    os.environ.get(
+        "FIREBASE_SERVICE_ACCOUNT_FILE",
+        PRIVATE_MEDIA_ROOT / "firebase" / "service-account.json",
+    )
+)
 
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "dashboard"

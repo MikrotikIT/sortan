@@ -1,0 +1,55 @@
+{% extends 'management/base.html' %}
+{% block title %}إعدادات Firebase — Kodi TV{% endblock %}
+{% block content %}
+<section class="management-heading">
+  <div>
+    <span class="eyebrow">إعداد الإشعارات</span>
+    <h1>إعدادات Firebase</h1>
+    <p>ارفع مفتاح Firebase Admin لتمكين الخادم من إرسال إشعارات الأجهزة المسجلة.</p>
+  </div>
+  <a class="btn btn-outline" href="{% url 'management_settings' %}">إعدادات المنصة</a>
+</section>
+
+<section class="management-panel form-panel">
+  <div class="management-panel-head">
+    <h2>اعتماد الخادم</h2>
+    {% if firebase_account.configured %}
+      <span class="admin-tag">مُعدّ</span>
+    {% else %}
+      <span class="admin-tag">غير مُعدّ</span>
+    {% endif %}
+  </div>
+
+  {% if firebase_account.configured %}
+    <p>المفتاح المحفوظ مرتبط بالمشروع <code>{{ firebase_account.project_id }}</code>.</p>
+    <p>استبدل المفتاح فقط بعد إنشاء مفتاح جديد من Firebase وإلغاء المفتاح السابق عند تدويره.</p>
+  {% elif firebase_account.invalid %}
+    <p class="field-error">يوجد ملف اعتماد غير صالح أو تابع لمشروع آخر. ارفع ملفًا صحيحًا للمشروع المطلوب.</p>
+  {% else %}
+    <p>لم يُرفع مفتاح إرسال بعد. المشروع المطلوب هو <code>kodi-fbcf3</code>.</p>
+  {% endif %}
+
+  <form method="post" enctype="multipart/form-data" class="management-form" autocomplete="off">
+    {% csrf_token %}
+    {% if firebase_account.configured %}
+      <div class="admin-field admin-check-field" style="grid-column:1/-1">
+        <input type="checkbox" name="confirm_replace" value="yes" id="confirm-firebase-replace" required>
+        <label for="confirm-firebase-replace">أؤكد استبدال مفتاح Firebase الحالي</label>
+      </div>
+    {% endif %}
+    <div class="admin-field" style="grid-column:1/-1">
+      <label for="firebase-service-account-file">ملف Firebase Admin JSON</label>
+      <input id="firebase-service-account-file" type="file" name="service_account_file" accept=".json,application/json" required>
+      <small>ارفع الملف الذي يحتوي على type: service_account ومعرّف المشروع kodi-fbcf3. الحد الأعلى 64 كيلوبايت.</small>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit">{% if firebase_account.configured %}استبدال المفتاح{% else %}رفع المفتاح{% endif %}</button>
+    </div>
+  </form>
+
+  <div class="notice">
+    لا يُعرض المفتاح بعد رفعه ولا يُحفظ في قاعدة البيانات أو مجلد الملفات العامة. يُحفظ في مساحة التخزين الخاصة التي يحددها إعداد <code>PRIVATE_MEDIA_ROOT</code>.
+    اجعل هذه المساحة دائمة ومقروءة من خدمات Django وCelery، ولا تضفها إلى Git أو تنسخها إلى تطبيق Android.
+  </div>
+</section>
+{% endblock %}

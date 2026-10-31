@@ -6,7 +6,7 @@ from urllib.parse import urlencode
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
-from django.core.exceptions import ImproperlyConfigured, PermissionDenied
+from django.core.exceptions import ImproperlyConfigured, PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, DateTimeField, F, Max, Q, Sum
@@ -20,6 +20,7 @@ from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_POST
 
 from .management_forms import CustomerBlockForm, CustomerInfoForm, CustomerPasswordForm, FilmForm, InternalBalanceCreditForm, JoinApplicationDecisionForm, ManualDepositForm, NotificationForm, PlatformSettingsForm, SupportOptionForm, VoucherAmountForm, VoucherIssueForm
+from .firebase_credentials import save_service_account_upload, service_account_status
 from .models import Deposit, Film, InternalBalanceCredit, Investment, InvestmentVoucher, JoinApplication, ServiceHeartbeat, SupportOption, User, UserNotification, Wallet, WalletSyncRun, WithdrawalRequest
 from .services import approve_deposit, deposit_status_for_amount, get_platform_settings, pay_withdrawal, reject_deposit, reject_withdrawal
 from .wallet_services import decrypt_private_key, ensure_wallet, sync_all_wallets
@@ -286,6 +287,35 @@ def platform_settings(request):
         messages.success(request, "تم حفظ إعدادات المنصة.")
         return redirect("management_settings")
     return render(request, "management/settings.html", {"form": form, "setting_sections": setting_sections})
+
+
+@staff_required
+def firebase_settings(request):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+
+    current_status = service_account_status()
+    if request.method == "POST":
+        uploaded_file = request.FILES.get("service_account_file")
+        if current_status["configured"] and request.POST.get("confirm_replace") != "yes":
+            messages.error(request, "أكد استبدال بيانات Firebase الحالية قبل رفع مفتاح جديد.")
+        else:
+            try:
+                saved_account = save_service_account_upload(uploaded_file)
+            except ValidationError as error:
+                messages.error(request, error.message)
+            else:
+                messages.success(request, f"تم حفظ اعتماد Firebase للمشروع {saved_account['project_id']} في التخزين الخاص.")
+                return redirect("management_firebase_settings")
+
+    response = render(
+        request,
+        "management/firebase_settings.html",
+        {"firebase_account": service_account_status()},
+    )
+    response["Cache-Control"] = "no-store, max-age=0"
+    response["Pragma"] = "no-cache"
+    return response
 
 
 @staff_required
