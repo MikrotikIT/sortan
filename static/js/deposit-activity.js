@@ -3,13 +3,19 @@
   const bandsData = document.getElementById("deposit-activity-bands");
   if (!toast || !bandsData) return;
 
+  const defaultAmountBands = [
+    { min_amount: "50", max_amount: "500", probability: "70" },
+    { min_amount: "1000", max_amount: "3000", probability: "20" },
+    { min_amount: "4000", max_amount: "10000", probability: "7" },
+    { min_amount: "10000", max_amount: "40000", probability: "3" },
+  ];
   let amountBands;
   try {
     amountBands = JSON.parse(bandsData.textContent);
   } catch {
     return;
   }
-  if (!Array.isArray(amountBands) || amountBands.length === 0) return;
+  if (!Array.isArray(amountBands) || amountBands.length === 0) amountBands = defaultAmountBands;
 
   const country = toast.querySelector("[data-activity-country]");
   const flag = toast.querySelector("[data-activity-flag]");

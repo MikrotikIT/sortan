@@ -12,8 +12,8 @@
       <legend>{{ section_title }}</legend>
       <div class="settings-section-fields">
         {% if section_title == "شرائح احتمالات مبالغ الإيداع" %}
-          {{ form.deposit_activity_amount_bands.as_hidden }}
           <div class="deposit-bands-editor" data-deposit-bands-editor>
+            {{ form.deposit_activity_amount_bands.as_hidden }}
             <p class="deposit-bands-intro">اختر مجال المبلغ ونسبة ظهوره لكل شريحة. يجب أن يكون مجموع الاحتمالات 100%.</p>
             <div class="deposit-band-list" data-deposit-band-list></div>
             <div class="deposit-band-total"><span>مجموع الاحتمالات</span><strong data-deposit-band-total aria-live="polite">0%</strong></div>
@@ -45,4 +45,4 @@
   </form>
 </section>
 {% endblock %}
-{% block extra_js %}<script src="{% static 'js/deposit-activity-bands-settings.js' %}?v=1"></script>{% endblock %}
+{% block extra_js %}<script src="{% static 'js/deposit-activity-bands-settings.js' %}?v=2"></script>{% endblock %}
