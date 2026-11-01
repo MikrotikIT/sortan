@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from io import BytesIO
 import warnings
 
@@ -37,6 +37,8 @@ class FilmForm(forms.ModelForm):
 
 
 class PlatformSettingsForm(forms.ModelForm):
+    deposit_activity_amount_bands = forms.JSONField(widget=forms.HiddenInput())
+
     class Meta:
         model = PlatformSettings
         fields = (
@@ -48,7 +50,7 @@ class PlatformSettingsForm(forms.ModelForm):
             "referral_deposit_percent", "referral_profit_percent",
             "online_counter_enabled", "online_counter_min", "online_counter_max",
             "online_counter_step_min", "online_counter_step_max",
-            "deposit_activity_enabled", "deposit_activity_min_amount", "deposit_activity_max_amount",
+            "deposit_activity_enabled", "deposit_activity_amount_bands",
             "deposit_activity_min_interval_seconds", "deposit_activity_max_interval_seconds",
         )
 
@@ -59,8 +61,7 @@ class PlatformSettingsForm(forms.ModelForm):
             "online_counter_max": forms.NumberInput(attrs={"min": "0", "step": "1"}),
             "online_counter_step_min": forms.NumberInput(attrs={"min": "1", "step": "1"}),
             "online_counter_step_max": forms.NumberInput(attrs={"min": "1", "step": "1"}),
-            "deposit_activity_min_amount": forms.NumberInput(attrs={"min": "50", "max": "1000000", "step": "0.01"}),
-            "deposit_activity_max_amount": forms.NumberInput(attrs={"min": "50", "max": "1000000", "step": "0.01"}),
+            "deposit_activity_amount_bands": forms.HiddenInput(),
             "deposit_activity_min_interval_seconds": forms.NumberInput(attrs={"min": "1", "max": "300", "step": "1"}),
             "deposit_activity_max_interval_seconds": forms.NumberInput(attrs={"min": "1", "max": "300", "step": "1"}),
         }
@@ -72,8 +73,6 @@ class PlatformSettingsForm(forms.ModelForm):
             "online_counter_step_min": "الحد الأدنى للزيادة أو النقصان العشوائي الذي يحدث كل 5 ثوانٍ.",
             "online_counter_step_max": "الحد الأعلى للزيادة أو النقصان العشوائي الذي يحدث كل 5 ثوانٍ.",
             "deposit_activity_enabled": "يعرض بلداناً ومبالغ عشوائية وأرقاماً مقنّعة، ولا يستخدم إيداعات أو بيانات عملاء حقيقية.",
-            "deposit_activity_min_amount": "أقل قيمة ممكنة؛ القيم الأقل من المتوسط تظهر غالباً أكثر.",
-            "deposit_activity_max_amount": "أعلى قيمة ممكنة. تقل فرصة ظهور المبالغ كلما ارتفعت.",
             "deposit_activity_min_interval_seconds": "أقصر وقت انتظار عشوائي بين الإشعارات.",
             "deposit_activity_max_interval_seconds": "أطول وقت انتظار عشوائي بين الإشعارات.",
         }
@@ -88,15 +87,46 @@ class PlatformSettingsForm(forms.ModelForm):
             self.add_error("online_counter_max", "يجب أن يكون الحد الأعلى أكبر من الحد الأدنى أو مساوياً له.")
         if step_minimum is not None and step_maximum is not None and step_minimum > step_maximum:
             self.add_error("online_counter_step_max", "يجب أن يكون أكبر مقدار للتغير أكبر من الأقل أو مساوياً له.")
-        activity_min_amount = cleaned.get("deposit_activity_min_amount")
-        activity_max_amount = cleaned.get("deposit_activity_max_amount")
-        if activity_min_amount is not None and activity_max_amount is not None and activity_min_amount > activity_max_amount:
-            self.add_error("deposit_activity_max_amount", "يجب أن يكون أعلى مبلغ أكبر من أو مساوياً لأقل مبلغ.")
         activity_min_interval = cleaned.get("deposit_activity_min_interval_seconds")
         activity_max_interval = cleaned.get("deposit_activity_max_interval_seconds")
         if activity_min_interval is not None and activity_max_interval is not None and activity_min_interval > activity_max_interval:
             self.add_error("deposit_activity_max_interval_seconds", "يجب أن تكون الفترة العليا أكبر من أو مساوية للفترة الدنيا.")
         return cleaned
+
+    def clean_deposit_activity_amount_bands(self):
+        bands = self.cleaned_data["deposit_activity_amount_bands"]
+        if not isinstance(bands, list) or not 1 <= len(bands) <= 20:
+            raise ValidationError("أضف شريحة واحدة على الأقل، وبحد أقصى 20 شريحة.")
+
+        normalized_bands = []
+        probability_total = Decimal("0")
+        for index, band in enumerate(bands, start=1):
+            if not isinstance(band, dict):
+                raise ValidationError(f"بيانات الشريحة {index} غير صالحة.")
+            try:
+                minimum = Decimal(str(band["min_amount"]))
+                maximum = Decimal(str(band["max_amount"]))
+                probability = Decimal(str(band["probability"]))
+            except (KeyError, InvalidOperation, TypeError, ValueError) as exc:
+                raise ValidationError(f"أكمل حقول الشريحة {index} بأرقام صحيحة.") from exc
+            if not all(value.is_finite() for value in (minimum, maximum, probability)):
+                raise ValidationError(f"أرقام الشريحة {index} غير صالحة.")
+            if minimum < 50 or maximum > 1000000 or minimum > maximum:
+                raise ValidationError(f"نطاق الشريحة {index} يجب أن يكون بين 50 و1,000,000 USDT وبحد أدنى أقل من الأعلى.")
+            if minimum % 50 or maximum % 50:
+                raise ValidationError(f"مبالغ الشريحة {index} يجب أن تكون من مضاعفات 50 USDT.")
+            if probability < 0 or probability > 100 or probability.as_tuple().exponent < -2:
+                raise ValidationError(f"احتمالية الشريحة {index} يجب أن تكون بين 0 و100 وبحد أقصى منزلتين عشريتين.")
+            probability_total += probability
+            normalized_bands.append({
+                "min_amount": format(minimum, "f"),
+                "max_amount": format(maximum, "f"),
+                "probability": format(probability, "f"),
+            })
+
+        if probability_total != Decimal("100"):
+            raise ValidationError(f"مجموع احتمالات الشرائح يجب أن يساوي 100% (المجموع الحالي {probability_total}%).")
+        return normalized_bands
 
     def clean_withdrawal_referral_rules(self):
         raw_rules = self.cleaned_data["withdrawal_referral_rules"]

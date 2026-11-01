@@ -284,9 +284,9 @@ def platform_settings(request):
         ]),
         ("إشعار النشاط التجريبي للإيداع", [
             form["deposit_activity_enabled"],
-            form["deposit_activity_min_amount"], form["deposit_activity_max_amount"],
             form["deposit_activity_min_interval_seconds"], form["deposit_activity_max_interval_seconds"],
         ]),
+        ("شرائح احتمالات مبالغ الإيداع", [form["deposit_activity_amount_bands"]]),
     ]
     if request.method == "POST" and form.is_valid():
         form.save()

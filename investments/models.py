@@ -18,6 +18,15 @@ def make_referral_code():
     return "CINE" + "".join(secrets.choice(alphabet) for _ in range(6))
 
 
+def default_deposit_activity_amount_bands():
+    return [
+        {"min_amount": "50", "max_amount": "500", "probability": "70"},
+        {"min_amount": "1000", "max_amount": "3000", "probability": "20"},
+        {"min_amount": "4000", "max_amount": "10000", "probability": "7"},
+        {"min_amount": "10000", "max_amount": "40000", "probability": "3"},
+    ]
+
+
 def join_application_photo_path(instance, filename):
     extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else "jpg"
     return f"join-applications/{instance.user_id}/{uuid.uuid4().hex}.{extension}"
@@ -283,6 +292,10 @@ class PlatformSettings(models.Model):
         "أعلى فترة بين إشعارات النشاط (ثوانٍ)",
         default=8,
         validators=[MinValueValidator(1), MaxValueValidator(300)],
+    )
+    deposit_activity_amount_bands = models.JSONField(
+        "شرائح مبالغ إشعار النشاط واحتمالاتها",
+        default=default_deposit_activity_amount_bands,
     )
 
     class Meta:

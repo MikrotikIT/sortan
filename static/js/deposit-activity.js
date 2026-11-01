@@ -1,14 +1,21 @@
 (() => {
   const toast = document.querySelector("[data-deposit-activity]");
-  if (!toast) return;
+  const bandsData = document.getElementById("deposit-activity-bands");
+  if (!toast || !bandsData) return;
+
+  let amountBands;
+  try {
+    amountBands = JSON.parse(bandsData.textContent);
+  } catch {
+    return;
+  }
+  if (!Array.isArray(amountBands) || amountBands.length === 0) return;
 
   const country = toast.querySelector("[data-activity-country]");
   const flag = toast.querySelector("[data-activity-flag]");
   const phone = toast.querySelector("[data-activity-phone]");
   const amount = toast.querySelector("[data-activity-amount]");
   const close = toast.querySelector("[data-activity-close]");
-  const amountMin = Math.max(50, Number(toast.dataset.amountMin) || 50);
-  const amountMax = Math.max(amountMin, Number(toast.dataset.amountMax) || 40000);
   const intervalMin = Math.max(1, Math.floor(Number(toast.dataset.intervalMin) || 3));
   const intervalMax = Math.max(intervalMin, Math.floor(Number(toast.dataset.intervalMax) || 8));
   const countries = [
@@ -21,8 +28,24 @@
   const randomDelay = () => randomInteger(intervalMin, intervalMax) * 1000;
   const randomDigits = (length) => Array.from({ length }, () => randomInteger(0, 9)).join("");
   const randomAmount = () => {
-    const weighted = amountMin + (amountMax - amountMin) * Math.pow(Math.random(), 4);
-    return Math.min(amountMax, Math.max(amountMin, Math.round(weighted / 50) * 50));
+    const roll = Math.random() * 100;
+    let cumulativeProbability = 0;
+    let selectedBand = amountBands[amountBands.length - 1];
+    for (const band of amountBands) {
+      cumulativeProbability += Math.max(0, Number(band.probability) || 0);
+      if (roll < cumulativeProbability) {
+        selectedBand = band;
+        break;
+      }
+    }
+    const minimum = Math.max(50, Number(selectedBand.min_amount) || 50);
+    const maximum = Math.max(minimum, Number(selectedBand.max_amount) || minimum);
+    const firstStep = Math.ceil(minimum / 50);
+    const lastStep = Math.floor(maximum / 50);
+    if (firstStep <= lastStep) return randomInteger(firstStep, lastStep) * 50;
+    const firstInteger = Math.ceil(minimum);
+    const lastInteger = Math.floor(maximum);
+    return firstInteger <= lastInteger ? randomInteger(firstInteger, lastInteger) : minimum;
   };
   const wrapFlagSvg = (contents) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20" role="img">${contents}</svg>`;
   const countryFlags = new Map();
