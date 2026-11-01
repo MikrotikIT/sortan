@@ -10,7 +10,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 
 from .models import Film, InvestmentVoucher, JoinApplication, PlatformSettings, SupportOption, User
 from .notification_services import sanitize_notification_html
-from .services import parse_deposit_activity_examples, parse_withdrawal_referral_rules
+from .services import parse_withdrawal_referral_rules
 
 
 class FilmForm(forms.ModelForm):
@@ -48,7 +48,8 @@ class PlatformSettingsForm(forms.ModelForm):
             "referral_deposit_percent", "referral_profit_percent",
             "online_counter_enabled", "online_counter_min", "online_counter_max",
             "online_counter_step_min", "online_counter_step_max",
-            "deposit_activity_enabled", "deposit_activity_examples", "deposit_activity_interval_seconds",
+            "deposit_activity_enabled", "deposit_activity_min_amount", "deposit_activity_max_amount",
+            "deposit_activity_min_interval_seconds", "deposit_activity_max_interval_seconds",
         )
 
         widgets = {
@@ -58,8 +59,10 @@ class PlatformSettingsForm(forms.ModelForm):
             "online_counter_max": forms.NumberInput(attrs={"min": "0", "step": "1"}),
             "online_counter_step_min": forms.NumberInput(attrs={"min": "1", "step": "1"}),
             "online_counter_step_max": forms.NumberInput(attrs={"min": "1", "step": "1"}),
-            "deposit_activity_examples": forms.Textarea(attrs={"rows": 5, "dir": "ltr"}),
-            "deposit_activity_interval_seconds": forms.NumberInput(attrs={"min": "5", "max": "120", "step": "1"}),
+            "deposit_activity_min_amount": forms.NumberInput(attrs={"min": "50", "max": "1000000", "step": "0.01"}),
+            "deposit_activity_max_amount": forms.NumberInput(attrs={"min": "50", "max": "1000000", "step": "0.01"}),
+            "deposit_activity_min_interval_seconds": forms.NumberInput(attrs={"min": "1", "max": "300", "step": "1"}),
+            "deposit_activity_max_interval_seconds": forms.NumberInput(attrs={"min": "1", "max": "300", "step": "1"}),
         }
         help_texts = {
             "minimum_deposit_amount": "أي تحويل أقل من هذا الحد يبقى في محفظة الاستقبال ويظهر في سجل الإيداعات كرصيد غير متوقع، من دون إضافته إلى رصيد العميل.",
@@ -68,9 +71,11 @@ class PlatformSettingsForm(forms.ModelForm):
             "online_counter_min": "يبدأ العداد من قيمة عشوائية بين هذا الحد والحد الأعلى.",
             "online_counter_step_min": "الحد الأدنى للزيادة أو النقصان العشوائي الذي يحدث كل 5 ثوانٍ.",
             "online_counter_step_max": "الحد الأعلى للزيادة أو النقصان العشوائي الذي يحدث كل 5 ثوانٍ.",
-            "deposit_activity_enabled": "يعرض أمثلة تجريبية واضحة، ولا يعرض إيداعات أو بيانات عملاء حقيقية.",
-            "deposit_activity_examples": "سطر لكل مثال بالصيغة الدولة|رقم الهاتف|المبلغ. تُخفى آخر ثلاثة أرقام تلقائياً إذا لم يكن الرقم مقنّعاً.",
-            "deposit_activity_interval_seconds": "الفاصل بين بداية ظهور إشعارين تجريبيين، من 5 إلى 120 ثانية.",
+            "deposit_activity_enabled": "يعرض بلداناً ومبالغ عشوائية وأرقاماً مقنّعة، ولا يستخدم إيداعات أو بيانات عملاء حقيقية.",
+            "deposit_activity_min_amount": "أقل قيمة ممكنة؛ القيم الأقل من المتوسط تظهر غالباً أكثر.",
+            "deposit_activity_max_amount": "أعلى قيمة ممكنة. تقل فرصة ظهور المبالغ كلما ارتفعت.",
+            "deposit_activity_min_interval_seconds": "أقصر وقت انتظار عشوائي بين الإشعارات.",
+            "deposit_activity_max_interval_seconds": "أطول وقت انتظار عشوائي بين الإشعارات.",
         }
 
     def clean(self):
@@ -83,6 +88,14 @@ class PlatformSettingsForm(forms.ModelForm):
             self.add_error("online_counter_max", "يجب أن يكون الحد الأعلى أكبر من الحد الأدنى أو مساوياً له.")
         if step_minimum is not None and step_maximum is not None and step_minimum > step_maximum:
             self.add_error("online_counter_step_max", "يجب أن يكون أكبر مقدار للتغير أكبر من الأقل أو مساوياً له.")
+        activity_min_amount = cleaned.get("deposit_activity_min_amount")
+        activity_max_amount = cleaned.get("deposit_activity_max_amount")
+        if activity_min_amount is not None and activity_max_amount is not None and activity_min_amount > activity_max_amount:
+            self.add_error("deposit_activity_max_amount", "يجب أن يكون أعلى مبلغ أكبر من أو مساوياً لأقل مبلغ.")
+        activity_min_interval = cleaned.get("deposit_activity_min_interval_seconds")
+        activity_max_interval = cleaned.get("deposit_activity_max_interval_seconds")
+        if activity_min_interval is not None and activity_max_interval is not None and activity_min_interval > activity_max_interval:
+            self.add_error("deposit_activity_max_interval_seconds", "يجب أن تكون الفترة العليا أكبر من أو مساوية للفترة الدنيا.")
         return cleaned
 
     def clean_withdrawal_referral_rules(self):
@@ -104,17 +117,6 @@ class PlatformSettingsForm(forms.ModelForm):
         if required_counts != sorted(required_counts):
             raise ValidationError("يجب ألا يقل عدد المدعوين المطلوب في مرحلة لاحقة عن المرحلة السابقة.")
         return ", ".join(f"{withdrawal_count}:{referral_count}" for withdrawal_count, referral_count in rules)
-
-    def clean_deposit_activity_examples(self):
-        raw_examples = self.cleaned_data["deposit_activity_examples"]
-        try:
-            examples = parse_deposit_activity_examples(raw_examples)
-        except ValueError as exc:
-            raise ValidationError(str(exc)) from exc
-        if self.cleaned_data.get("deposit_activity_enabled") and not examples:
-            raise ValidationError("أضف مثالاً واحداً على الأقل أو أوقف إشعارات النشاط التجريبي.")
-        return raw_examples.strip()
-
 
 class SupportOptionForm(forms.ModelForm):
     class Meta:

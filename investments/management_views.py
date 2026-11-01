@@ -23,7 +23,7 @@ from .management_forms import CustomerBlockForm, CustomerInfoForm, CustomerPassw
 from .firebase_credentials import save_service_account_upload, service_account_status
 from .models import Deposit, Film, InternalBalanceCredit, Investment, InvestmentVoucher, JoinApplication, ServiceHeartbeat, SupportOption, User, UserNotification, Wallet, WalletSyncRun, WithdrawalRequest
 from .push_services import queue_bulk_notification_push
-from .services import approve_deposit, deposit_status_for_amount, get_platform_settings, pay_withdrawal, reject_deposit, reject_withdrawal
+from .services import approve_deposit, deposit_status_for_amount, get_platform_settings, notify_balance_received, notify_deposit_event, pay_withdrawal, reject_deposit, reject_withdrawal
 from .wallet_services import decrypt_private_key, ensure_wallet, sync_all_wallets
 from config.celery import app as celery_app
 
@@ -284,8 +284,8 @@ def platform_settings(request):
         ]),
         ("إشعار النشاط التجريبي للإيداع", [
             form["deposit_activity_enabled"],
-            form["deposit_activity_examples"],
-            form["deposit_activity_interval_seconds"],
+            form["deposit_activity_min_amount"], form["deposit_activity_max_amount"],
+            form["deposit_activity_min_interval_seconds"], form["deposit_activity_max_interval_seconds"],
         ]),
     ]
     if request.method == "POST" and form.is_valid():
@@ -449,11 +449,13 @@ def deposits(request):
                     status=deposit_status_for_amount(form.cleaned_data["amount"]),
                 )
                 if deposit.status == Deposit.Status.UNEXPECTED:
+                    notify_deposit_event(deposit, "unexpected")
                     messages.warning(
                         request,
                         f"تم تسجيل الإيداع #{deposit.pk} كرصيد غير متوقع لأنه أقل من الحد الأدنى، ولم يضف إلى رصيد العميل.",
                     )
                 else:
+                    notify_deposit_event(deposit, "pending")
                     messages.success(request, f"تم تسجيل الإيداع #{deposit.pk} بانتظار المراجعة.")
                 return redirect("management_deposits")
         elif action in {"approve", "approve_unexpected", "reject"}:
@@ -525,6 +527,7 @@ def internal_credits(request):
                 amount=amount,
                 internal_note=form.cleaned_data["internal_note"],
             )
+            notify_balance_received(user, amount)
         messages.success(request, f"تمت إضافة {amount} USDT إلى رصيد العميل {user.phone}.")
         return redirect("management_internal_credits")
 

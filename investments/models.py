@@ -260,6 +260,30 @@ class PlatformSettings(models.Model):
         default=10,
         validators=[MinValueValidator(5), MaxValueValidator(120)],
     )
+    deposit_activity_min_amount = models.DecimalField(
+        "أقل مبلغ لإشعار النشاط (USDT)",
+        max_digits=12,
+        decimal_places=2,
+        default=50,
+        validators=[MinValueValidator(50), MaxValueValidator(1000000)],
+    )
+    deposit_activity_max_amount = models.DecimalField(
+        "أعلى مبلغ لإشعار النشاط (USDT)",
+        max_digits=12,
+        decimal_places=2,
+        default=40000,
+        validators=[MinValueValidator(50), MaxValueValidator(1000000)],
+    )
+    deposit_activity_min_interval_seconds = models.PositiveIntegerField(
+        "أقل فترة بين إشعارات النشاط (ثوانٍ)",
+        default=3,
+        validators=[MinValueValidator(1), MaxValueValidator(300)],
+    )
+    deposit_activity_max_interval_seconds = models.PositiveIntegerField(
+        "أعلى فترة بين إشعارات النشاط (ثوانٍ)",
+        default=8,
+        validators=[MinValueValidator(1), MaxValueValidator(300)],
+    )
 
     class Meta:
         verbose_name = "إعدادات المنصة"

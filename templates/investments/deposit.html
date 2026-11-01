@@ -85,8 +85,7 @@
   {% endif %}
 </section>
 {% if deposit_activity_enabled %}
-{{ deposit_activity_examples|json_script:"deposit-activity-data" }}
-<aside class="deposit-activity-toast" data-deposit-activity data-activity-interval="{{ deposit_activity_interval_seconds }}" role="status" aria-live="polite" aria-atomic="true" hidden>
+<aside class="deposit-activity-toast" data-deposit-activity data-amount-min="{{ deposit_activity_min_amount }}" data-amount-max="{{ deposit_activity_max_amount }}" data-interval-min="{{ deposit_activity_min_interval_seconds }}" data-interval-max="{{ deposit_activity_max_interval_seconds }}" role="status" aria-live="polite" aria-atomic="true" hidden>
   <span class="deposit-activity-icon" aria-hidden="true">₮</span>
   <div class="deposit-activity-content">
     <div class="deposit-activity-heading"><strong>أودع الآن مبلغ بقيمة</strong><b class="deposit-activity-amount" data-activity-amount dir="ltr"></b></div>
@@ -96,4 +95,4 @@
 </aside>
 {% endif %}
 {% endblock %}
-{% block extra_js %}<script src="{% static 'js/deposit-notifications.js' %}"></script>{% if deposit_activity_enabled %}<script src="{% static 'js/deposit-activity.js' %}"></script>{% endif %}{% endblock %}
+{% block extra_js %}<script src="{% static 'js/deposit-notifications.js' %}"></script>{% if deposit_activity_enabled %}<script src="{% static 'js/deposit-activity.js' %}?v=random-activity-2"></script>{% endif %}{% endblock %}

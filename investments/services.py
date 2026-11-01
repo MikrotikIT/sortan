@@ -65,6 +65,56 @@ def deposit_status_for_amount(amount, settings=None):
     return Deposit.Status.PENDING
 
 
+def notify_deposit_event(deposit, event):
+    event_content = {
+        "pending": (
+            "تم تسجيل الإيداع",
+            format_html(
+                "<p>تم تسجيل إيداع بقيمة <strong>{} USDT</strong> وهو بانتظار المراجعة.</p>",
+                deposit.amount,
+            ),
+        ),
+        "credited": (
+            "تم استلام الإيداع وإضافته",
+            format_html(
+                "<p>تم استلام إيداع بقيمة <strong>{} USDT</strong> وإضافته إلى رصيدك المتاح.</p>",
+                deposit.amount,
+            ),
+        ),
+        "unexpected": (
+            "تم استلام تحويل لم تتم إضافته",
+            format_html(
+                "<p>استلمنا تحويلاً بقيمة <strong>{} USDT</strong>، لكنه أقل من الحد الأدنى للإيداع ولم يضف إلى رصيدك. تواصل مع الدعم الفني للمساعدة.</p>",
+                deposit.amount,
+            ),
+        ),
+        "rejected": (
+            "لم تتم الموافقة على الإيداع",
+            format_html(
+                "<p>لم تتم الموافقة على إيداع بقيمة <strong>{} USDT</strong>، ولم يضف إلى رصيدك. تواصل مع الدعم الفني إذا كان لديك استفسار.</p>",
+                deposit.amount,
+            ),
+        ),
+    }
+    title, body_html = event_content[event]
+    return UserNotification.objects.create(
+        recipient=deposit.user,
+        title=title,
+        body_html=body_html,
+    )
+
+
+def notify_balance_received(user, amount):
+    return UserNotification.objects.create(
+        recipient=user,
+        title="تمت إضافة رصيد إلى حسابك",
+        body_html=format_html(
+            "<p>تمت إضافة <strong>{} USDT</strong> إلى رصيدك المتاح.</p>",
+            amount,
+        ),
+    )
+
+
 def withdraw_available_at(user, settings=None):
     settings = settings or get_platform_settings()
     if not settings.withdrawal_cooldown_enabled:
@@ -158,6 +208,7 @@ def approve_deposit(deposit_id, *, allow_unexpected=False):
     deposit.status = Deposit.Status.APPROVED
     deposit.processed_at = timezone.now()
     deposit.save(update_fields=("status", "processed_at"))
+    notify_deposit_event(deposit, "credited")
     return True
 
 
@@ -169,6 +220,7 @@ def reject_deposit(deposit_id):
     deposit.status = Deposit.Status.REJECTED
     deposit.processed_at = timezone.now()
     deposit.save(update_fields=("status", "processed_at"))
+    notify_deposit_event(deposit, "rejected")
     return True
 
 

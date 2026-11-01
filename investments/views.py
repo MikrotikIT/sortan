@@ -22,7 +22,7 @@ from .forms import InvestmentForm, JoinApplicationForm, LoginForm, RegistrationF
 from .models import Deposit, Film, Investment, InvestmentVoucher, JoinApplication, PlatformSettings, PushDevice, SupportOption, UserNotification, WithdrawalRequest
 from .notification_services import sanitize_notification_html
 from .chat_services import get_chat_unread_counts
-from .services import get_platform_settings, parse_deposit_activity_examples, parse_withdrawal_referral_rules, settle_due_investments, withdraw_available_at
+from .services import get_platform_settings, parse_withdrawal_referral_rules, settle_due_investments, withdraw_available_at
 from .wallet_services import ensure_wallet
 
 MIN_REFERRAL_DEPOSIT_FOR_WITHDRAWAL = Decimal("100.00")
@@ -452,10 +452,6 @@ def referrals(request):
 def deposit_wallet(request):
     wallet, _ = ensure_wallet(request.user)
     platform_settings = get_platform_settings()
-    try:
-        deposit_activity_examples = parse_deposit_activity_examples(platform_settings.deposit_activity_examples)
-    except ValueError:
-        deposit_activity_examples = []
     recent_direct_deposit = request.user.deposits.filter(
         source=Deposit.Source.TRON,
         status=Deposit.Status.APPROVED,
@@ -479,9 +475,11 @@ def deposit_wallet(request):
             "direct_deposits": direct_deposits,
             "latest_direct_deposit_id": latest_direct_deposit_id,
             "recent_direct_deposit": recent_direct_deposit,
-            "deposit_activity_enabled": platform_settings.deposit_activity_enabled and bool(deposit_activity_examples),
-            "deposit_activity_examples": deposit_activity_examples,
-            "deposit_activity_interval_seconds": platform_settings.deposit_activity_interval_seconds,
+            "deposit_activity_enabled": platform_settings.deposit_activity_enabled,
+            "deposit_activity_min_amount": platform_settings.deposit_activity_min_amount,
+            "deposit_activity_max_amount": platform_settings.deposit_activity_max_amount,
+            "deposit_activity_min_interval_seconds": platform_settings.deposit_activity_min_interval_seconds,
+            "deposit_activity_max_interval_seconds": platform_settings.deposit_activity_max_interval_seconds,
         },
     )
 

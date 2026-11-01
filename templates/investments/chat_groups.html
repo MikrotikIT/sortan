@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block title %}مجموعات المحادثة — KODI{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/group-chat.css' %}?v=3"><link rel="stylesheet" href="{% static 'css/chat-ui.css' %}?v=3"><link rel="stylesheet" href="{% static 'css/chat-unread.css' %}?v=1">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/group-chat.css' %}?v=3"><link rel="stylesheet" href="{% static 'css/chat-ui.css' %}?v=3">{% endblock %}
 {% block content %}
 <section class="chat-page-heading"><div><span class="eyebrow">تواصل المجتمع</span><h1>مجموعات المحادثة</h1><p>انضم إلى المجموعات المتاحة وتابع المحادثات.</p></div></section>
 {% if groups %}<section class="chat-groups-grid" data-chat-groups data-live-stats-url="{% url 'chat_live_stats' %}" data-chat-unread-url="{% url 'chat_unread_count' %}" aria-label="المجموعات المتاحة">
@@ -19,4 +19,4 @@
   </article>{% endfor %}
 </section>{% else %}<section class="chat-empty"><span aria-hidden="true">☏</span><h2>لا توجد مجموعات متاحة</h2><p>ستظهر هنا المجموعات التي أتاحتها الإدارة.</p></section>{% endif %}
 {% endblock %}
-{% block extra_js %}<script src="{% static 'js/chat-groups.js' %}?v=1" defer></script><script src="{% static 'js/chat-unread.js' %}?v=1" defer></script>{% endblock %}
+{% block extra_js %}<script src="{% static 'js/chat-groups.js' %}?v=1" defer></script>{% endblock %}

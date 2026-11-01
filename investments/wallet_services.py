@@ -206,7 +206,7 @@ def _record_incoming_transfer(wallet, transfer):
         return False
     amount = (Decimal(raw_value) / (Decimal(10) ** decimals)).quantize(Decimal("0.000001"))
     occurred_at = datetime.fromtimestamp(timestamp / 1000, tz=datetime_timezone.utc) if timestamp else timezone.now()
-    from .services import approve_deposit, deposit_status_for_amount
+    from .services import approve_deposit, deposit_status_for_amount, notify_deposit_event
 
     try:
         with transaction.atomic():
@@ -222,8 +222,12 @@ def _record_incoming_transfer(wallet, transfer):
                     "occurred_at": occurred_at,
                 },
             )
-            if created and deposit.status == Deposit.Status.PENDING:
-                approve_deposit(deposit.pk)
+            if created:
+                if deposit.status == Deposit.Status.PENDING:
+                    approve_deposit(deposit.pk)
+                    deposit.refresh_from_db(fields=("status",))
+                if deposit.status == Deposit.Status.UNEXPECTED:
+                    notify_deposit_event(deposit, "unexpected")
             return created
     except IntegrityError:
         return False
