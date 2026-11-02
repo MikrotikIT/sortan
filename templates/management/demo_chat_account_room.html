@@ -12,7 +12,7 @@
     <a class="chat-room-title chat-room-title-link" href="{% url 'chat_group_detail' group.pk %}" aria-label="عرض تفاصيل مجموعة {{ group.title }}"><h1>{{ group.title }}</h1><p>{{ group.description|default:"مجموعة محادثة" }}</p><small class="chat-members-line"><b data-room-member-count>{{ display_member_count }}</b> عضواً</small></a>
     <span class="chat-connection-status" data-chat-status>جارٍ الاتصال…</span>
   </header>
-  <div class="chat-notice demo-chat-identity-note" role="note"><span>تُرسل الرسائل باسم</span><strong>{{ account.display_name }}</strong><b class="chat-demo-sender-badge">حساب تجريبي</b><span>وتبقى محفوظة بعد إغلاق الصفحة.</span></div>
+  <div class="chat-notice demo-chat-identity-note" role="note"><span>تُرسل الرسائل باسم</span><strong>{{ account.display_name }}</strong><span>وتبقى محفوظة بعد إغلاق الصفحة.</span></div>
   <div class="chat-message-list-wrap">
     <div class="chat-history-indicator" data-chat-history-status role="status" aria-live="polite" hidden></div>
     <ol class="chat-message-list" data-chat-messages aria-live="polite" aria-relevant="additions text"></ol>
