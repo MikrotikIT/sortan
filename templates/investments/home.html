@@ -16,7 +16,7 @@
     <div><span class="account-summary-label">رقم الهاتف</span><strong class="account-phone" dir="ltr">{{ user.phone }}</strong>{% if user.country_name %}<span class="account-phone-country"><span aria-hidden="true">{{ user.country_flag }}</span>{{ user.country_name }}</span>{% endif %}</div>
     <form method="post" action="{% url 'logout' %}" class="account-logout-form">{% csrf_token %}<button class="account-summary-logout" type="submit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/></svg><span>تسجيل الخروج</span></button></form>
   </div>
-  <div class="account-balance-block" data-balance-card>
+  <div class="account-balance-block" data-balance-card data-balance-user="{{ user.pk }}" data-balance-visibility-key="balance">
     <span class="account-summary-label">الرصيد المتاح</span>
     <div class="account-balance-line" dir="ltr">
       <strong data-balance-display data-balance-label="الرصيد" data-balance-value="{{ user.balance|floatformat:2 }}" aria-live="polite">••••••</strong>
@@ -27,7 +27,7 @@
       </button>
     </div>
   </div>
-  <div class="account-balance-block account-earnings-block" data-balance-card>
+  <div class="account-balance-block account-earnings-block" data-balance-card data-balance-user="{{ user.pk }}" data-balance-visibility-key="earnings">
     <span class="account-summary-label">الأرباح المتاحة للسحب</span>
     <div class="account-balance-line" dir="ltr">
       <strong data-balance-display data-balance-label="الأرباح" data-balance-value="{{ user.earnings_balance|floatformat:2 }}" aria-live="polite">••••••</strong>
@@ -80,4 +80,4 @@
 </div>
 {% endif %}
 {% endblock %}
-{% block extra_js %}<script src="{% static 'js/customer-home.js' %}"></script>{% endblock %}
+{% block extra_js %}<script src="{% static 'js/customer-home.js' %}?v=balance-visibility-1"></script>{% endblock %}
