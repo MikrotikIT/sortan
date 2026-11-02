@@ -13,7 +13,6 @@
       <div class="group-detail-heading">
         <div class="group-detail-badges"><span class="group-detail-badge"><span aria-hidden="true">●</span> {% if group.is_public %}مجموعة عامة{% else %}مجموعة خاصة{% endif %}</span><span class="group-detail-badge group-detail-badge-live"><span aria-hidden="true"></span> نشطة</span></div>
         <h1 id="group-detail-title">{{ group.title }}</h1>
-        <p>{{ group.description|default:"مساحة للتواصل ومتابعة المحادثات مع أعضاء المجموعة." }}</p>
       </div>
     </div>
     <div class="group-detail-hero-footer">
@@ -27,26 +26,21 @@
     </div>
   </section>
 
-  {% if group.demo_member_offset %}<p class="group-detail-demo-note"><span aria-hidden="true">ⓘ</span> يتضمن العدد {{ group.demo_member_offset }} عضواً تجريبياً لأغراض العرض.</p>{% endif %}
   {% if is_banned %}<div class="group-detail-alert" role="status"><strong>العضوية موقوفة</strong><span>لا يمكنك دخول المحادثة أو الانضمام إلى المجموعة.</span></div>{% endif %}
 
   <div class="group-detail-columns">
     <section class="group-detail-panel group-detail-about">
       <div class="group-detail-section-heading"><span class="group-detail-section-icon" aria-hidden="true">✧</span><div><h2>عن المجموعة</h2><p>نبذة ومعلومات أساسية</p></div></div>
       <p class="group-detail-description">{{ group.description|default:"لم تتم إضافة وصف لهذه المجموعة بعد."|linebreaksbr }}</p>
-      <div class="group-detail-facts">
-        <div class="group-detail-fact"><span>تاريخ الإنشاء</span><strong>{{ group.created_at|date:"j F Y" }}</strong></div>
-        <div class="group-detail-fact"><span>إمكانية الانضمام</span><strong>{% if group.is_public %}متاحة للجميع{% else %}بدعوة أو عضوية فقط{% endif %}</strong></div>
-        <div class="group-detail-fact"><span>الحد الأقصى</span><strong>{% if group.max_members %}{{ group.max_members }} عضواً{% else %}بلا حد محدد{% endif %}</strong></div>
-      </div>
     </section>
 
     <section class="group-detail-panel group-detail-settings">
       <div class="group-detail-section-heading"><span class="group-detail-section-icon group-detail-section-icon-teal" aria-hidden="true">⌘</span><div><h2>إعدادات المجموعة</h2><p>ما يمكنك فعله داخل المحادثة</p></div></div>
+      <div class="group-detail-setting-row"><span class="group-detail-setting-icon" aria-hidden="true">✉</span><span><strong>إمكانية الانضمام</strong><small>{% if group.is_public %}متاحة للجميع{% else %}بدعوة أو عضوية فقط{% endif %}</small></span></div>
+      <div class="group-detail-setting-row"><span class="group-detail-setting-icon" aria-hidden="true">✉</span><span><strong>الحد الأقصى</strong><small>{% if group.max_members %}{{ group.max_members }} عضواً{% else %}بلا حد محدد{% endif %}</small></span></div>
       <div class="group-detail-setting-row"><span class="group-detail-setting-icon" aria-hidden="true">✉</span><span><strong>إرسال الرسائل</strong><small>{{ group.get_message_mode_display }}</small></span></div>
       <div class="group-detail-setting-row"><span class="group-detail-setting-icon" aria-hidden="true">↥</span><span><strong>المرفقات والروابط</strong><small>{% if group.allow_images %}الصور{% endif %}{% if group.allow_images and group.allow_files %} · {% endif %}{% if group.allow_files %}الملفات{% endif %}{% if group.allow_links %}{% if group.allow_images or group.allow_files %} · {% endif %}الروابط{% endif %}{% if not group.allow_images and not group.allow_files and not group.allow_links %}غير متاحة{% endif %}</small></span></div>
       {% if group.slow_mode_seconds %}<div class="group-detail-setting-row"><span class="group-detail-setting-icon" aria-hidden="true">◷</span><span><strong>الفاصل بين الرسائل</strong><small>{{ group.slow_mode_seconds }} ثانية</small></span></div>{% endif %}
-      <div class="group-detail-setting-row"><span class="group-detail-setting-icon" aria-hidden="true">☺</span><span><strong>التفاعلات</strong><small>{% if group.reactions_enabled %}{% for reaction in reactions %}{{ reaction.emoji }}{% if not forloop.last %} {% endif %}{% empty %}مفعّلة{% endfor %}{% else %}غير مفعّلة{% endif %}</small></span></div>
     </section>
   </div>
 </main>
