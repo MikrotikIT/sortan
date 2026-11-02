@@ -5,7 +5,7 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.contrib import messages
 from django.db import transaction
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -14,12 +14,13 @@ from django.views.decorators.http import require_GET, require_POST
 from .chat_forms import (
     ChatDemoAccountBatchForm,
     ChatDemoAccountEditForm,
+    ChatUploadForm,
     ChatGroupForm,
     GroupBanForm,
     GroupMemberForm,
     GroupMemberPermissionForm,
 )
-from .chat_services import ChatRuleError, create_demo_text_message, serialize_chat_message
+from .chat_services import ChatRuleError, create_demo_uploaded_message, mark_chat_group_read, serialize_chat_message
 from .management_views import staff_required
 from .models import ChatDemoAccount, ChatGroup, ChatGroupBan, ChatMembership, ChatMessage
 
@@ -375,10 +376,13 @@ def demo_chat_account_room(request, pk):
         ChatMessage.objects.filter(group=account.group)
         .select_related("group", "sender", "reply_to", "reply_to__sender")
         .prefetch_related("reactions", "demo_reaction_counts")
-        .order_by("-created_at", "-pk")[:100]
+        .order_by("-created_at", "-pk")[:101]
     )
-    recent_messages.reverse()
+    has_older_messages = len(recent_messages) > 100
+    recent_messages = list(reversed(recent_messages[:100]))
     messages_data = [serialize_chat_message(message, viewer_id=request.user.pk) for message in recent_messages]
+    if recent_messages:
+        mark_chat_group_read(request.user, account.group, recent_messages[-1].pk)
     return render(
         request,
         "management/demo_chat_account_room.html",
@@ -386,9 +390,15 @@ def demo_chat_account_room(request, pk):
             "account": account,
             "group": account.group,
             "messages_data": messages_data,
-            "last_message_id": recent_messages[-1].pk if recent_messages else 0,
+            "has_older_messages": has_older_messages,
+            "actual_member_count": account.group.member_count,
+            "display_member_count": account.group.member_count + account.group.demo_member_offset,
+            "ws_path": f"/ws/chat/groups/{account.group.pk}/",
             "history_url": reverse("management_demo_chat_account_history", args=(account.pk,)),
+            "read_url": reverse("chat_group_mark_read", args=(account.group.pk,)),
             "send_url": reverse("management_demo_chat_account_send", args=(account.pk,)),
+            "chat_live_stats_url": reverse("chat_live_stats"),
+            "demo_growth_url_template": reverse("chat_message_demo_growth", args=(0,)),
         },
     )
 
@@ -401,21 +411,44 @@ def demo_chat_account_history(request, pk):
         pk=pk,
         group__is_active=True,
     )
-    try:
-        after_id = max(0, int(request.GET.get("after", "0")))
-    except (TypeError, ValueError):
-        return JsonResponse({"ok": False, "error": "مؤشر الرسائل غير صالح."}, status=400)
-    page_messages = list(
-        ChatMessage.objects.filter(group=account.group, pk__gt=after_id)
-        .select_related("group", "sender", "reply_to", "reply_to__sender")
-        .prefetch_related("reactions", "demo_reaction_counts")
-        .order_by("pk")[:100]
-    )
-    response = JsonResponse({
-        "ok": True,
-        "messages": [serialize_chat_message(message, viewer_id=request.user.pk) for message in page_messages],
-        "last_message_id": page_messages[-1].pk if page_messages else after_id,
-    })
+    before_value = request.GET.get("before")
+    if before_value:
+        try:
+            before_id = int(before_value)
+        except (TypeError, ValueError):
+            return JsonResponse({"ok": False, "error": "مؤشر الرسائل غير صالح."}, status=400)
+        cursor = get_object_or_404(ChatMessage, pk=before_id, group=account.group)
+        page_messages = list(
+            ChatMessage.objects.filter(group=account.group)
+            .filter(Q(created_at__lt=cursor.created_at) | Q(created_at=cursor.created_at, pk__lt=cursor.pk))
+            .select_related("group", "sender", "reply_to", "reply_to__sender")
+            .prefetch_related("reactions", "demo_reaction_counts")
+            .order_by("-created_at", "-pk")[:51]
+        )
+        has_more = len(page_messages) > 50
+        page_messages = list(reversed(page_messages[:50]))
+        payload = {
+            "ok": True,
+            "messages": [serialize_chat_message(message, viewer_id=request.user.pk) for message in page_messages],
+            "has_more": has_more,
+        }
+    else:
+        try:
+            after_id = max(0, int(request.GET.get("after", "0")))
+        except (TypeError, ValueError):
+            return JsonResponse({"ok": False, "error": "مؤشر الرسائل غير صالح."}, status=400)
+        page_messages = list(
+            ChatMessage.objects.filter(group=account.group, pk__gt=after_id)
+            .select_related("group", "sender", "reply_to", "reply_to__sender")
+            .prefetch_related("reactions", "demo_reaction_counts")
+            .order_by("pk")[:100]
+        )
+        payload = {
+            "ok": True,
+            "messages": [serialize_chat_message(message, viewer_id=request.user.pk) for message in page_messages],
+            "last_message_id": page_messages[-1].pk if page_messages else after_id,
+        }
+    response = JsonResponse(payload)
     response["Cache-Control"] = "private, no-store"
     return response
 
@@ -428,13 +461,12 @@ def demo_chat_account_send(request, pk):
         pk=pk,
         group__is_active=True,
     )
+    form = ChatUploadForm(request.POST, request.FILES, group=account.group)
+    if not form.is_valid():
+        errors = [str(error) for field_errors in form.errors.values() for error in field_errors]
+        return JsonResponse({"ok": False, "error": errors[0] if errors else "راجع بيانات الرسالة."}, status=400)
     try:
-        message_data = create_demo_text_message(
-            account.group_id,
-            account.pk,
-            request.user.pk,
-            request.POST.get("text", ""),
-        )
+        message_data = create_demo_uploaded_message(account.group_id, account.pk, request.user.pk, form)
     except ChatRuleError as exc:
         return JsonResponse({"ok": False, "error": str(exc)}, status=400)
     try:

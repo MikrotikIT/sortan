@@ -1,26 +1,43 @@
 {% extends 'base.html' %}
 {% load static %}
-{% block body_class %}demo-chat-account-room-page{% endblock %}
-{% block title %}{{ account.display_name }} — محادثة تجريبية{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/demo-chat-room.css' %}?v=2"><link rel="stylesheet" href="{% static 'css/demo-chat-growth-controls.css' %}?v=1">{% endblock %}
+{% block body_class %}chat-room-page demo-chat-account-room-page{% endblock %}
+{% block title %}{{ account.display_name }} — {{ group.title }}{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/group-chat.css' %}?v=8"><link rel="stylesheet" href="{% static 'css/chat-fullscreen.css' %}?v=2"><link rel="stylesheet" href="{% static 'css/chat-ui.css' %}?v=14"><link rel="stylesheet" href="{% static 'css/demo-chat-room.css' %}?v=3">{% endblock %}
 {% block content %}
-<main class="demo-chat-room" data-demo-chat-room data-history-url="{{ history_url }}" data-send-url="{{ send_url }}" data-demo-growth-url-template="{% url 'chat_message_demo_growth' 0 %}" data-last-message-id="{{ last_message_id }}">
-  <header class="demo-chat-room-header">
-    <a class="demo-chat-back" href="{% url 'management_demo_chat_accounts' %}?group={{ group.pk }}">← الإدارة</a>
-    <div class="demo-chat-group-heading"><span class="demo-chat-group-icon" aria-hidden="true">✦</span><span><strong>{{ group.title }}</strong><small>جلسة اختبار للمجموعة</small></span></div>
-    <div class="demo-chat-identity"><span class="demo-chat-avatar" aria-hidden="true">{{ account.display_name|slice:":1" }}</span><span><strong>{{ account.display_name }}</strong><small>هوية محادثة تجريبية</small></span><b>تجريبي</b></div>
+<section class="chat-room demo-chat-account-room" data-chat-room data-demo-account-room data-ws-path="{{ ws_path }}" data-history-url="{{ history_url }}" data-read-url="{{ read_url }}" data-has-older-messages="{{ has_older_messages|yesno:'true,false' }}" data-chat-live-stats-url="{{ chat_live_stats_url }}" data-group-id="{{ group.pk }}" data-current-user="{{ request.user.pk }}" data-can-moderate="true" data-can-post="true" data-is-admin="true" data-demo-growth-url-template="{{ demo_growth_url_template }}" data-can-react="{{ group.reactions_enabled|yesno:'true,false' }}" data-allowed-reactions="{{ group.allowed_reactions|join:',' }}" data-member-count="{{ actual_member_count }}" data-demo-member-offset="{{ group.demo_member_offset }}">
+  <span hidden>{% csrf_token %}</span>
+  <header class="chat-room-header">
+    <a class="chat-back-link" href="{% url 'management_demo_chat_accounts' %}?group={{ group.pk }}" aria-label="العودة إلى إدارة الحسابات التجريبية">←</a>
+    {% if group.image %}<img class="chat-group-avatar" src="{% url 'chat_group_image' group.pk %}" alt="">{% else %}<span class="chat-group-avatar chat-group-avatar-placeholder" aria-hidden="true">✦</span>{% endif %}
+    <a class="chat-room-title chat-room-title-link" href="{% url 'chat_group_detail' group.pk %}" aria-label="عرض تفاصيل مجموعة {{ group.title }}"><h1>{{ group.title }}</h1><p>{{ group.description|default:"مجموعة محادثة" }}</p><small class="chat-members-line"><b data-room-member-count>{{ display_member_count }}</b> عضواً</small></a>
+    <span class="chat-connection-status" data-chat-status>جارٍ الاتصال…</span>
   </header>
-  <div class="demo-chat-transparency"><span aria-hidden="true">ⓘ</span><p>الرسائل التي ترسلها ستظهر في المجموعة باسم <strong>{{ account.display_name }}</strong> مع وسم «تجريبي». إغلاق هذه الصفحة لا يحذف الرسائل.</p></div>
-  <section class="demo-chat-transcript" aria-label="رسائل المجموعة">
-    <ol class="demo-chat-message-list" data-demo-chat-messages aria-live="polite">
-      {% if not messages_data %}<li class="demo-chat-empty" data-demo-chat-empty>لا توجد رسائل بعد. أرسل أول رسالة من هذه الهوية التجريبية.</li>{% endif %}
-    </ol>
-  </section>
-  <form class="demo-chat-compose" data-demo-chat-form method="post" action="{{ send_url }}">
-    {% csrf_token %}<textarea name="text" rows="1" maxlength="2000" placeholder="اكتب رسالة باسم {{ account.display_name }}…" aria-label="نص الرسالة" required></textarea><button type="submit"><span>إرسال</span><b aria-hidden="true">➤</b></button>
+  <div class="chat-notice demo-chat-identity-note" role="note"><span>تُرسل الرسائل باسم</span><strong>{{ account.display_name }}</strong><b class="chat-demo-sender-badge">حساب تجريبي</b><span>وتبقى محفوظة بعد إغلاق الصفحة.</span></div>
+  <div class="chat-message-list-wrap">
+    <div class="chat-history-indicator" data-chat-history-status role="status" aria-live="polite" hidden></div>
+    <ol class="chat-message-list" data-chat-messages aria-live="polite" aria-relevant="additions text"></ol>
+  </div>
+  <form class="chat-compose" data-chat-compose method="post" enctype="multipart/form-data" action="{{ send_url }}">
+    {% csrf_token %}
+    <input type="hidden" name="reply_to" data-reply-id>
+    <div class="chat-reply-compose" data-reply-preview hidden><div><strong data-reply-sender></strong><small data-reply-text></small></div><button type="button" data-reply-cancel aria-label="إلغاء الرد">إلغاء</button></div>
+    <div class="chat-compose-main"><div class="chat-composer">
+      {% if group.allow_images or group.allow_files %}
+      <details class="chat-attachment-menu">
+        <summary aria-label="إرفاق صورة أو ملف" title="إرفاق صورة أو ملف"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></summary>
+        <div class="chat-attachment-options">
+          {% if group.allow_images %}<label><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg><span>صورة</span><input type="file" name="image" accept="image/jpeg,image/png,image/webp"></label>{% endif %}
+          {% if group.allow_files %}<label><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8"/></svg><span>ملف</span><input type="file" name="attachment" accept=".pdf,.txt,.csv,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip"></label>{% endif %}
+        </div>
+      </details>
+      {% endif %}
+      <textarea name="text" maxlength="2000" rows="1" placeholder="اكتب رسالة باسم {{ account.display_name }}…" aria-label="نص الرسالة"></textarea>
+      <button class="btn btn-primary chat-send-button chat-send-icon-button" data-compose-send type="submit" aria-label="إرسال الرسالة" title="إرسال الرسالة"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg></button>
+    </div></div>
+    <div class="chat-attachment-preview" data-attachment-preview hidden><div class="chat-attachment-preview-items" data-attachment-preview-items></div><div class="chat-attachment-preview-actions"><button class="chat-attachment-cancel" data-attachment-cancel type="button">إلغاء</button><button class="btn btn-primary chat-send-button" data-attachment-send type="submit">إرسال</button></div></div>
+    <div class="chat-upload-error" data-chat-error role="status" hidden></div>
   </form>
-  <p class="demo-chat-error" data-demo-chat-error role="alert" hidden></p>
-</main>
-{{ messages_data|json_script:"demo-chat-initial-messages" }}
+</section>
+{{ messages_data|json_script:"chat-initial-messages" }}
 {% endblock %}
-{% block extra_js %}<script src="{% static 'js/demo-chat-room.js' %}?v=2" defer></script>{% endblock %}
+{% block extra_js %}<script src="{% static 'js/group-chat.js' %}?v=23" defer></script>{% endblock %}

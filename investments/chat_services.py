@@ -418,7 +418,7 @@ def create_text_message(group_id, user_id, text, reply_to_id=None):
 
 
 @transaction.atomic
-def create_demo_text_message(group_id, demo_account_id, user_id, text):
+def create_demo_uploaded_message(group_id, demo_account_id, user_id, form):
     user = User.objects.select_for_update().get(pk=user_id)
     if not user.is_active or not user.is_staff:
         raise ChatRuleError("إرسال رسائل الحسابات التجريبية متاح للإدارة فقط.")
@@ -431,15 +431,30 @@ def create_demo_text_message(group_id, demo_account_id, user_id, text):
     ).first()
     if demo_account is None:
         raise ChatRuleError("الحساب التجريبي غير متاح الآن.")
-    text = _check_text_rules(group, user, text, demo_account=demo_account)
-    if not text:
-        raise ChatRuleError("اكتب نص الرسالة.")
+    data = form.cleaned_data
+    text = _check_text_rules(group, user, data.get("text", ""), demo_account=demo_account)
+    image = data.get("image")
+    attachment = data.get("attachment")
+    if image and not group.allow_images:
+        raise ChatRuleError("إرسال الصور متوقف في هذه المجموعة.")
+    if attachment and not group.allow_files:
+        raise ChatRuleError("إرفاق الملفات متوقف في هذه المجموعة.")
+    if not text and not image and not attachment:
+        raise ChatRuleError("اكتب رسالة أو أرفق صورة أو ملفاً.")
+    reply_snapshot = _reply_snapshot(_get_reply_target(group, data.get("reply_to")))
+    original_name = ""
+    if attachment:
+        original_name = get_valid_filename(os.path.basename(attachment.name.replace("\\", "/")))[:255]
     message = ChatMessage.objects.create(
         group=group,
         sender=user,
         demo_account=demo_account,
         demo_sender_name=demo_account.display_name,
         text=text,
+        image=image,
+        attachment=attachment,
+        attachment_name=original_name,
+        **reply_snapshot,
     )
     return serialize_chat_message(message, viewer_id=user.pk)
 
@@ -479,12 +494,15 @@ def create_uploaded_message(group_id, user_id, form):
 
 @transaction.atomic
 def edit_chat_message(message_id, user_id, text):
-    message, user = _get_message_for_user(message_id, user_id)
+    message = ChatMessage.objects.select_related("group", "sender", "demo_account").get(pk=message_id)
+    user = User.objects.get(pk=user_id)
+    if not message.group.is_active or not group_member_access(user, message.group):
+        raise ChatRuleError("لا تملك صلاحية الوصول إلى هذه المجموعة.")
     if message.sender_id != user.pk:
         raise ChatRuleError("يمكنك تعديل رسائلك فقط.")
     if not user_can_post(user, message.group):
         raise ChatRuleError("لا تملك صلاحية تعديل الرسالة.")
-    text = _check_text_rules(message.group, user, text)
+    text = _check_text_rules(message.group, user, text, demo_account=message.demo_account)
     if not text:
         raise ChatRuleError("لا يمكن جعل الرسالة فارغة؛ احذفها بدلاً من ذلك.")
     message.text = text
