@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}تفاصيل {{ group.title }} — KODI{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/chat-group-detail.css' %}?v=1">{% endblock %}
+{% block content %}
+<main class="chat-group-detail" aria-labelledby="group-detail-title">
+  <a class="group-detail-back" href="{% url 'chat_groups' %}"><span aria-hidden="true">→</span> العودة إلى المجموعات</a>
+
+  <section class="group-detail-hero">
+    <div class="group-detail-hero-glow" aria-hidden="true"></div>
+    <div class="group-detail-hero-main">
+      {% if image_url %}<img class="group-detail-avatar" src="{{ image_url }}" alt="صورة مجموعة {{ group.title }}">{% else %}<div class="group-detail-avatar group-detail-avatar-placeholder" aria-hidden="true">✦</div>{% endif %}
+      <div class="group-detail-heading">
+        <div class="group-detail-badges"><span class="group-detail-badge"><span aria-hidden="true">●</span> {% if group.is_public %}مجموعة عامة{% else %}مجموعة خاصة{% endif %}</span><span class="group-detail-badge group-detail-badge-live"><span aria-hidden="true"></span> نشطة</span></div>
+        <h1 id="group-detail-title">{{ group.title }}</h1>
+        <p>{{ group.description|default:"مساحة للتواصل ومتابعة المحادثات مع أعضاء المجموعة." }}</p>
+      </div>
+    </div>
+    <div class="group-detail-hero-footer">
+      <div class="group-detail-member-summary"><span class="group-detail-member-icon" aria-hidden="true">♧</span><span><strong>{{ display_member_count }}</strong><small>عضو في المجموعة</small></span></div>
+      <div class="group-detail-actions">
+        {% if can_open_room %}<a class="group-detail-primary-action" href="{% url 'chat_group_room' group.pk %}">فتح المحادثة <span aria-hidden="true">←</span></a>
+        {% elif can_join %}<form method="post" action="{% url 'chat_group_join' group.pk %}">{% csrf_token %}<button class="group-detail-primary-action" type="submit">انضم إلى المجموعة <span aria-hidden="true">←</span></button></form>
+        {% elif is_banned %}<span class="group-detail-action-note">لا يمكنك الانضمام إلى هذه المجموعة حالياً</span>
+        {% elif is_full %}<span class="group-detail-action-note">وصلت المجموعة إلى الحد الأقصى للأعضاء</span>{% endif %}
+      </div>
+    </div>
+  </section>
+
+  {% if group.demo_member_offset %}<p class="group-detail-demo-note"><span aria-hidden="true">ⓘ</span> يتضمن العدد {{ group.demo_member_offset }} عضواً تجريبياً لأغراض العرض.</p>{% endif %}
+  {% if is_banned %}<div class="group-detail-alert" role="status"><strong>العضوية موقوفة</strong><span>لا يمكنك دخول المحادثة أو الانضمام إلى المجموعة.</span></div>{% endif %}
+
+  <div class="group-detail-columns">
+    <section class="group-detail-panel group-detail-about">
+      <div class="group-detail-section-heading"><span class="group-detail-section-icon" aria-hidden="true">✧</span><div><h2>عن المجموعة</h2><p>نبذة ومعلومات أساسية</p></div></div>
+      <p class="group-detail-description">{{ group.description|default:"لم تتم إضافة وصف لهذه المجموعة بعد."|linebreaksbr }}</p>
+      <div class="group-detail-facts">
+        <div class="group-detail-fact"><span>تاريخ الإنشاء</span><strong>{{ group.created_at|date:"j F Y" }}</strong></div>
+        <div class="group-detail-fact"><span>إمكانية الانضمام</span><strong>{% if group.is_public %}متاحة للجميع{% else %}بدعوة أو عضوية فقط{% endif %}</strong></div>
+        <div class="group-detail-fact"><span>الحد الأقصى</span><strong>{% if group.max_members %}{{ group.max_members }} عضواً{% else %}بلا حد محدد{% endif %}</strong></div>
+      </div>
+    </section>
+
+    <section class="group-detail-panel group-detail-settings">
+      <div class="group-detail-section-heading"><span class="group-detail-section-icon group-detail-section-icon-teal" aria-hidden="true">⌘</span><div><h2>إعدادات المجموعة</h2><p>ما يمكنك فعله داخل المحادثة</p></div></div>
+      <div class="group-detail-setting-row"><span class="group-detail-setting-icon" aria-hidden="true">✉</span><span><strong>إرسال الرسائل</strong><small>{{ group.get_message_mode_display }}</small></span></div>
+      <div class="group-detail-setting-row"><span class="group-detail-setting-icon" aria-hidden="true">↥</span><span><strong>المرفقات والروابط</strong><small>{% if group.allow_images %}الصور{% endif %}{% if group.allow_images and group.allow_files %} · {% endif %}{% if group.allow_files %}الملفات{% endif %}{% if group.allow_links %}{% if group.allow_images or group.allow_files %} · {% endif %}الروابط{% endif %}{% if not group.allow_images and not group.allow_files and not group.allow_links %}غير متاحة{% endif %}</small></span></div>
+      {% if group.slow_mode_seconds %}<div class="group-detail-setting-row"><span class="group-detail-setting-icon" aria-hidden="true">◷</span><span><strong>الفاصل بين الرسائل</strong><small>{{ group.slow_mode_seconds }} ثانية</small></span></div>{% endif %}
+      <div class="group-detail-setting-row"><span class="group-detail-setting-icon" aria-hidden="true">☺</span><span><strong>التفاعلات</strong><small>{% if group.reactions_enabled %}{% for reaction in reactions %}{{ reaction.emoji }}{% if not forloop.last %} {% endif %}{% empty %}مفعّلة{% endfor %}{% else %}غير مفعّلة{% endif %}</small></span></div>
+    </section>
+  </div>
+</main>
+{% endblock %}

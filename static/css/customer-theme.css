@@ -417,3 +417,85 @@ html[data-customer-theme="dark"] body.customer-shell .customer-theme-toggle {
     height: 32px;
   }
 }
+
+html[data-customer-theme="dark"] body.customer-shell .group-detail-hero {
+  border-color: #30464e;
+  background: linear-gradient(125deg, #142a32, #10232a 58%, #152830);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .2);
+}
+
+html[data-customer-theme="dark"] body.customer-shell .group-detail-avatar {
+  border-color: #263f47;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .group-detail-avatar-placeholder {
+  background: linear-gradient(145deg, #21434a, #1b3941);
+  color: #81c8d0;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .group-detail-badge {
+  border-color: #34515a;
+  background: rgba(20, 43, 51, .8);
+  color: #b2c8cd;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .group-detail-heading h1,
+html[data-customer-theme="dark"] body.customer-shell .group-detail-section-heading h2,
+html[data-customer-theme="dark"] body.customer-shell .group-detail-member-summary strong,
+html[data-customer-theme="dark"] body.customer-shell .group-detail-fact strong,
+html[data-customer-theme="dark"] body.customer-shell .group-detail-setting-row strong {
+  color: #e2ecef;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .group-detail-heading p,
+html[data-customer-theme="dark"] body.customer-shell .group-detail-description {
+  color: #a9bbc0;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .group-detail-hero-footer {
+  border-color: #30464e;
+  background: rgba(11, 28, 34, .5);
+}
+
+html[data-customer-theme="dark"] body.customer-shell .group-detail-member-icon,
+html[data-customer-theme="dark"] body.customer-shell .group-detail-section-icon-teal,
+html[data-customer-theme="dark"] body.customer-shell .group-detail-setting-icon {
+  background: #1c393f;
+  color: #86c9ca;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .group-detail-panel {
+  border-color: #2b424a;
+  background: #14252c;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .group-detail-fact span,
+html[data-customer-theme="dark"] body.customer-shell .group-detail-section-heading p,
+html[data-customer-theme="dark"] body.customer-shell .group-detail-setting-row small,
+html[data-customer-theme="dark"] body.customer-shell .group-detail-member-summary small,
+html[data-customer-theme="dark"] body.customer-shell .group-detail-demo-note,
+html[data-customer-theme="dark"] body.customer-shell .group-detail-back {
+  color: #9aafb5;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .group-detail-fact,
+html[data-customer-theme="dark"] body.customer-shell .group-detail-setting-row,
+html[data-customer-theme="dark"] body.customer-shell .group-detail-description {
+  border-color: #2b424a;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .group-detail-back span {
+  border-color: #30464e;
+  background: #172b33;
+  color: #91cbd4;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .group-detail-alert {
+  border-color: #654443;
+  background: #352827;
+  color: #f0aaa1;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .chat-room-title-link:hover h1 {
+  color: #68cde5;
+}

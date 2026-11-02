@@ -25,7 +25,7 @@ from .chat_services import (
     user_can_moderate,
     user_can_post,
 )
-from .models import ChatGroup, ChatGroupBan, ChatMembership, ChatMessage
+from .models import ChatGroup, ChatGroupBan, ChatMembership, ChatMessage, ChatReaction
 from .chat_services import create_uploaded_message
 
 
@@ -308,6 +308,52 @@ def chat_group_room(request, pk):
         "demo_growth_url_template": reverse("chat_message_demo_growth", args=(0,)),
     }
     return render(request, "investments/chat_room.html", context)
+
+
+@login_required
+def chat_group_detail(request, pk):
+    if not _eligible_user(request.user):
+        return redirect("account_review")
+    group = get_object_or_404(ChatGroup, pk=pk, is_active=True)
+    membership = ChatMembership.objects.filter(group=group, user=request.user).first()
+    is_banned = ChatGroupBan.objects.filter(group=group, user=request.user).exists()
+    if not request.user.is_staff and not membership and not group.is_public:
+        raise Http404
+
+    member_count = group.member_count
+    is_full = bool(group.max_members and member_count >= group.max_members)
+    can_join = bool(group.is_public and not request.user.is_staff and not membership and not is_banned and not is_full)
+    can_open_room = bool(request.user.is_staff or (membership and not is_banned))
+    reaction_emojis = {
+        "like": "👍",
+        "heart": "❤️",
+        "fire": "🔥",
+        "clap": "👏",
+        "dislike": "👎",
+    }
+    allowed_reactions = set(group.allowed_reactions or ())
+    reactions = [
+        {"kind": kind, "label": label, "emoji": reaction_emojis[kind]}
+        for kind, label in ChatReaction.Kind.choices
+        if kind in allowed_reactions
+    ]
+
+    return render(
+        request,
+        "investments/chat_group_detail.html",
+        {
+            "group": group,
+            "membership": membership,
+            "is_banned": is_banned,
+            "member_count": member_count,
+            "display_member_count": member_count + group.demo_member_offset,
+            "is_full": is_full,
+            "can_join": can_join,
+            "can_open_room": can_open_room,
+            "reactions": reactions,
+            "image_url": reverse("chat_group_image", args=(group.pk,)) if group.image and not is_banned else "",
+        },
+    )
 
 
 @login_required
