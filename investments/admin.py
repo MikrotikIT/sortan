@@ -95,8 +95,8 @@ class FilmAdmin(admin.ModelAdmin):
 
 @admin.register(SupportOption)
 class SupportOptionAdmin(admin.ModelAdmin):
-    list_display = ("title", "url", "sort_order", "is_active")
-    list_filter = ("is_active",)
+    list_display = ("title", "url", "sort_order", "is_active", "show_on_auth_pages")
+    list_filter = ("is_active", "show_on_auth_pages")
     search_fields = ("title", "url")
     ordering = ("sort_order", "pk")
     exclude = ("image_url",)

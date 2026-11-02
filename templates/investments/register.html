@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'vendor/intl-tel-input/css/intlTelInput.min.css' %}?v=29.5.3"><link rel="stylesheet" href="{% static 'css/auth-phone.css' %}?v=iti-29.5.3">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'vendor/intl-tel-input/css/intlTelInput.min.css' %}?v=29.5.3"><link rel="stylesheet" href="{% static 'css/auth-phone.css' %}?v=iti-29.5.3"><link rel="stylesheet" href="{% static 'css/auth-support-options.css' %}?v=1">{% endblock %}
 {% block title %}إنشاء حساب — Kodi TV{% endblock %}
 {% block auth_content %}
 <main class="auth-layout">
@@ -21,6 +21,7 @@
         <button class="btn btn-primary btn-full" type="submit">إنشاء الحساب <span>←</span></button>
       </form>
       <div class="auth-switch">لديك حساب بالفعل؟ <a href="{% url 'login' %}">سجل الدخول</a></div>
+      {% include 'includes/auth_support_options.html' %}
       <div class="secure-note"><span>◇</span> ستضاف القسائم حسب إعدادات المنصة</div>
     </div>
   </section>

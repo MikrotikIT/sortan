@@ -326,6 +326,11 @@ class SupportOption(models.Model):
     image_url = models.URLField("رابط الصورة", max_length=500, blank=True)
     sort_order = models.PositiveIntegerField("ترتيب العرض", default=0)
     is_active = models.BooleanField("مفعّل", default=True)
+    show_on_auth_pages = models.BooleanField(
+        "إظهاره في تسجيل الدخول والتسجيل",
+        default=False,
+        help_text="يعرض هذا الخيار في صفحتي تسجيل الدخول وإنشاء الحساب عند تفعيله.",
+    )
     created_at = models.DateTimeField("تاريخ الإضافة", auto_now_add=True)
 
     class Meta:

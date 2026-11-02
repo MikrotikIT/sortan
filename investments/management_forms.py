@@ -155,7 +155,7 @@ class PlatformSettingsForm(forms.ModelForm):
 class SupportOptionForm(forms.ModelForm):
     class Meta:
         model = SupportOption
-        fields = ("title", "url", "image", "sort_order", "is_active")
+        fields = ("title", "url", "image", "sort_order", "is_active", "show_on_auth_pages")
         widgets = {
             "url": forms.URLInput(attrs={"dir": "ltr", "placeholder": "https://wa.me/..."}),
             "image": forms.ClearableFileInput(attrs={"accept": "image/png,image/jpeg,image/webp,image/gif"}),
@@ -164,6 +164,7 @@ class SupportOptionForm(forms.ModelForm):
         help_texts = {
             "image": "PNG أو JPG أو WebP أو GIF، بحد أقصى 5 ميغابايت. ستُوحّد الصورة تلقائياً إلى مربع 256×256 لتظهر بالحجم نفسه.",
             "sort_order": "الأرقام الأصغر تظهر أولاً.",
+            "show_on_auth_pages": "يظهر رابط الدعم أسفل نموذج تسجيل الدخول وإنشاء الحساب إذا كان الخيار مفعّلاً.",
         }
 
     def clean_image(self):

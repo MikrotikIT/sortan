@@ -1,0 +1,14 @@
+{% if auth_support_options %}
+<section class="auth-support-options" aria-label="خيارات الدعم الفني">
+  <div class="auth-support-heading"><span class="auth-support-heading-icon" aria-hidden="true">?</span><span><strong>هل تحتاج إلى مساعدة؟</strong><small>تواصل معنا عبر إحدى الوسائل التالية</small></span></div>
+  <div class="auth-support-list">
+    {% for option in auth_support_options %}
+    <a class="auth-support-link" href="{{ option.url }}" target="_blank" rel="noopener noreferrer">
+      {% if option.image %}<img class="auth-support-image" src="{{ option.image.url }}" alt="" loading="lazy">{% elif option.image_url %}<img class="auth-support-image" src="{{ option.image_url }}" alt="" loading="lazy">{% else %}<span class="auth-support-image auth-support-placeholder" aria-hidden="true">✦</span>{% endif %}
+      <span class="auth-support-copy"><strong>{{ option.title }}</strong><small>تواصل الآن</small></span>
+      <span class="auth-support-arrow" aria-hidden="true">↗</span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}

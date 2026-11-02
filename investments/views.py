@@ -59,7 +59,14 @@ def register(request):
         login(request, user, backend="django.contrib.auth.backends.ModelBackend")
         messages.success(request, "تم إنشاء حسابك. أكمل وثيقة طلب الانضمام لإرسالها إلى المراجعة.")
         return redirect("join_application")
-    return render(request, "investments/register.html", {"form": form})
+    return render(
+        request,
+        "investments/register.html",
+        {
+            "form": form,
+            "auth_support_options": SupportOption.objects.filter(is_active=True, show_on_auth_pages=True),
+        },
+    )
 
 
 def sign_in(request):
@@ -87,7 +94,14 @@ def sign_in(request):
                 return redirect("join_application")
             return redirect("home" if user.approval_status == "approved" else "account_review")
         form.add_error(None, "رقم الهاتف أو كلمة المرور غير صحيحة.")
-    return render(request, "investments/login.html", {"form": form})
+    return render(
+        request,
+        "investments/login.html",
+        {
+            "form": form,
+            "auth_support_options": SupportOption.objects.filter(is_active=True, show_on_auth_pages=True),
+        },
+    )
 
 
 @login_required
