@@ -13,6 +13,8 @@
   const canReact = root.dataset.canReact === "true";
   const isAdmin = root.dataset.isAdmin === "true";
   const demoGrowthUrlTemplate = root.dataset.demoGrowthUrlTemplate || "";
+  const demoAccountId = Number(root.dataset.demoAccountId || 0);
+  const demoReactionUrlTemplate = root.dataset.demoReactionUrlTemplate || "";
   const readUrl = root.dataset.readUrl || "";
   const compose = root.querySelector("[data-chat-compose]");
   const messageInput = compose?.querySelector('textarea[name="text"]');
@@ -229,7 +231,7 @@
       option.title = labels[kind];
       option.setAttribute("aria-label", labels[kind]);
       option.addEventListener("click", () => {
-        if (sendSocket({ action: "react", message_id: messageId, kind })) picker.open = false;
+        if (sendReaction(messageId, kind)) picker.open = false;
       });
       options.append(option);
     });
@@ -340,6 +342,13 @@
       csrfInput.value = csrf;
       form.append(csrfInput);
     }
+    if (demoAccountId) {
+      const demoAccountInput = document.createElement("input");
+      demoAccountInput.type = "hidden";
+      demoAccountInput.name = "demo_account_id";
+      demoAccountInput.value = String(demoAccountId);
+      form.append(demoAccountInput);
+    }
 
     const enabledLabel = document.createElement("label");
     enabledLabel.className = "chat-demo-admin-toggle";
@@ -439,7 +448,7 @@
       const count = document.createElement("b");
       count.textContent = String(reaction.count || 0);
       button.append(glyph, count);
-      button.addEventListener("click", () => sendSocket({ action: "react", message_id: message.id, kind: reaction.kind }));
+      button.addEventListener("click", () => sendReaction(message.id, reaction.kind));
       container.append(button);
     });
     container.append(createReactionPicker(message.id));
@@ -768,6 +777,27 @@
     return true;
   };
 
+  const sendReaction = (messageId, kind) => {
+    if (!demoAccountId) return sendSocket({ action: "react", message_id: messageId, kind });
+    if (!demoReactionUrlTemplate) {
+      showError("تعذر تحديد هوية التفاعل التجريبي.");
+      return false;
+    }
+    const url = demoReactionUrlTemplate.replace(/\/0\/reaction\/?$/, `/${Number(messageId)}/reaction/`);
+    const csrf = root.querySelector('[name="csrfmiddlewaretoken"]')?.value || "";
+    fetch(url, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Accept": "application/json", "X-CSRFToken": csrf },
+      body: new URLSearchParams({ kind }),
+    }).then(async (response) => {
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || "تعذر حفظ التفاعل.");
+      updateReactionCounts({ ...result.message, message_id: result.message.id });
+    }).catch((error) => showError(error.message || "تعذر حفظ التفاعل."));
+    return true;
+  };
+
   const showError = (message) => {
     if (!errorBox) return;
     errorBox.textContent = message;
@@ -781,7 +811,11 @@
     const container = messageItem.querySelector(".chat-reactions");
     if (!container || !canReact) return;
     let selectedKind = container.querySelector("[data-reaction-kind].is-selected")?.dataset.reactionKind || null;
-    if (Object.prototype.hasOwnProperty.call(payload, "user_reaction")) {
+    if (payload.demo_account_id) {
+      if (Number(payload.demo_account_id) === demoAccountId) selectedKind = payload.actor_reaction;
+    } else if (demoAccountId) {
+      if (Object.prototype.hasOwnProperty.call(payload, "user_reaction")) selectedKind = payload.user_reaction;
+    } else if (Object.prototype.hasOwnProperty.call(payload, "user_reaction")) {
       selectedKind = payload.user_reaction;
     } else if (Number(payload.actor_id) === userId) {
       selectedKind = payload.actor_reaction;
@@ -802,7 +836,7 @@
         glyph.textContent = glyphs[reaction.kind] || "•";
         const count = document.createElement("b");
         button.append(glyph, count);
-        button.addEventListener("click", () => sendSocket({ action: "react", message_id: payload.message_id, kind: reaction.kind }));
+        button.addEventListener("click", () => sendReaction(payload.message_id, reaction.kind));
       }
       button.classList.toggle("is-selected", selectedKind === reaction.kind);
       const count = button.querySelector("b");
@@ -836,6 +870,7 @@
       groups: root.dataset.groupId || "",
       messages: messageIds.join(","),
     });
+    if (demoAccountId) params.set("demo_account_id", String(demoAccountId));
     pollingStats = true;
     try {
       const response = await fetch(`${endpoint}?${params}`, {
@@ -878,7 +913,16 @@
       }
       if (payload.type === "message_created" || payload.type === "message_updated") {
         const followLatest = isNearLatest() || Number(payload.message?.sender_id) === userId;
-        renderMessageSafely(payload.message);
+        let message = payload.message;
+        if (payload.type === "message_updated" && message && (demoAccountId || payload.demo_account_id)) {
+          const eventDemoAccountId = Number(payload.demo_account_id || 0);
+          const matchesDemoAccount = demoAccountId > 0 && eventDemoAccountId === demoAccountId;
+          if (!matchesDemoAccount) {
+            const selectedReaction = list.querySelector(`[data-message-id="${Number(message.id)}"] .chat-reactions [data-reaction-kind].is-selected`)?.dataset.reactionKind || null;
+            message = { ...message, user_reaction: selectedReaction };
+          }
+        }
+        renderMessageSafely(message);
         if (payload.type === "message_created" && followLatest && document.visibilityState === "visible") {
           markMessageRead(payload.message?.id);
         }

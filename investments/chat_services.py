@@ -10,7 +10,7 @@ from django.utils.html import strip_tags
 from django.urls import reverse
 from django.utils.text import get_valid_filename
 
-from .models import ChatDemoAccount, ChatGroup, ChatGroupBan, ChatGroupReadState, ChatMembership, ChatMessage, ChatReaction, JoinApplication, User
+from .models import ChatDemoAccount, ChatDemoReaction, ChatGroup, ChatGroupBan, ChatGroupReadState, ChatMembership, ChatMessage, ChatReaction, JoinApplication, User
 
 
 REACTION_GLYPHS = {
@@ -205,12 +205,13 @@ def _reply_preview(message):
     return "رسالة"
 
 
-def serialize_chat_message(message, viewer_id=None):
+def serialize_chat_message(message, viewer_id=None, demo_account_id=None):
     reaction_rows = list(message.reactions.all())
     allowed_reactions = allowed_group_reactions(message.group)
     real_counts = {kind: 0 for kind in allowed_reactions}
     demo_counts = {kind: 0 for kind in allowed_reactions}
     viewer_reaction = None
+    demo_viewer_reaction = None
     for reaction in reaction_rows:
         if reaction.kind not in real_counts:
             continue
@@ -221,6 +222,14 @@ def serialize_chat_message(message, viewer_id=None):
         if reaction_count.kind not in demo_counts:
             continue
         demo_counts[reaction_count.kind] = reaction_count.count
+    for reaction in message.demo_account_reactions.all():
+        if reaction.kind not in demo_counts:
+            continue
+        demo_counts[reaction.kind] += 1
+        if reaction.demo_account_id == demo_account_id:
+            demo_viewer_reaction = reaction.kind
+    if demo_account_id is not None:
+        viewer_reaction = demo_viewer_reaction
     media_url = reverse("chat_message_attachment", args=(message.pk,)) if message.image or message.attachment else ""
     growth_active = bool(
         message.demo_growth_enabled
@@ -391,16 +400,22 @@ def _demo_settings(group, source):
 
 
 @transaction.atomic
-def configure_message_demo_growth(message_id, user_id, source):
+def configure_message_demo_growth(message_id, user_id, source, demo_account_id=None):
     user = User.objects.get(pk=user_id)
     if not user.is_active or not user.is_staff:
         raise ChatRuleError("إعداد الزيادة التجريبية متاح للإدارة فقط.")
     message = ChatMessage.objects.select_for_update().select_related("group", "sender").get(pk=message_id)
+    if demo_account_id is not None and not ChatDemoAccount.objects.filter(
+        pk=demo_account_id,
+        group=message.group,
+        group__is_active=True,
+    ).exists():
+        raise ChatRuleError("هوية المحادثة التجريبية غير متاحة لهذه الرسالة.")
     settings = _demo_settings(message.group, source)
     for field_name, value in settings.items():
         setattr(message, field_name, value)
     message.save(update_fields=tuple(settings))
-    return serialize_chat_message(message, viewer_id=user.pk)
+    return serialize_chat_message(message, viewer_id=user.pk, demo_account_id=demo_account_id)
 
 
 @transaction.atomic
@@ -552,6 +567,9 @@ def set_message_reaction(message_id, user_id, kind):
     for row in message.demo_reaction_counts.values("kind", "count"):
         if row["kind"] in demo_counts:
             demo_counts[row["kind"]] = row["count"]
+    for row in message.demo_account_reactions.values("kind").annotate(total=Count("pk")):
+        if row["kind"] in demo_counts:
+            demo_counts[row["kind"]] += row["total"]
     return {
         "message_id": message.pk,
         "actor_id": user.pk,
@@ -569,6 +587,42 @@ def set_message_reaction(message_id, user_id, kind):
             for item in allowed_reactions
         ],
     }
+
+
+@transaction.atomic
+def set_demo_message_reaction(message_id, demo_account_id, user_id, kind):
+    user = User.objects.get(pk=user_id)
+    if not user.is_active or not user.is_staff:
+        raise ChatRuleError("تفاعلات الحسابات التجريبية متاحة للإدارة فقط.")
+    message = ChatMessage.objects.select_for_update().select_related("group", "sender").get(pk=message_id)
+    account = ChatDemoAccount.objects.select_for_update().filter(
+        pk=demo_account_id,
+        group=message.group,
+        group__is_active=True,
+    ).first()
+    if account is None or not message.group.is_active:
+        raise ChatRuleError("هوية المحادثة التجريبية أو المجموعة غير متاحة.")
+    if kind not in REACTION_ORDER:
+        raise ChatRuleError("نوع التفاعل غير صالح.")
+    if not message.group.reactions_enabled:
+        raise ChatRuleError("التفاعلات متوقفة في هذه المجموعة.")
+    allowed_reactions = allowed_group_reactions(message.group)
+    if kind not in allowed_reactions:
+        raise ChatRuleError("هذا التفاعل غير مسموح في المجموعة.")
+
+    existing = ChatDemoReaction.objects.select_for_update().filter(
+        message=message,
+        demo_account=account,
+    ).first()
+    if existing and existing.kind == kind:
+        existing.delete()
+    elif existing:
+        existing.kind = kind
+        existing.save(update_fields=("kind",))
+    else:
+        ChatDemoReaction.objects.create(message=message, demo_account=account, kind=kind)
+
+    return serialize_chat_message(message, viewer_id=user.pk, demo_account_id=account.pk)
 
 
 def group_socket_access(group_id, user):

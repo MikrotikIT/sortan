@@ -46,6 +46,7 @@ urlpatterns = [
     path("management/demo-chat-accounts/<int:pk>/regenerate/", chat_management_views.demo_chat_account_regenerate_name, name="management_demo_chat_account_regenerate_name"),
     path("management/demo-chat-accounts/<int:pk>/delete/", chat_management_views.demo_chat_account_delete, name="management_demo_chat_account_delete"),
     path("management/demo-chat-accounts/group/<int:group_id>/delete-all/", chat_management_views.demo_chat_accounts_delete_group, name="management_demo_chat_accounts_delete_group"),
+    path("management/demo-chat-accounts/<int:account_pk>/messages/<int:message_pk>/reaction/", chat_management_views.demo_chat_account_react, name="management_demo_chat_account_react"),
     path("management/demo-chat-accounts/<int:pk>/", chat_management_views.demo_chat_account_room, name="management_demo_chat_account_room"),
     path("management/demo-chat-accounts/<int:pk>/history/", chat_management_views.demo_chat_account_history, name="management_demo_chat_account_history"),
     path("management/demo-chat-accounts/<int:pk>/send/", chat_management_views.demo_chat_account_send, name="management_demo_chat_account_send"),

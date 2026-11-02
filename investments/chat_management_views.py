@@ -20,7 +20,13 @@ from .chat_forms import (
     GroupMemberForm,
     GroupMemberPermissionForm,
 )
-from .chat_services import ChatRuleError, create_demo_uploaded_message, mark_chat_group_read, serialize_chat_message
+from .chat_services import (
+    ChatRuleError,
+    create_demo_uploaded_message,
+    mark_chat_group_read,
+    serialize_chat_message,
+    set_demo_message_reaction,
+)
 from .management_views import staff_required
 from .models import ChatDemoAccount, ChatGroup, ChatGroupBan, ChatMembership, ChatMessage
 
@@ -375,12 +381,15 @@ def demo_chat_account_room(request, pk):
     recent_messages = list(
         ChatMessage.objects.filter(group=account.group)
         .select_related("group", "sender", "reply_to", "reply_to__sender")
-        .prefetch_related("reactions", "demo_reaction_counts")
+        .prefetch_related("reactions", "demo_reaction_counts", "demo_account_reactions")
         .order_by("-created_at", "-pk")[:101]
     )
     has_older_messages = len(recent_messages) > 100
     recent_messages = list(reversed(recent_messages[:100]))
-    messages_data = [serialize_chat_message(message, viewer_id=request.user.pk) for message in recent_messages]
+    messages_data = [
+        serialize_chat_message(message, viewer_id=request.user.pk, demo_account_id=account.pk)
+        for message in recent_messages
+    ]
     if recent_messages:
         mark_chat_group_read(request.user, account.group, recent_messages[-1].pk)
     return render(
@@ -399,6 +408,7 @@ def demo_chat_account_room(request, pk):
             "send_url": reverse("management_demo_chat_account_send", args=(account.pk,)),
             "chat_live_stats_url": reverse("chat_live_stats"),
             "demo_growth_url_template": reverse("chat_message_demo_growth", args=(0,)),
+            "demo_reaction_url_template": reverse("management_demo_chat_account_react", args=(account.pk, 0)),
         },
     )
 
@@ -422,14 +432,17 @@ def demo_chat_account_history(request, pk):
             ChatMessage.objects.filter(group=account.group)
             .filter(Q(created_at__lt=cursor.created_at) | Q(created_at=cursor.created_at, pk__lt=cursor.pk))
             .select_related("group", "sender", "reply_to", "reply_to__sender")
-            .prefetch_related("reactions", "demo_reaction_counts")
+            .prefetch_related("reactions", "demo_reaction_counts", "demo_account_reactions")
             .order_by("-created_at", "-pk")[:51]
         )
         has_more = len(page_messages) > 50
         page_messages = list(reversed(page_messages[:50]))
         payload = {
             "ok": True,
-            "messages": [serialize_chat_message(message, viewer_id=request.user.pk) for message in page_messages],
+            "messages": [
+                serialize_chat_message(message, viewer_id=request.user.pk, demo_account_id=account.pk)
+                for message in page_messages
+            ],
             "has_more": has_more,
         }
     else:
@@ -440,17 +453,54 @@ def demo_chat_account_history(request, pk):
         page_messages = list(
             ChatMessage.objects.filter(group=account.group, pk__gt=after_id)
             .select_related("group", "sender", "reply_to", "reply_to__sender")
-            .prefetch_related("reactions", "demo_reaction_counts")
+            .prefetch_related("reactions", "demo_reaction_counts", "demo_account_reactions")
             .order_by("pk")[:100]
         )
         payload = {
             "ok": True,
-            "messages": [serialize_chat_message(message, viewer_id=request.user.pk) for message in page_messages],
+            "messages": [
+                serialize_chat_message(message, viewer_id=request.user.pk, demo_account_id=account.pk)
+                for message in page_messages
+            ],
             "last_message_id": page_messages[-1].pk if page_messages else after_id,
         }
     response = JsonResponse(payload)
     response["Cache-Control"] = "private, no-store"
     return response
+
+
+@staff_required
+@require_POST
+def demo_chat_account_react(request, account_pk, message_pk):
+    account = get_object_or_404(
+        ChatDemoAccount.objects.select_related("group"),
+        pk=account_pk,
+        group__is_active=True,
+    )
+    get_object_or_404(ChatMessage, pk=message_pk, group=account.group)
+    try:
+        message_data = set_demo_message_reaction(
+            message_pk,
+            account.pk,
+            request.user.pk,
+            request.POST.get("kind", ""),
+        )
+    except ChatRuleError as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+    reaction_event = {
+        "type": "reaction_updated",
+        "message_id": message_data["id"],
+        "demo_account_id": account.pk,
+        "actor_reaction": message_data["user_reaction"],
+        "allowed_reactions": message_data["allowed_reactions"],
+        "reactions_enabled": message_data["reactions_enabled"],
+        "reactions": message_data["reactions"],
+    }
+    try:
+        _broadcast_group_event(account.group_id, reaction_event)
+    except Exception:
+        logger.exception("Could not broadcast demo reaction for message %s", message_pk)
+    return JsonResponse({"ok": True, "message": message_data})
 
 
 @staff_required

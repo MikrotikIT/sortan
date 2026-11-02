@@ -955,6 +955,27 @@ class ChatReaction(models.Model):
         verbose_name_plural = "تفاعلات الرسائل"
 
 
+class ChatDemoReaction(models.Model):
+    """One persistent reaction per demo chat identity and message."""
+
+    message = models.ForeignKey(ChatMessage, on_delete=models.CASCADE, related_name="demo_account_reactions")
+    demo_account = models.ForeignKey(
+        ChatDemoAccount,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="reactions",
+    )
+    kind = models.CharField("نوع التفاعل", max_length=8, choices=ChatReaction.Kind.choices)
+    created_at = models.DateTimeField("وقت التفاعل", auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("message", "demo_account"), name="unique_chat_demo_reaction")]
+        indexes = [models.Index(fields=("message", "kind"), name="chat_demo_reaction_msg_kind_idx")]
+        verbose_name = "تفاعل حساب محادثة تجريبي"
+        verbose_name_plural = "تفاعلات حسابات المحادثة التجريبية"
+
+
 class DemoChatReactionCount(models.Model):
     """Clearly marked simulation counters used only for experimental group views."""
 

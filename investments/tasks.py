@@ -19,6 +19,7 @@ from .models import (
     ChatMembership,
     ChatMessage,
     ChatReaction,
+    ChatDemoReaction,
     DemoChatReactionCount,
     ServiceHeartbeat,
     UserNotification,
@@ -246,6 +247,9 @@ def advance_demo_chat_metrics():
             for row in DemoChatReactionCount.objects.filter(message_id=message_id).values("kind", "count"):
                 if row["kind"] in demo_counts:
                     demo_counts[row["kind"]] = row["count"]
+            for row in ChatDemoReaction.objects.filter(message_id=message_id).values("kind").annotate(total=Count("pk")):
+                if row["kind"] in demo_counts:
+                    demo_counts[row["kind"]] += row["total"]
             _broadcast_chat(
                 message.group_id,
                 {

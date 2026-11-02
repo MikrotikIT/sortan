@@ -25,7 +25,7 @@ from .chat_services import (
     user_can_moderate,
     user_can_post,
 )
-from .models import ChatGroup, ChatGroupBan, ChatMembership, ChatMessage, ChatReaction
+from .models import ChatDemoAccount, ChatGroup, ChatGroupBan, ChatMembership, ChatMessage, ChatReaction
 from .chat_services import create_uploaded_message
 
 
@@ -139,6 +139,19 @@ def chat_live_stats(request):
 
     group_ids = _requested_ids(request.GET.get("groups"))
     message_ids = _requested_ids(request.GET.get("messages"))
+    demo_account = None
+    demo_account_value = request.GET.get("demo_account_id")
+    if demo_account_value:
+        if not request.user.is_staff:
+            return JsonResponse({"ok": False}, status=403)
+        try:
+            demo_account_id = int(demo_account_value)
+        except (TypeError, ValueError):
+            return JsonResponse({"ok": False}, status=400)
+        demo_account = ChatDemoAccount.objects.filter(pk=demo_account_id, group__is_active=True).first()
+        if demo_account is None or (group_ids and demo_account.group_id not in group_ids):
+            return JsonResponse({"ok": False}, status=404)
+        group_ids = [demo_account.group_id]
     groups = ChatGroup.objects.filter(pk__in=group_ids, is_active=True)
     if not request.user.is_staff:
         groups = groups.filter(Q(is_public=True) | Q(memberships__user=request.user))
@@ -167,10 +180,10 @@ def chat_live_stats(request):
         page_messages = (
             ChatMessage.objects.filter(pk__in=message_ids, group_id__in=member_group_ids)
             .select_related("group", "sender", "reply_to", "reply_to__sender")
-            .prefetch_related("reactions", "demo_reaction_counts")
+            .prefetch_related("reactions", "demo_reaction_counts", "demo_account_reactions")
         )
         serialized_messages = [
-            serialize_chat_message(message, viewer_id=request.user.pk)
+            serialize_chat_message(message, viewer_id=request.user.pk, demo_account_id=demo_account.pk if demo_account else None)
             for message in page_messages
         ]
 
@@ -280,7 +293,7 @@ def chat_group_room(request, pk):
         page_messages = list(
             ChatMessage.objects.filter(group=group)
             .select_related("group", "sender", "reply_to", "reply_to__sender")
-            .prefetch_related("reactions", "demo_reaction_counts")
+            .prefetch_related("reactions", "demo_reaction_counts", "demo_account_reactions")
             .order_by("-created_at", "-pk")[:100]
         )
         page_messages.reverse()
@@ -374,7 +387,7 @@ def chat_group_history(request, pk):
         ChatMessage.objects.filter(group=group)
         .filter(Q(created_at__lt=cursor.created_at) | Q(created_at=cursor.created_at, pk__lt=cursor.pk))
         .select_related("group", "sender", "reply_to", "reply_to__sender")
-        .prefetch_related("reactions", "demo_reaction_counts")
+        .prefetch_related("reactions", "demo_reaction_counts", "demo_account_reactions")
         .order_by("-created_at", "-pk")[:51]
     )
     has_more = len(older_messages) > 50
@@ -422,11 +435,23 @@ def chat_message_demo_growth(request, pk):
         errors = [str(error) for field_errors in form.errors.values() for error in field_errors]
         return JsonResponse({"ok": False, "error": errors[0] if errors else "راجع إعدادات الزيادة."}, status=400)
     try:
-        message_data = configure_message_demo_growth(message.pk, request.user.pk, form.cleaned_data)
+        demo_account_value = request.POST.get("demo_account_id")
+        demo_account_id = int(demo_account_value) if demo_account_value else None
+        message_data = configure_message_demo_growth(
+            message.pk,
+            request.user.pk,
+            form.cleaned_data,
+            demo_account_id=demo_account_id,
+        )
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "error": "هوية الحساب التجريبي غير صالحة."}, status=400)
     except ChatRuleError as exc:
         return JsonResponse({"ok": False, "error": str(exc)}, status=400)
     try:
-        _broadcast_group_message(message.group_id, {"type": "message_updated", "message": message_data})
+        _broadcast_group_message(
+            message.group_id,
+            {"type": "message_updated", "message": message_data, "demo_account_id": demo_account_id},
+        )
     except Exception:
         logger.exception("Could not broadcast demo reaction settings for message %s", message.pk)
     return JsonResponse({"ok": True, "message": message_data})
