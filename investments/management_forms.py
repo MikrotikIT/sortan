@@ -445,6 +445,8 @@ class DemoInvestmentBatchForm(forms.Form):
         today = timezone.localdate()
         self.fields["start_date"].initial = today
         self.fields["end_date"].initial = today
+        self.fields["end_date"].widget.attrs["max"] = today.isoformat()
+        self.fields["end_date"].help_text = "اختر اليوم أو تاريخاً سابقاً؛ لا يمكن أن يكون الاستثمار مكتملاً في المستقبل."
 
     def clean(self):
         cleaned = super().clean()
@@ -455,7 +457,7 @@ class DemoInvestmentBatchForm(forms.Form):
             if end_date < start_date:
                 self.add_error("end_date", "يجب أن يكون تاريخ النهاية في اليوم نفسه أو بعد تاريخ البداية.")
             elif end_date > timezone.localdate():
-                self.add_error("end_date", "اختر تاريخاً سابقاً أو تاريخ اليوم.")
+                self.add_error("end_date", "لا يمكن أن يكون تاريخ الاستثمار المكتمل في المستقبل. اختر تاريخ اليوم أو تاريخاً سابقاً.")
             elif count_per_day and (end_date - start_date).days + 1 > self.max_demo_title_count // count_per_day:
                 self.add_error(None, f"الدفعة الواحدة محدودة بـ {self.max_demo_title_count} استثمار تجريبي كحد أقصى.")
         return cleaned
