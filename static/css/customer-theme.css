@@ -1,0 +1,393 @@
+html[data-customer-theme="dark"] body.customer-shell {
+  color-scheme: dark;
+  --navy: #dce9ec;
+  --navy-2: #bfd3d8;
+  --ink: #e2ecef;
+  --muted: #a2b5ba;
+  --line: #30464e;
+  --surface: #14252c;
+  --canvas: #0b171c;
+  --green: #54c99a;
+  --amber: #e5b65c;
+  --purple: #ad9ce8;
+  --shadow: 0 14px 40px rgba(0, 0, 0, .2);
+  background: var(--canvas);
+  color: var(--ink);
+}
+
+html[data-customer-theme="dark"] body.customer-shell .sidebar {
+  background: #091e27;
+  color: #d5e0e4;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .topbar,
+html[data-customer-theme="dark"] body.customer-shell .bottom-nav {
+  border-color: #2a4149;
+  background: rgba(16, 35, 43, .97);
+}
+
+html[data-customer-theme="dark"] body.customer-shell .site-footer,
+html[data-customer-theme="dark"] body.customer-shell .breadcrumb,
+html[data-customer-theme="dark"] body.customer-shell .date-muted,
+html[data-customer-theme="dark"] body.customer-shell .stat-foot,
+html[data-customer-theme="dark"] body.customer-shell .notification-card time {
+  color: #9aafb5;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .panel,
+html[data-customer-theme="dark"] body.customer-shell .stat-card,
+html[data-customer-theme="dark"] body.customer-shell .film-card,
+html[data-customer-theme="dark"] body.customer-shell .notification-card,
+html[data-customer-theme="dark"] body.customer-shell .account-review-card,
+html[data-customer-theme="dark"] body.customer-shell .withdrawal-receipt-card,
+html[data-customer-theme="dark"] body.customer-shell .chat-group-card,
+html[data-customer-theme="dark"] body.customer-shell .chat-room,
+html[data-customer-theme="dark"] body.customer-shell .deposit-history-panel,
+html[data-customer-theme="dark"] body.customer-shell .deposit-address-panel,
+html[data-customer-theme="dark"] body.customer-shell .referral-box,
+html[data-customer-theme="dark"] body.customer-shell .modal-card {
+  border-color: var(--line);
+  background-color: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+
+html[data-customer-theme="dark"] body.customer-shell h1,
+html[data-customer-theme="dark"] body.customer-shell h2,
+html[data-customer-theme="dark"] body.customer-shell h3,
+html[data-customer-theme="dark"] body.customer-shell .panel-heading h2,
+html[data-customer-theme="dark"] body.customer-shell .film-cell strong,
+html[data-customer-theme="dark"] body.customer-shell .notification-card-title,
+html[data-customer-theme="dark"] body.customer-shell .notification-card-body h1,
+html[data-customer-theme="dark"] body.customer-shell .notification-card-body h2,
+html[data-customer-theme="dark"] body.customer-shell .notification-card-body h3,
+html[data-customer-theme="dark"] body.customer-shell .notification-card-body h4,
+html[data-customer-theme="dark"] body.customer-shell .account-review-card h1,
+html[data-customer-theme="dark"] body.customer-shell .withdrawal-receipt-card h1 {
+  color: #e2ecef;
+}
+
+html[data-customer-theme="dark"] body.customer-shell p,
+html[data-customer-theme="dark"] body.customer-shell .welcome-row p,
+html[data-customer-theme="dark"] body.customer-shell .panel p,
+html[data-customer-theme="dark"] body.customer-shell .stat-top,
+html[data-customer-theme="dark"] body.customer-shell .data-table td,
+html[data-customer-theme="dark"] body.customer-shell .notification-card-body,
+html[data-customer-theme="dark"] body.customer-shell .account-review-card p,
+html[data-customer-theme="dark"] body.customer-shell .withdrawal-receipt-intro {
+  color: #a9bbc0;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .topbar,
+html[data-customer-theme="dark"] body.customer-shell .bottom-nav,
+html[data-customer-theme="dark"] body.customer-shell .customer-shortcut,
+html[data-customer-theme="dark"] body.customer-shell .btn-outline,
+html[data-customer-theme="dark"] body.customer-shell .btn-quiet,
+html[data-customer-theme="dark"] body.customer-shell .notification-bell,
+html[data-customer-theme="dark"] body.customer-shell .notification-read-button,
+html[data-customer-theme="dark"] body.customer-shell .modal-card,
+html[data-customer-theme="dark"] body.customer-shell .chat-compose,
+html[data-customer-theme="dark"] body.customer-shell .chat-attachment-menu > summary,
+html[data-customer-theme="dark"] body.customer-shell .chat-reaction,
+html[data-customer-theme="dark"] body.customer-shell .chat-attachment-options,
+html[data-customer-theme="dark"] body.customer-shell .chat-reaction-options {
+  border-color: var(--line);
+  background-color: #172b33;
+  color: #d6e5e8;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .customer-shortcut:hover,
+html[data-customer-theme="dark"] body.customer-shell .bottom-nav-link:hover {
+  background: #203740;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .customer-shortcut strong,
+html[data-customer-theme="dark"] body.customer-shell .deposit-address-label strong,
+html[data-customer-theme="dark"] body.customer-shell .deposit-step strong,
+html[data-customer-theme="dark"] body.customer-shell .step strong,
+html[data-customer-theme="dark"] body.customer-shell .fee-summary strong,
+html[data-customer-theme="dark"] body.customer-shell .cooldown-box strong,
+html[data-customer-theme="dark"] body.customer-shell .referral-box > div:first-child strong {
+  color: #dce9ec;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .customer-shortcut small,
+html[data-customer-theme="dark"] body.customer-shell .shortcut-arrow,
+html[data-customer-theme="dark"] body.customer-shell .deposit-address-label span,
+html[data-customer-theme="dark"] body.customer-shell .deposit-processing-note p,
+html[data-customer-theme="dark"] body.customer-shell .step p,
+html[data-customer-theme="dark"] body.customer-shell .cooldown-box,
+html[data-customer-theme="dark"] body.customer-shell .withdraw-footnote {
+  color: #9aafb5;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .customer-shortcut-disabled {
+  background: #111f25;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .language-switch,
+html[data-customer-theme="dark"] body.customer-shell .language-switch small,
+html[data-customer-theme="dark"] body.customer-shell .modal-close {
+  border-color: #30464e;
+  background: #1a3038;
+  color: #a9bbc0;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .bottom-nav-link.active {
+  background: #193944;
+  color: #65c9e5;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .bottom-nav-link.active .bottom-nav-icon {
+  background: #214956;
+  color: #65c9e5;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .data-table th,
+html[data-customer-theme="dark"] body.customer-shell .data-table td,
+html[data-customer-theme="dark"] body.customer-shell .voucher-row,
+html[data-customer-theme="dark"] body.customer-shell .film-metrics,
+html[data-customer-theme="dark"] body.customer-shell .deposit-history-item,
+html[data-customer-theme="dark"] body.customer-shell .deposit-steps,
+html[data-customer-theme="dark"] body.customer-shell .fee-summary,
+html[data-customer-theme="dark"] body.customer-shell .referral-box {
+  border-color: #2a4149;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .data-table th,
+html[data-customer-theme="dark"] body.customer-shell .data-table td small,
+html[data-customer-theme="dark"] body.customer-shell .film-cell small,
+html[data-customer-theme="dark"] body.customer-shell .mini-empty,
+html[data-customer-theme="dark"] body.customer-shell .voucher-row small,
+html[data-customer-theme="dark"] body.customer-shell .referral-page-copy,
+html[data-customer-theme="dark"] body.customer-shell .referral-stats,
+html[data-customer-theme="dark"] body.customer-shell .deposit-history-meta,
+html[data-customer-theme="dark"] body.customer-shell .deposit-history-limit {
+  color: #93aab0;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .count-pill,
+html[data-customer-theme="dark"] body.customer-shell .voucher-tip,
+html[data-customer-theme="dark"] body.customer-shell .empty-icon,
+html[data-customer-theme="dark"] body.customer-shell .deposit-processing-note,
+html[data-customer-theme="dark"] body.customer-shell .deposit-history-limit,
+html[data-customer-theme="dark"] body.customer-shell .notification-card-body blockquote,
+html[data-customer-theme="dark"] body.customer-shell .notification-card-body pre,
+html[data-customer-theme="dark"] body.customer-shell .notification-card-body code,
+html[data-customer-theme="dark"] body.customer-shell .chat-day-divider span,
+html[data-customer-theme="dark"] body.customer-shell .chat-reply-quote,
+html[data-customer-theme="dark"] body.customer-shell .chat-reply-compose,
+html[data-customer-theme="dark"] body.customer-shell .chat-join-prompt,
+html[data-customer-theme="dark"] body.customer-shell .chat-empty {
+  border-color: #314a53;
+  background-color: #1a3038;
+  color: #c1d2d6;
+}
+
+html[data-customer-theme="dark"] body.customer-shell input:not([type="checkbox"]):not([type="radio"]),
+html[data-customer-theme="dark"] body.customer-shell textarea,
+html[data-customer-theme="dark"] body.customer-shell select,
+html[data-customer-theme="dark"] body.customer-shell .chat-demo-field input,
+html[data-customer-theme="dark"] body.customer-shell .chat-demo-field select,
+html[data-customer-theme="dark"] body.customer-shell .chat-demo-admin-field input,
+html[data-customer-theme="dark"] body.customer-shell .chat-demo-admin-field select {
+  border-color: #3a535b;
+  background: #102229;
+  color: #e2ecef;
+}
+
+html[data-customer-theme="dark"] body.customer-shell input::placeholder,
+html[data-customer-theme="dark"] body.customer-shell textarea::placeholder {
+  color: #81979d;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .deposit-network-pill,
+html[data-customer-theme="dark"] body.customer-shell .deposit-network-tag,
+html[data-customer-theme="dark"] body.customer-shell .deposit-history-icon,
+html[data-customer-theme="dark"] body.customer-shell .notification-card-icon,
+html[data-customer-theme="dark"] body.customer-shell .notification-card.is-unread .notification-card-icon,
+html[data-customer-theme="dark"] body.customer-shell .notification-open-action,
+html[data-customer-theme="dark"] body.customer-shell .deposit-step > span,
+html[data-customer-theme="dark"] body.customer-shell .customer-wallet-address,
+html[data-customer-theme="dark"] body.customer-shell .chat-back-link,
+html[data-customer-theme="dark"] body.customer-shell .chat-message.is-mine .chat-message-card,
+html[data-customer-theme="dark"] body.customer-shell .chat-reaction.is-selected {
+  border-color: #31515c;
+  background-color: #1b3842;
+  color: #78d0e9;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .deposit-warning,
+html[data-customer-theme="dark"] body.customer-shell .notice-warn,
+html[data-customer-theme="dark"] body.customer-shell .referral-gate-notice,
+html[data-customer-theme="dark"] body.customer-shell .chat-demo-settings-panel,
+html[data-customer-theme="dark"] body.customer-shell .chat-demo-settings > summary {
+  border-color: #5b4d33;
+  background: #30291d;
+  color: #e4c98e;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .chat-message-list-wrap {
+  background: linear-gradient(180deg, #101f25, #0d1a20);
+}
+
+html[data-customer-theme="dark"] body.customer-shell .chat-message-card,
+html[data-customer-theme="dark"] body.customer-shell .chat-attachment-options label,
+html[data-customer-theme="dark"] body.customer-shell .chat-message-attachment {
+  border-color: #30464e;
+  background: #172b33;
+  color: #dce8eb;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .chat-message-text,
+html[data-customer-theme="dark"] body.customer-shell .chat-message-header > strong,
+html[data-customer-theme="dark"] body.customer-shell .chat-room-title h1,
+html[data-customer-theme="dark"] body.customer-shell .chat-group-card-copy > strong,
+html[data-customer-theme="dark"] body.customer-shell .chat-empty h2 {
+  color: #dce8eb;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .chat-room-header {
+  border-color: #30464e;
+  background: #14252c;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .chat-group-avatar {
+  border-color: #30464e;
+  background: #172b33;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .chat-room-header .customer-theme-toggle {
+  flex-basis: 32px;
+  width: 32px;
+  height: 32px;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .chat-group-card-copy > small,
+html[data-customer-theme="dark"] body.customer-shell .chat-group-count,
+html[data-customer-theme="dark"] body.customer-shell .chat-members-line,
+html[data-customer-theme="dark"] body.customer-shell .chat-room-title p,
+html[data-customer-theme="dark"] body.customer-shell .chat-message-header time,
+html[data-customer-theme="dark"] body.customer-shell .chat-edited-label,
+html[data-customer-theme="dark"] body.customer-shell .chat-empty p {
+  color: #96abb0;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .notification-card.is-unread {
+  border-color: #31515c;
+  background: linear-gradient(110deg, #172d35, #142830);
+}
+
+html[data-customer-theme="dark"] body.customer-shell .notification-card-body a,
+html[data-customer-theme="dark"] body.customer-shell .notification-open-title:hover,
+html[data-customer-theme="dark"] body.customer-shell .notification-open-action {
+  color: #72cce5;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .deposit-activity-toast {
+  border-color: #31515c;
+  background: #14252c;
+  color: #e2ecef;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .app-toast {
+  --toast-surface: #14252c;
+  --toast-border: #30464e;
+  color: #dce9ec;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .app-toast-copy strong {
+  color: #dce9ec;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .notice-info,
+html[data-customer-theme="dark"] body.customer-shell .deposit-new-deposit,
+html[data-customer-theme="dark"] body.customer-shell .chat-notice,
+html[data-customer-theme="dark"] body.customer-shell .notification-open-action {
+  border-color: #31515c;
+  background: #1b3842;
+  color: #9cdeed;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .status-done,
+html[data-customer-theme="dark"] body.customer-shell .status-pending,
+html[data-customer-theme="dark"] body.customer-shell .status-rejected,
+html[data-customer-theme="dark"] body.customer-shell .notification-unread-pill {
+  filter: brightness(.83) saturate(.9);
+}
+
+html[data-customer-theme="dark"] body.customer-shell .account-review-card,
+html[data-customer-theme="dark"] body.customer-shell .withdrawal-receipt-card,
+html[data-customer-theme="dark"] body.customer-shell .join-application-document {
+  background: #14252c;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .application-instructions,
+html[data-customer-theme="dark"] body.customer-shell .application-upload-progress,
+html[data-customer-theme="dark"] body.customer-shell .referral-code-row,
+html[data-customer-theme="dark"] body.customer-shell .withdrawal-receipt-net {
+  border-color: #30464e;
+  background: #1a3038;
+  color: #c1d2d6;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .application-instructions strong,
+html[data-customer-theme="dark"] body.customer-shell .application-form-field label,
+html[data-customer-theme="dark"] body.customer-shell .withdrawal-receipt-details dd {
+  color: #dce9ec;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .application-form-field small,
+html[data-customer-theme="dark"] body.customer-shell .withdrawal-receipt-details dt,
+html[data-customer-theme="dark"] body.customer-shell .withdrawal-receipt-net span {
+  color: #9aafb5;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .referral-code-row code {
+  color: #78d0e9;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .withdrawal-receipt-net strong {
+  color: #54c99a;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .deposit-activity-heading strong,
+html[data-customer-theme="dark"] body.customer-shell .deposit-activity-details {
+  color: #c1d2d6;
+}
+
+.customer-theme-toggle {
+  display: grid;
+  place-items: center;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid #e0eaed;
+  border-radius: 10px;
+  background: #fff;
+  color: #52717a;
+  font: 700 19px/1 "DM Sans", "Tajawal", sans-serif;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+
+.customer-theme-toggle:hover {
+  border-color: #a9dbe7;
+  background: #effafd;
+  color: #087f9f;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .customer-theme-toggle {
+  border-color: #30464e;
+  background: #172b33;
+  color: #f0cb76;
+}
+
+@media (max-width: 600px) {
+  .customer-theme-toggle {
+    flex-basis: 32px;
+    width: 32px;
+    height: 32px;
+  }
+}
