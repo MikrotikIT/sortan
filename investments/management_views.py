@@ -775,6 +775,34 @@ def customer_detail(request, pk):
             else:
                 messages.success(request, f"تم إلغاء تصنيف الحساب الوهمي للحساب {customer.phone} وإعادة بياناته إلى تقريري المالية والمطابقة المالية.")
             return redirect("management_customer_detail", pk=customer.pk)
+        elif action == "delete_demo_investment":
+            demo_investment_id = request.POST.get("demo_investment_id", "")
+            if not demo_investment_id.isdigit():
+                messages.error(request, "تعذر تحديد الاستثمار التجريبي المطلوب حذفه.")
+                return redirect("management_customer_detail", pk=customer.pk)
+            with transaction.atomic():
+                customer = get_object_or_404(User.objects.select_for_update(), pk=pk)
+                demo_investment = DemoInvestment.objects.select_for_update().filter(
+                    pk=demo_investment_id,
+                    user=customer,
+                ).first()
+                if demo_investment:
+                    film_title = demo_investment.film_title
+                    demo_investment.delete()
+            if demo_investment:
+                messages.success(request, f"تم حذف الاستثمار التجريبي «{film_title}» من سجل {customer.phone}.")
+            else:
+                messages.info(request, "الاستثمار التجريبي المحدد غير موجود في سجل هذا الحساب.")
+            return redirect("management_customer_detail", pk=customer.pk)
+        elif action == "delete_all_demo_investments":
+            with transaction.atomic():
+                customer = get_object_or_404(User.objects.select_for_update(), pk=pk)
+                deleted_count, _ = DemoInvestment.objects.select_for_update().filter(user=customer).delete()
+            if deleted_count:
+                messages.success(request, f"تم حذف {deleted_count} استثماراً تجريبياً من سجل {customer.phone}.")
+            else:
+                messages.info(request, "لا توجد استثمارات تجريبية لحذفها لهذا الحساب.")
+            return redirect("management_customer_detail", pk=customer.pk)
     if customer.is_staff:
         wallet = Wallet.objects.filter(user=customer).first()
     else:
@@ -792,6 +820,7 @@ def customer_detail(request, pk):
             ),
             "wallet": wallet,
             "investments": customer.investments.all()[:50],
+            "demo_investments": customer.demo_investments.all(),
             "deposits": customer.deposits.all()[:50],
             "withdrawals": customer.withdrawals.all()[:50],
             "vouchers": customer.vouchers.all()[:50],
