@@ -85,6 +85,7 @@ class JoinApplicationForm(forms.ModelForm):
             "full_name",
             "father_name",
             "mother_name",
+            "age",
             "gender",
             "marital_status",
             "financial_status",
@@ -94,6 +95,7 @@ class JoinApplicationForm(forms.ModelForm):
             "full_name": forms.TextInput(attrs={"autocomplete": "name", "maxlength": "160"}),
             "father_name": forms.TextInput(attrs={"maxlength": "120"}),
             "mother_name": forms.TextInput(attrs={"maxlength": "120"}),
+            "age": forms.NumberInput(attrs={"min": "1", "max": "120", "step": "1", "inputmode": "numeric"}),
             "gender": forms.Select(),
             "marital_status": forms.Select(),
             "financial_status": forms.Select(),
@@ -102,6 +104,7 @@ class JoinApplicationForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["age"].required = True
         if self.instance.pk and self.instance.profile_image:
             self.fields["profile_image"].required = False
 

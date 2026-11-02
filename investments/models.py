@@ -154,6 +154,12 @@ class JoinApplication(models.Model):
     full_name = models.CharField("الاسم والنسبة", max_length=160)
     father_name = models.CharField("اسم الأب", max_length=120)
     mother_name = models.CharField("اسم الأم", max_length=120)
+    age = models.PositiveSmallIntegerField(
+        "العمر",
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(120)],
+    )
     gender = models.CharField("الجنس", max_length=12, choices=GENDER_CHOICES)
     marital_status = models.CharField("الوضع العائلي", max_length=20, choices=MARITAL_STATUS_CHOICES)
     financial_status = models.CharField("الوضع المادي", max_length=24, choices=FINANCIAL_STATUS_CHOICES)

@@ -8,6 +8,7 @@
   <div class="join-review-photo"><a href="{% url 'join_application_photo' application.pk %}" target="_blank" rel="noopener"><img src="{% url 'join_application_photo' application.pk %}" alt="الصورة الشخصية للمتقدم"></a><span>الصورة الشخصية</span></div>
   <dl class="join-review-details">
     <div><dt>الاسم والنسبة</dt><dd>{{ application.full_name }}</dd></div>
+    <div><dt>العمر</dt><dd>{% if application.age %}{{ application.age }} سنة{% else %}—{% endif %}</dd></div>
     <div><dt>اسم الأب</dt><dd>{{ application.father_name }}</dd></div>
     <div><dt>اسم الأم</dt><dd>{{ application.mother_name }}</dd></div>
     <div><dt>الجنس</dt><dd>{{ application.get_gender_display }}</dd></div>
