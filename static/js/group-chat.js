@@ -995,6 +995,11 @@
 
   compose?.querySelector("[data-reply-cancel]")?.addEventListener("click", clearReplySelection);
   messageInput?.addEventListener("input", resizeMessageInput);
+  messageInput?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || !event.ctrlKey || event.isComposing) return;
+    event.preventDefault();
+    if (!compose?.querySelector('button[type="submit"]:disabled')) compose?.requestSubmit();
+  });
   attachmentInputs.forEach((input) => {
     input.addEventListener("change", () => {
       if (input.files?.length) input.closest("details")?.removeAttribute("open");
