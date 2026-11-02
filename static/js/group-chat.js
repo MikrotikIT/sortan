@@ -37,6 +37,7 @@
   let lastReadMessageId = 0;
   let hasOlderMessages = root.dataset.hasOlderMessages === "true";
   let loadingOlderMessages = false;
+  let historyRequestGeneration = 0;
 
   const escapeText = (value) => String(value ?? "");
   const clearChildren = (element) => {
@@ -717,6 +718,7 @@
     if (!beforeId) return;
 
     loadingOlderMessages = true;
+    const requestGeneration = historyRequestGeneration;
     const originalTop = firstMessage.getBoundingClientRect().top;
     if (historyStatus) {
       historyStatus.hidden = false;
@@ -734,6 +736,7 @@
       const result = await response.json();
       if (!response.ok || !result.ok) throw new Error(result.error || "تعذر تحميل الرسائل الأقدم.");
 
+      if (requestGeneration !== historyRequestGeneration) return;
       const olderMessages = result.messages || [];
       hasOlderMessages = Boolean(result.has_more);
       [...olderMessages].reverse().forEach((message) => renderMessageSafely(message, { prepend: true }));
@@ -757,6 +760,7 @@
         });
       }
     } catch (error) {
+      if (requestGeneration !== historyRequestGeneration) return;
       if (historyStatus) {
         historyStatus.textContent = error.message || "تعذر تحميل الرسائل الأقدم.";
         historyStatus.classList.add("is-error");
@@ -764,7 +768,7 @@
         window.setTimeout(() => { historyStatus.hidden = true; }, 3000);
       }
     } finally {
-      loadingOlderMessages = false;
+      if (requestGeneration === historyRequestGeneration) loadingOlderMessages = false;
     }
   };
 
@@ -941,6 +945,15 @@
         });
         list.querySelector(`[data-message-id="${deletedId}"]`)?.remove();
         syncDayDividers();
+      } else if (payload.type === "group_messages_cleared") {
+        historyRequestGeneration += 1;
+        loadingOlderMessages = false;
+        hasOlderMessages = false;
+        list.replaceChildren();
+        clearReplySelection();
+        if (historyStatus) historyStatus.hidden = true;
+        if (errorBox) errorBox.hidden = true;
+        listViewport.scrollTop = 0;
       } else if (payload.type === "reaction_updated") {
         updateReactionCounts(payload);
       } else if (payload.type === "reaction_settings_updated") {

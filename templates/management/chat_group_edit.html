@@ -35,4 +35,11 @@
     {% for ban in bans %}<tr><td dir="ltr">{{ ban.user.phone }}</td><td>{{ ban.reason|default:"—" }}</td><td>{{ ban.created_at|date:"Y-m-d H:i" }}</td><td><form method="post" action="{% url 'management_chat_group_unban' group.pk ban.pk %}">{% csrf_token %}<button class="table-action" type="submit">رفع الحظر</button></form></td></tr>{% endfor %}
   </tbody></table></div>{% else %}<div class="admin-empty">لا يوجد أشخاص محظورون.</div>{% endif %}
 </section>
+<section class="management-panel">
+  <div class="management-panel-head"><div><h2>حذف جميع رسائل المجموعة</h2><p>سيتم حذف الرسائل وردودها وتفاعلاتها ومرفقاتها نهائياً. ستبقى المجموعة وأعضاؤها وحسابات المحادثة التجريبية.</p></div><span class="count-pill">{{ message_count }} رسالة</span></div>
+  <form method="post" action="{% url 'management_chat_group_messages_delete_all' group.pk %}" onsubmit="return confirm('هل تريد حذف جميع رسائل هذه المجموعة ومرفقاتها نهائياً؟ لا يمكن التراجع عن هذا الإجراء.')">
+    {% csrf_token %}
+    <button class="table-action danger-action" type="submit" {% if not message_count %}disabled{% endif %}>حذف جميع الرسائل</button>
+  </form>
+</section>
 {% endblock %}

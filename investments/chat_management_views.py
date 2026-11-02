@@ -43,6 +43,14 @@ def _broadcast_group_event(group_id, payload):
         )
 
 
+def _delete_chat_message_files(file_refs):
+    for storage, name in file_refs:
+        try:
+            storage.delete(name)
+        except Exception:
+            logger.exception("Could not delete chat message file %s", name)
+
+
 @staff_required
 def chat_groups(request):
     form = ChatGroupForm(request.POST or None, request.FILES or None)
@@ -89,6 +97,7 @@ def chat_group_edit(request, pk):
             "bans": bans,
             "actual_member_count": group.member_count,
             "display_member_count": group.member_count + group.demo_member_offset,
+            "message_count": group.messages.count(),
         },
     )
 
@@ -101,6 +110,29 @@ def chat_group_delete(request, pk):
     group.delete()
     messages.success(request, "تم حذف المجموعة ورسائلها ومرفقاتها.")
     return redirect("management_chat_groups")
+
+
+@staff_required
+@require_POST
+def chat_group_messages_delete_all(request, pk):
+    with transaction.atomic():
+        group = get_object_or_404(ChatGroup.objects.select_for_update(), pk=pk)
+        message_queryset = ChatMessage.objects.filter(group=group)
+        message_count = message_queryset.count()
+        image_storage = ChatMessage._meta.get_field("image").storage
+        attachment_storage = ChatMessage._meta.get_field("attachment").storage
+        file_refs = []
+        for image_name, attachment_name in message_queryset.values_list("image", "attachment").iterator():
+            if image_name:
+                file_refs.append((image_storage, image_name))
+            if attachment_name:
+                file_refs.append((attachment_storage, attachment_name))
+        message_queryset.delete()
+        transaction.on_commit(lambda refs=file_refs: _delete_chat_message_files(refs))
+
+    _broadcast_group_event(group.pk, {"type": "group_messages_cleared"})
+    messages.success(request, f"تم حذف {message_count} رسالة من مجموعة {group.title} مع المرفقات والتفاعلات.")
+    return redirect("management_chat_group_edit", pk=group.pk)
 
 
 @staff_required

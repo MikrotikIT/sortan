@@ -52,6 +52,7 @@ urlpatterns = [
     path("management/demo-chat-accounts/<int:pk>/send/", chat_management_views.demo_chat_account_send, name="management_demo_chat_account_send"),
     path("management/chat-groups/", chat_management_views.chat_groups, name="management_chat_groups"),
     path("management/chat-groups/<int:pk>/", chat_management_views.chat_group_edit, name="management_chat_group_edit"),
+    path("management/chat-groups/<int:pk>/messages/delete-all/", chat_management_views.chat_group_messages_delete_all, name="management_chat_group_messages_delete_all"),
     path("management/chat-groups/<int:pk>/delete/", chat_management_views.chat_group_delete, name="management_chat_group_delete"),
     path("management/chat-groups/<int:pk>/members/add/", chat_management_views.chat_group_member_add, name="management_chat_group_member_add"),
     path("management/chat-groups/<int:pk>/members/<int:user_id>/update/", chat_management_views.chat_group_member_update, name="management_chat_group_member_update"),
