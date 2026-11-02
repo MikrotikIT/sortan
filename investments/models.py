@@ -464,6 +464,7 @@ class DemoInvestment(models.Model):
     amount = models.DecimalField("مبلغ الاستثمار", max_digits=20, decimal_places=6)
     profit_percent = models.DecimalField("نسبة الربح (%)", max_digits=6, decimal_places=2)
     realized_profit = models.DecimalField("الربح التجريبي", max_digits=20, decimal_places=2)
+    profit_credited = models.BooleanField("أضيف إلى رصيد الأرباح", default=False, editable=False)
     status = models.CharField("الحالة", max_length=12, choices=Status.choices, default=Status.COMPLETED, editable=False)
     invested_at = models.DateTimeField("تاريخ الاستثمار")
     created_by = models.ForeignKey(

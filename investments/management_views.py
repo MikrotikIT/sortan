@@ -768,6 +768,17 @@ def customer_detail(request, pk):
             is_fake_account = request.POST.get("is_fake_account") == "on"
             with transaction.atomic():
                 customer = get_object_or_404(User.objects.select_for_update(), pk=pk)
+                if not is_fake_account and customer.demo_investments.exists():
+                    messages.error(request, "احذف الاستثمارات التجريبية أولاً قبل إلغاء تصنيف الحساب كحساب اختبار.")
+                    return redirect("management_customer_detail", pk=customer.pk)
+                if is_fake_account:
+                    uncredited = DemoInvestment.objects.filter(user=customer, profit_credited=False)
+                    uncredited_profit = uncredited.aggregate(total=Sum("realized_profit"))["total"] or Decimal("0.00")
+                    if uncredited_profit:
+                        customer.earnings_balance += uncredited_profit
+                        customer.total_earned += uncredited_profit
+                        customer.save(update_fields=("earnings_balance", "total_earned"))
+                        uncredited.update(profit_credited=True)
                 customer.is_fake_account = is_fake_account
                 customer.save(update_fields=("is_fake_account",))
             if is_fake_account:
@@ -788,6 +799,18 @@ def customer_detail(request, pk):
                 ).first()
                 if demo_investment:
                     film_title = demo_investment.film_title
+                    profit = (
+                        demo_investment.realized_profit
+                        if customer.is_fake_account and demo_investment.profit_credited
+                        else Decimal("0.00")
+                    )
+                    if profit > customer.earnings_balance:
+                        messages.error(request, "لا يمكن حذف الاستثمار لأن ربحه استُخدم في طلب سحب سابق.")
+                        return redirect("management_customer_detail", pk=customer.pk)
+                    if profit:
+                        customer.earnings_balance -= profit
+                        customer.total_earned = max(Decimal("0.00"), customer.total_earned - profit)
+                        customer.save(update_fields=("earnings_balance", "total_earned"))
                     demo_investment.delete()
             if demo_investment:
                 messages.success(request, f"تم حذف الاستثمار التجريبي «{film_title}» من سجل {customer.phone}.")
@@ -797,7 +820,18 @@ def customer_detail(request, pk):
         elif action == "delete_all_demo_investments":
             with transaction.atomic():
                 customer = get_object_or_404(User.objects.select_for_update(), pk=pk)
-                deleted_count, _ = DemoInvestment.objects.select_for_update().filter(user=customer).delete()
+                demo_investments = DemoInvestment.objects.filter(user=customer)
+                demo_profit = Decimal("0.00")
+                if customer.is_fake_account:
+                    demo_profit = demo_investments.filter(profit_credited=True).aggregate(total=Sum("realized_profit"))["total"] or Decimal("0.00")
+                if demo_profit > customer.earnings_balance:
+                    messages.error(request, "لا يمكن حذف الاستثمارات لأن بعض أرباحها استُخدمت في طلبات سحب سابقة.")
+                    return redirect("management_customer_detail", pk=customer.pk)
+                if demo_profit:
+                    customer.earnings_balance -= demo_profit
+                    customer.total_earned = max(Decimal("0.00"), customer.total_earned - demo_profit)
+                    customer.save(update_fields=("earnings_balance", "total_earned"))
+                deleted_count, _ = demo_investments.delete()
             if deleted_count:
                 messages.success(request, f"تم حذف {deleted_count} استثماراً تجريبياً من سجل {customer.phone}.")
             else:
@@ -940,12 +974,18 @@ def demo_investment_generator(request):
                                     amount=data["amount"],
                                     profit_percent=data["profit_percent"],
                                     realized_profit=profit,
+                                    profit_credited=True,
                                     invested_at=invested_at,
                                     created_by=request.user,
                                 )
                             )
                             title_index += 1
                     DemoInvestment.objects.bulk_create(records)
+                    if target.is_fake_account:
+                        total_demo_profit = profit * len(records)
+                        target.earnings_balance += total_demo_profit
+                        target.total_earned += total_demo_profit
+                        target.save(update_fields=("earnings_balance", "total_earned"))
                     created_count = len(records)
 
         if created_count:
