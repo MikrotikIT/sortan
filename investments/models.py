@@ -27,6 +27,10 @@ def default_deposit_activity_amount_bands():
     ]
 
 
+def default_chat_reactions():
+    return ["like", "heart", "fire", "clap", "dislike"]
+
+
 def join_application_photo_path(instance, filename):
     extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else "jpg"
     return f"join-applications/{instance.user_id}/{uuid.uuid4().hex}.{extension}"
@@ -743,6 +747,7 @@ class ChatGroup(models.Model):
     allow_files = models.BooleanField("السماح بإرفاق الملفات", default=False)
     allow_links = models.BooleanField("السماح بالروابط", default=True)
     reactions_enabled = models.BooleanField("السماح بالتفاعلات", default=True)
+    allowed_reactions = models.JSONField("التفاعلات المتاحة", default=default_chat_reactions)
     slow_mode_seconds = models.PositiveSmallIntegerField(
         "الفاصل بين رسائل العضو بالثواني (0 بلا حد)",
         default=0,

@@ -27,6 +27,7 @@
   const replyText = compose?.querySelector("[data-reply-text]");
   const glyphs = { like: "👍", heart: "❤️", fire: "🔥", clap: "👏", dislike: "👎" };
   const labels = { like: "إعجاب", heart: "قلب", fire: "نار", clap: "تصفيق", dislike: "عدم إعجاب" };
+  const allowedReactions = new Set((root.dataset.allowedReactions || "").split(",").filter((kind) => glyphs[kind]));
   let socket;
   let reconnectTimer;
   let retryCount = 0;
@@ -221,7 +222,7 @@
     picker.append(toggle);
     const options = document.createElement("div");
     options.className = "chat-reaction-options";
-    Object.entries(glyphs).forEach(([kind, glyph]) => {
+    Object.entries(glyphs).filter(([kind]) => allowedReactions.has(kind)).forEach(([kind, glyph]) => {
       const option = document.createElement("button");
       option.type = "button";
       option.textContent = glyph;
@@ -426,7 +427,7 @@
   const renderReactions = (container, message) => {
     clearChildren(container);
     if (!canReact || !message.reactions_enabled) return;
-    (message.reactions || []).filter((reaction) => Number(reaction.count || 0) > 0).forEach((reaction) => {
+    (message.reactions || []).filter((reaction) => allowedReactions.has(reaction.kind) && Number(reaction.count || 0) > 0).forEach((reaction) => {
       const button = document.createElement("button");
       button.type = "button";
       button.className = `chat-reaction${message.user_reaction === reaction.kind ? " is-selected" : ""}`;
@@ -897,6 +898,8 @@
         syncDayDividers();
       } else if (payload.type === "reaction_updated") {
         updateReactionCounts(payload);
+      } else if (payload.type === "reaction_settings_updated") {
+        window.location.reload();
       } else if (payload.type === "group_stats") {
         updateMemberCount(payload);
       }

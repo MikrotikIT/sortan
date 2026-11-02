@@ -10,7 +10,16 @@ from django.core.files.base import ContentFile
 from django.utils import timezone
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-from .models import ChatGroup, ChatMembership, User
+from .models import ChatGroup, ChatMembership, ChatReaction, User
+
+
+CHAT_REACTION_EMOJIS = {
+    "like": "👍",
+    "heart": "❤️",
+    "fire": "🔥",
+    "clap": "👏",
+    "dislike": "👎",
+}
 
 
 def _normalize_image(upload, *, canvas_size=None, max_size=(1600, 1600), output_limit=2 * 1024 * 1024):
@@ -65,13 +74,24 @@ def _normalize_image(upload, *, canvas_size=None, max_size=(1600, 1600), output_
 
 
 class ChatGroupForm(forms.ModelForm):
+    allowed_reactions = forms.MultipleChoiceField(
+        label="أنواع التفاعلات المسموحة",
+        choices=tuple(
+            (kind.value, f"{CHAT_REACTION_EMOJIS[kind.value]} {kind.label}")
+            for kind in ChatReaction.Kind
+        ),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        help_text="اختر الأنواع التي يمكن للأعضاء استخدامها. أزل التحديد لإخفاء نوع مثل عدم الإعجاب.",
+    )
+
     class Meta:
         model = ChatGroup
         fields = (
             "title", "description", "image", "is_active", "is_public", "max_members",
             "demo_member_offset", "demo_member_growth_enabled", "demo_member_interval_min_seconds",
             "demo_member_interval_max_seconds", "demo_member_increment_min", "demo_member_increment_max",
-            "message_mode", "notifications_muted_by_default", "allow_images", "allow_files", "allow_links", "reactions_enabled",
+            "message_mode", "notifications_muted_by_default", "allow_images", "allow_files", "allow_links", "reactions_enabled", "allowed_reactions",
             "slow_mode_seconds", "blocked_terms",
         )
         widgets = {
@@ -95,6 +115,7 @@ class ChatGroupForm(forms.ModelForm):
             "demo_member_increment_min": "اختيار عشوائي للزيادة في كل مرة، من 1 إلى 5.",
             "message_mode": "يمكن ضبط الأعضاء المسموح لهم من قائمة أعضاء المجموعة.",
             "notifications_muted_by_default": "يضبط إشعارات الأعضاء الذين ينضمون لاحقاً؛ ويمكن لكل عضو إلغاء الكتم من صفحة المجموعة.",
+            "reactions_enabled": "أوقف هذا الخيار لتعطيل كل التفاعلات في المجموعة.",
             "slow_mode_seconds": "الفاصل الأدنى بين رسائل العضو. الحد الأقصى 300 ثانية.",
             "blocked_terms": "كل عبارة في سطر مستقل؛ الرسائل التي تحتويها تُرفض.",
         }
@@ -122,6 +143,8 @@ class ChatGroupForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
+        if cleaned.get("reactions_enabled") and not cleaned.get("allowed_reactions"):
+            self.add_error("allowed_reactions", "اختر نوع تفاعل واحداً على الأقل أو أوقف التفاعلات بالكامل.")
         if cleaned.get("demo_member_interval_min_seconds") and cleaned.get("demo_member_interval_max_seconds"):
             if cleaned["demo_member_interval_min_seconds"] > cleaned["demo_member_interval_max_seconds"]:
                 self.add_error("demo_member_interval_max_seconds", "يجب أن يكون الحد الأعلى مساوياً أو أكبر من الحد الأدنى.")
@@ -176,6 +199,8 @@ class ChatDemoGrowthForm(forms.Form):
         if cleaned.get("demo_growth_enabled"):
             if self.group and not self.group.reactions_enabled:
                 self.add_error("demo_growth_enabled", "فعّل التفاعلات في إعدادات المجموعة أولاً.")
+            if self.group and not self.group.allowed_reactions:
+                self.add_error("demo_growth_enabled", "اختر أنواع التفاعلات المسموحة للمجموعة أولاً.")
             percentage_fields = ("demo_like_percent", "demo_heart_percent", "demo_fire_percent", "demo_clap_percent", "demo_dislike_percent")
             percentages = [cleaned.get(field) for field in percentage_fields]
             if all(value is not None for value in percentages) and sum(percentages) != 100:

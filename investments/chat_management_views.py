@@ -37,11 +37,18 @@ def chat_groups(request):
 def chat_group_edit(request, pk):
     group = get_object_or_404(ChatGroup, pk=pk)
     was_active = group.is_active
+    old_reactions_enabled = group.reactions_enabled
+    old_allowed_reactions = tuple(group.allowed_reactions or ())
     form = ChatGroupForm(request.POST or None, request.FILES or None, instance=group)
     if request.method == "POST" and form.is_valid():
         group = form.save()
         if was_active and not group.is_active:
             _broadcast_group_event(group.pk, {"type": "group_closed"})
+        if (
+            old_reactions_enabled != group.reactions_enabled
+            or old_allowed_reactions != tuple(group.allowed_reactions or ())
+        ):
+            _broadcast_group_event(group.pk, {"type": "reaction_settings_updated"})
         messages.success(request, "تم حفظ إعدادات المجموعة.")
         return redirect("management_chat_group_edit", pk=group.pk)
     members = group.memberships.select_related("user").order_by("user__phone")

@@ -20,6 +20,11 @@
 .chat-admin-form>.admin-field input:focus,.chat-admin-form>.admin-field select:focus,.chat-admin-form>.admin-field textarea:focus,.chat-inline-form .admin-field input:focus,.chat-inline-form .admin-field select:focus,.chat-inline-form .admin-field textarea:focus{border-color:#56aec2;box-shadow:0 0 0 3px rgba(20,158,204,.1);outline:0}
 .chat-admin-form>.admin-field small{display:block;margin-top:6px;color:#849398;font-size:10px;line-height:1.65}
 .chat-admin-form>.admin-field .field-error{color:#b54840}
+.chat-admin-form>.admin-reaction-field{grid-column:1/-1}
+.chat-admin-form>.admin-reaction-field>div{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.chat-admin-form>.admin-reaction-field>div>div{display:flex;align-items:center}
+.chat-admin-form>.admin-reaction-field>div label{display:flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid #e3ebed;border-radius:8px;background:#fff;color:#496168;font-size:11px;cursor:pointer}
+.chat-admin-form>.admin-reaction-field input[type=checkbox]{width:16px;height:16px;accent-color:#149ecc}
 .chat-admin-form>.admin-check-field{display:flex;align-items:center;gap:10px;min-height:58px}
 .chat-admin-form>.admin-check-field>label{order:2;margin:0}
 .chat-admin-form>.admin-check-field input[type=checkbox]{order:1;width:18px;height:18px;flex:0 0 auto;accent-color:#149ecc}

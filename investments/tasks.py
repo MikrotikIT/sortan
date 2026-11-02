@@ -11,7 +11,7 @@ from django.db.models import Count, F, Q
 from django.urls import reverse
 from django.utils import timezone
 
-from .chat_services import REACTION_GLYPHS, REACTION_ORDER, serialize_chat_message
+from .chat_services import REACTION_GLYPHS, allowed_group_reactions, serialize_chat_message
 from .models import (
     ChatGroup,
     ChatGroupBan,
@@ -214,16 +214,21 @@ def advance_demo_chat_metrics():
                 continue
             if not message.group.is_active or not message.group.reactions_enabled:
                 continue
+            allowed_reactions = allowed_group_reactions(message.group)
+            if not allowed_reactions:
+                continue
             amount = randint(message.demo_growth_step_min, message.demo_growth_step_max)
-            weights = (
-                message.demo_like_percent,
-                message.demo_heart_percent,
-                message.demo_fire_percent,
-                message.demo_clap_percent,
-                message.demo_dislike_percent,
-            )
-            kinds = (ChatReaction.Kind.LIKE, ChatReaction.Kind.HEART, ChatReaction.Kind.FIRE, ChatReaction.Kind.CLAP, ChatReaction.Kind.DISLIKE)
-            increments = Counter(choices(kinds, weights=weights, k=amount))
+            configured_weights = {
+                ChatReaction.Kind.LIKE.value: message.demo_like_percent,
+                ChatReaction.Kind.HEART.value: message.demo_heart_percent,
+                ChatReaction.Kind.FIRE.value: message.demo_fire_percent,
+                ChatReaction.Kind.CLAP.value: message.demo_clap_percent,
+                ChatReaction.Kind.DISLIKE.value: message.demo_dislike_percent,
+            }
+            weights = [configured_weights[kind] for kind in allowed_reactions]
+            if not any(weights):
+                weights = [1] * len(allowed_reactions)
+            increments = Counter(choices(allowed_reactions, weights=weights, k=amount))
             for kind, increment in increments.items():
                 counter, _ = DemoChatReactionCount.objects.get_or_create(message=message, kind=kind, defaults={"count": 0})
                 DemoChatReactionCount.objects.filter(pk=counter.pk).update(count=F("count") + increment)
@@ -232,12 +237,15 @@ def advance_demo_chat_metrics():
             message.save(update_fields=("demo_growth_next_at",))
             advanced_messages += 1
         if increments:
-            real_counts = {kind: 0 for kind in REACTION_ORDER}
+            allowed_reactions = allowed_group_reactions(message.group)
+            real_counts = {kind: 0 for kind in allowed_reactions}
             for row in ChatReaction.objects.filter(message_id=message_id).values("kind").annotate(total=Count("pk")):
-                real_counts[row["kind"]] = row["total"]
-            demo_counts = {kind: 0 for kind in REACTION_ORDER}
+                if row["kind"] in real_counts:
+                    real_counts[row["kind"]] = row["total"]
+            demo_counts = {kind: 0 for kind in allowed_reactions}
             for row in DemoChatReactionCount.objects.filter(message_id=message_id).values("kind", "count"):
-                demo_counts[row["kind"]] = row["count"]
+                if row["kind"] in demo_counts:
+                    demo_counts[row["kind"]] = row["count"]
             _broadcast_chat(
                 message.group_id,
                 {
@@ -245,6 +253,8 @@ def advance_demo_chat_metrics():
                     "message_id": message_id,
                     "actor_id": None,
                     "actor_reaction": None,
+                    "allowed_reactions": list(allowed_reactions),
+                    "reactions_enabled": message.group.reactions_enabled,
                     "reactions": [
                         {
                             "kind": kind,
@@ -253,7 +263,7 @@ def advance_demo_chat_metrics():
                             "real_count": real_counts[kind],
                             "demo_count": demo_counts[kind],
                         }
-                        for kind in REACTION_ORDER
+                        for kind in allowed_reactions
                     ],
                 },
             )

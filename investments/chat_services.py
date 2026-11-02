@@ -14,13 +14,20 @@ from .models import ChatGroup, ChatGroupBan, ChatGroupReadState, ChatMembership,
 
 
 REACTION_GLYPHS = {
-    ChatReaction.Kind.LIKE: "👍",
-    ChatReaction.Kind.HEART: "❤️",
-    ChatReaction.Kind.FIRE: "🔥",
-    ChatReaction.Kind.CLAP: "👏",
-    ChatReaction.Kind.DISLIKE: "👎",
+    ChatReaction.Kind.LIKE.value: "👍",
+    ChatReaction.Kind.HEART.value: "❤️",
+    ChatReaction.Kind.FIRE.value: "🔥",
+    ChatReaction.Kind.CLAP.value: "👏",
+    ChatReaction.Kind.DISLIKE.value: "👎",
 }
 REACTION_ORDER = tuple(REACTION_GLYPHS)
+
+
+def allowed_group_reactions(group):
+    configured = set(group.allowed_reactions or ())
+    return tuple(kind for kind in REACTION_ORDER if kind in configured)
+
+
 DEMO_SETTINGS_DEFAULTS = {
     "demo_growth_duration_hours": 24,
     "demo_growth_interval_min_seconds": 5,
@@ -191,14 +198,19 @@ def _reply_preview(message):
 
 def serialize_chat_message(message, viewer_id=None):
     reaction_rows = list(message.reactions.all())
-    real_counts = {kind: 0 for kind in REACTION_ORDER}
-    demo_counts = {kind: 0 for kind in REACTION_ORDER}
+    allowed_reactions = allowed_group_reactions(message.group)
+    real_counts = {kind: 0 for kind in allowed_reactions}
+    demo_counts = {kind: 0 for kind in allowed_reactions}
     viewer_reaction = None
     for reaction in reaction_rows:
+        if reaction.kind not in real_counts:
+            continue
         real_counts[reaction.kind] = real_counts.get(reaction.kind, 0) + 1
         if reaction.user_id == viewer_id:
             viewer_reaction = reaction.kind
     for reaction_count in message.demo_reaction_counts.all():
+        if reaction_count.kind not in demo_counts:
+            continue
         demo_counts[reaction_count.kind] = reaction_count.count
     media_url = reverse("chat_message_attachment", args=(message.pk,)) if message.image or message.attachment else ""
     growth_active = bool(
@@ -249,6 +261,7 @@ def serialize_chat_message(message, viewer_id=None):
         "attachment_name": message.attachment_name,
         "media_url": media_url,
         "reactions_enabled": message.group.reactions_enabled,
+        "allowed_reactions": list(allowed_reactions),
         "demo_growth_active": growth_active,
         "demo_growth_ends_at": message.demo_growth_ends_at.isoformat() if message.demo_growth_ends_at else None,
         "demo_reactions_present": any(demo_counts.values()),
@@ -260,7 +273,7 @@ def serialize_chat_message(message, viewer_id=None):
                 "real_count": real_counts[kind],
                 "demo_count": demo_counts[kind],
             }
-            for kind in REACTION_ORDER
+            for kind in allowed_reactions
         ],
         "user_reaction": viewer_reaction,
     }
@@ -461,6 +474,9 @@ def set_message_reaction(message_id, user_id, kind):
         raise ChatRuleError("نوع التفاعل غير صالح.")
     if not message.group.reactions_enabled:
         raise ChatRuleError("التفاعلات متوقفة في هذه المجموعة.")
+    allowed_reactions = allowed_group_reactions(message.group)
+    if kind not in allowed_reactions:
+        raise ChatRuleError("هذا النوع من التفاعل غير مسموح في المجموعة.")
     existing = ChatReaction.objects.filter(message=message, user=user).first()
     if existing and existing.kind == kind:
         existing.delete()
@@ -473,16 +489,20 @@ def set_message_reaction(message_id, user_id, kind):
         ChatReaction.objects.create(message=message, user=user, kind=kind)
         actor_reaction = kind
     rows = message.reactions.values("kind").annotate(total=Count("pk"))
-    real_counts = {kind_name: 0 for kind_name in REACTION_ORDER}
+    real_counts = {kind_name: 0 for kind_name in allowed_reactions}
     for row in rows:
-        real_counts[row["kind"]] = row["total"]
-    demo_counts = {kind_name: 0 for kind_name in REACTION_ORDER}
+        if row["kind"] in real_counts:
+            real_counts[row["kind"]] = row["total"]
+    demo_counts = {kind_name: 0 for kind_name in allowed_reactions}
     for row in message.demo_reaction_counts.values("kind", "count"):
-        demo_counts[row["kind"]] = row["count"]
+        if row["kind"] in demo_counts:
+            demo_counts[row["kind"]] = row["count"]
     return {
         "message_id": message.pk,
         "actor_id": user.pk,
         "actor_reaction": actor_reaction,
+        "allowed_reactions": list(allowed_reactions),
+        "reactions_enabled": message.group.reactions_enabled,
         "reactions": [
             {
                 "kind": item,
@@ -491,7 +511,7 @@ def set_message_reaction(message_id, user_id, kind):
                 "real_count": real_counts[item],
                 "demo_count": demo_counts[item],
             }
-            for item in REACTION_ORDER
+            for item in allowed_reactions
         ],
     }
 
