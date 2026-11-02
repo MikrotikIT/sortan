@@ -244,6 +244,18 @@ class WithdrawalForm(forms.Form):
         widget=forms.TextInput(attrs={"placeholder": "T...", "autocomplete": "off", "dir": "ltr"}),
     )
 
+    def __init__(self, *args, minimum_amount=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.minimum_amount = minimum_amount
+        if minimum_amount is not None:
+            self.fields["amount"].widget.attrs["min"] = str(minimum_amount)
+
+    def clean_amount(self):
+        amount = self.cleaned_data["amount"]
+        if self.minimum_amount is not None and amount < self.minimum_amount:
+            raise ValidationError(f"الحد الأدنى لطلب السحب هو {self.minimum_amount:.2f} USDT.")
+        return amount
+
     def clean_wallet_address(self):
         address = self.cleaned_data["wallet_address"].strip()
         if not re.fullmatch(r"T[1-9A-HJ-NP-Za-km-z]{33}", address):

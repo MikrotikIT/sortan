@@ -387,7 +387,8 @@ def withdrawals(request):
         else 0
     )
     can_request = not pending_request and cooldown_passed and not referral_gate_blocked
-    form = WithdrawalForm(request.POST or None)
+    minimum_withdrawal_amount = settings.withdrawal_minimum_amount if settings.withdrawal_minimum_enabled else None
+    form = WithdrawalForm(request.POST or None, minimum_amount=minimum_withdrawal_amount)
     if request.method == "POST":
         if referral_gate_blocked:
             messages.error(

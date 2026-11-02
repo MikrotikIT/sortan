@@ -277,6 +277,7 @@ def platform_settings(request):
             form["withdrawal_cooldown_enabled"], form["withdrawal_interval_days"],
             form["withdrawal_tax_enabled"], form["withdrawal_tax_percent"],
         ]),
+        ("الحد الأدنى للسحب", [form["withdrawal_minimum_enabled"], form["withdrawal_minimum_amount"]]),
         ("شرط الدعوات بعد السحب", [
             form["withdrawal_referral_gate_enabled"],
         ]),

@@ -254,6 +254,14 @@ class PlatformSettings(models.Model):
     )
     withdrawal_tax_enabled = models.BooleanField("تفعيل ضريبة السحب", default=True)
     withdrawal_tax_percent = models.DecimalField("ضريبة السحب (%)", max_digits=5, decimal_places=2, default=10, validators=[MinValueValidator(0), MaxValueValidator(100)])
+    withdrawal_minimum_enabled = models.BooleanField("تفعيل الحد الأدنى للسحب", default=True)
+    withdrawal_minimum_amount = models.DecimalField(
+        "الحد الأدنى للسحب (USDT)",
+        max_digits=12,
+        decimal_places=2,
+        default=5,
+        validators=[MinValueValidator(0.01)],
+    )
     referral_deposit_percent = models.DecimalField("عمولة الدعوة من الإيداع (%)", max_digits=5, decimal_places=2, default=1, validators=[MinValueValidator(0), MaxValueValidator(100)])
     referral_profit_percent = models.DecimalField("عمولة الدعوة من الأرباح (%)", max_digits=5, decimal_places=2, default=10, validators=[MinValueValidator(0), MaxValueValidator(100)])
     online_counter_enabled = models.BooleanField("تفعيل عداد المتصلين التجريبي", default=True)

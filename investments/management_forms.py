@@ -49,6 +49,7 @@ class PlatformSettingsForm(forms.ModelForm):
             "withdrawal_cooldown_enabled", "withdrawal_interval_days",
             "withdrawal_referral_gate_enabled", "withdrawal_referral_rules",
             "withdrawal_tax_enabled", "withdrawal_tax_percent",
+            "withdrawal_minimum_enabled", "withdrawal_minimum_amount",
             "referral_deposit_percent", "referral_profit_percent",
             "online_counter_enabled", "online_counter_min", "online_counter_max",
             "online_counter_step_min", "online_counter_step_max",
@@ -58,6 +59,7 @@ class PlatformSettingsForm(forms.ModelForm):
 
         widgets = {
             "minimum_deposit_amount": forms.NumberInput(attrs={"min": "0.000001", "step": "0.000001"}),
+            "withdrawal_minimum_amount": forms.NumberInput(attrs={"min": "0.01", "step": "0.01"}),
             "withdrawal_referral_rules": forms.Textarea(attrs={"rows": 3, "dir": "ltr", "placeholder": "3:2, 5:4, 9:6"}),
             "online_counter_min": forms.NumberInput(attrs={"min": "0", "step": "1"}),
             "online_counter_max": forms.NumberInput(attrs={"min": "0", "step": "1"}),
