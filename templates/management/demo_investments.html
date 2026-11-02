@@ -1,0 +1,25 @@
+{% extends 'management/base.html' %}
+{% block title %}إنشاء استثمارات تجريبية — Kodi TV{% endblock %}
+{% block content %}
+<section class="management-heading">
+  <div><span class="eyebrow">حسابات الاختبار</span><h1>إنشاء استثمارات تجريبية</h1><p>اختر حساب اختبار وأنشئ سجلات مكتملة ضمن فترة محددة.</p></div>
+</section>
+<div class="notice notice-info"><strong>بيانات تجريبية</strong><p>تظهر السجلات في «سجل استثماراتي» مع شارة تجريبي واضحة. لا تغيّر الرصيد أو الأرباح الفعلية ولا تدخل في تقارير المالية. تظهر هذه السجلات لحسابات الاختبار المعلّمة فقط.</p></div>
+<section class="management-panel form-panel">
+  <div class="management-panel-head"><div><span class="eyebrow">دفعة جديدة</span><h2>تفاصيل السجلات</h2></div></div>
+  <form method="post" class="management-form">
+    {% csrf_token %}
+    {% for error in form.non_field_errors %}<div class="notice notice-error">{{ error }}</div>{% endfor %}
+    {% for field in form %}
+    <div class="admin-field">
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+      {% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
+    </div>
+    {% endfor %}
+    <div class="form-actions"><button class="btn btn-primary" type="submit">إنشاء الاستثمارات التجريبية</button></div>
+  </form>
+  {% if not eligible_user_count %}<div class="admin-empty">لا توجد حسابات اختبار نشطة ومقبولة. علّم حساباً كـ «حساب وهمي» من صفحة تفاصيله أولاً.</div>{% endif %}
+</section>
+{% endblock %}

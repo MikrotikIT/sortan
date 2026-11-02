@@ -1,6 +1,8 @@
 import csv
 from functools import wraps
-from datetime import timedelta
+from datetime import datetime, time, timedelta
+from decimal import ROUND_HALF_UP, Decimal
+from random import sample
 from urllib.parse import urlencode
 
 from django.contrib import messages
@@ -19,9 +21,9 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_POST
 
-from .management_forms import CustomerBlockForm, CustomerInfoForm, CustomerPasswordForm, FilmForm, InternalBalanceCreditForm, JoinApplicationDecisionForm, ManualDepositForm, NotificationForm, PlatformSettingsForm, SupportOptionForm, VoucherAmountForm, VoucherIssueForm
+from .management_forms import CustomerBlockForm, CustomerInfoForm, CustomerPasswordForm, DemoInvestmentBatchForm, FilmForm, InternalBalanceCreditForm, JoinApplicationDecisionForm, ManualDepositForm, NotificationForm, PlatformSettingsForm, SupportOptionForm, VoucherAmountForm, VoucherIssueForm
 from .firebase_credentials import save_service_account_upload, service_account_status
-from .models import Deposit, Film, InternalBalanceCredit, Investment, InvestmentVoucher, JoinApplication, ServiceHeartbeat, SupportOption, User, UserNotification, Wallet, WalletSyncRun, WithdrawalRequest
+from .models import DemoInvestment, Deposit, Film, InternalBalanceCredit, Investment, InvestmentVoucher, JoinApplication, ServiceHeartbeat, SupportOption, User, UserNotification, Wallet, WalletSyncRun, WithdrawalRequest
 from .push_services import queue_bulk_notification_push
 from .services import approve_deposit, deposit_status_for_amount, get_platform_settings, notify_balance_received, notify_deposit_event, pay_withdrawal, reject_deposit, reject_withdrawal
 from .wallet_services import decrypt_private_key, ensure_wallet, sync_all_wallets
@@ -762,18 +764,15 @@ def customer_detail(request, pk):
                 messages.success(request, f"تم إرسال إشعار إلى العميل {customer.phone}.")
                 return redirect("management_customer_detail", pk=customer.pk)
         elif action == "fake_account":
-            if customer.is_staff:
-                messages.error(request, "يمكن تعيين الحساب الوهمي للعملاء فقط.")
-                return redirect("management_customer_detail", pk=customer.pk)
             is_fake_account = request.POST.get("is_fake_account") == "on"
             with transaction.atomic():
-                customer = get_object_or_404(User.objects.select_for_update(), pk=pk, is_staff=False)
+                customer = get_object_or_404(User.objects.select_for_update(), pk=pk)
                 customer.is_fake_account = is_fake_account
                 customer.save(update_fields=("is_fake_account",))
             if is_fake_account:
-                messages.success(request, f"تم تفعيل الحساب الوهمي للعميل {customer.phone} واستبعاد بياناته من المالية والمطابقة المالية.")
+                messages.success(request, f"تم تفعيل الحساب الوهمي للحساب {customer.phone} واستبعاد بياناته من المالية والمطابقة المالية.")
             else:
-                messages.success(request, f"تم إلغاء تصنيف الحساب الوهمي للعميل {customer.phone} وإعادة بياناته إلى تقريري المالية والمطابقة المالية.")
+                messages.success(request, f"تم إلغاء تصنيف الحساب الوهمي للحساب {customer.phone} وإعادة بياناته إلى تقريري المالية والمطابقة المالية.")
             return redirect("management_customer_detail", pk=customer.pk)
     if customer.is_staff:
         wallet = Wallet.objects.filter(user=customer).first()
@@ -848,6 +847,85 @@ def investments(request):
             "invested_to": invested_to,
             "matures_from": matures_from,
             "matures_to": matures_to,
+        },
+    )
+
+
+@staff_required
+def demo_investment_generator(request):
+    form = DemoInvestmentBatchForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        data = form.cleaned_data
+        day_count = (data["end_date"] - data["start_date"]).days + 1
+        record_count = day_count * data["count_per_day"]
+        created_count = 0
+
+        with transaction.atomic():
+            target = User.objects.select_for_update().filter(
+                pk=data["user"].pk,
+                is_staff=False,
+                is_active=True,
+                is_fake_account=True,
+                approval_status="approved",
+            ).first()
+            if target is None:
+                form.add_error("user", "الحساب المحدد لم يعد حساب اختبار نشطاً.")
+            else:
+                used_titles = set(Investment.objects.filter(user=target).values_list("film_title", flat=True))
+                used_titles.update(
+                    DemoInvestment.objects.filter(user=target).values_list("film_title", flat=True)
+                )
+                available_titles = list(
+                    Film.objects.filter(active=True)
+                    .exclude(title__in=used_titles)
+                    .values_list("title", flat=True)
+                    .distinct()
+                )
+                if len(available_titles) < record_count:
+                    form.add_error(
+                        None,
+                        "عدد الأفلام النشطة غير المكررة لهذا الحساب لا يكفي لهذه الدفعة. قلل العدد أو أضف أفلاماً نشطة.",
+                    )
+                else:
+                    titles = sample(available_titles, record_count)
+                    profit = (
+                        data["amount"] * data["profit_percent"] / Decimal("100")
+                    ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                    records = []
+                    title_index = 0
+                    for day_offset in range(day_count):
+                        day = data["start_date"] + timedelta(days=day_offset)
+                        for item_index in range(data["count_per_day"]):
+                            minute = round((item_index + 1) * 60 / (data["count_per_day"] + 1))
+                            invested_at = timezone.make_aware(
+                                datetime.combine(day, time(hour=12, minute=minute)),
+                                timezone.get_current_timezone(),
+                            )
+                            records.append(
+                                DemoInvestment(
+                                    user=target,
+                                    film_title=titles[title_index],
+                                    amount=data["amount"],
+                                    profit_percent=data["profit_percent"],
+                                    realized_profit=profit,
+                                    invested_at=invested_at,
+                                    created_by=request.user,
+                                )
+                            )
+                            title_index += 1
+                    DemoInvestment.objects.bulk_create(records)
+                    created_count = len(records)
+
+        if created_count:
+            messages.success(request, f"أُنشئ {created_count} استثماراً تجريبياً لحساب الاختبار {target.phone}.")
+            return redirect("management_demo_investments")
+
+    return render(
+        request,
+        "management/demo_investments.html",
+        {
+            "form": form,
+            "eligible_user_count": form.fields["user"].queryset.count(),
         },
     )
 

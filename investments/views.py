@@ -19,7 +19,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
 from .forms import InvestmentForm, JoinApplicationForm, LoginForm, RegistrationForm, WithdrawalForm
-from .models import Deposit, Film, Investment, InvestmentVoucher, JoinApplication, PlatformSettings, PushDevice, SupportOption, UserNotification, WithdrawalRequest
+from .models import DemoInvestment, Deposit, Film, Investment, InvestmentVoucher, JoinApplication, PlatformSettings, PushDevice, SupportOption, UserNotification, WithdrawalRequest
 from .notification_services import sanitize_notification_html
 from .chat_services import get_chat_unread_counts
 from .services import get_platform_settings, parse_withdrawal_referral_rules, settle_due_investments, withdraw_available_at
@@ -254,12 +254,18 @@ def dashboard(request):
     voucher_count = available_vouchers.count()
     voucher_total = available_vouchers.aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
     has_vouchers = voucher_count > 0
-    investments = request.user.investments.select_related("film", "voucher")
+    investments = list(request.user.investments.select_related("film", "voucher"))
+    demo_investments = []
+    if request.user.is_fake_account:
+        demo_investments = list(request.user.demo_investments.all())
+        investments.extend(demo_investments)
+        investments.sort(key=lambda item: item.invested_at, reverse=True)
     return render(
         request,
         "investments/dashboard.html",
         {
             "investments": investments,
+            "demo_investments": demo_investments,
             "has_vouchers": has_vouchers,
             "voucher_count": voucher_count,
             "voucher_total": voucher_total,

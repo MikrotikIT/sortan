@@ -455,6 +455,55 @@ class Investment(models.Model):
         return f"{self.film_title} — {self.user.phone}"
 
 
+class DemoInvestment(models.Model):
+    class Status(models.TextChoices):
+        COMPLETED = "completed", "مكتمل"
+
+    user = models.ForeignKey(User, verbose_name="حساب الاختبار", on_delete=models.CASCADE, related_name="demo_investments")
+    film_title = models.CharField("اسم الفيلم", max_length=180)
+    amount = models.DecimalField("مبلغ الاستثمار", max_digits=20, decimal_places=6)
+    profit_percent = models.DecimalField("نسبة الربح (%)", max_digits=6, decimal_places=2)
+    realized_profit = models.DecimalField("الربح التجريبي", max_digits=20, decimal_places=2)
+    status = models.CharField("الحالة", max_length=12, choices=Status.choices, default=Status.COMPLETED, editable=False)
+    invested_at = models.DateTimeField("تاريخ الاستثمار")
+    created_by = models.ForeignKey(
+        User,
+        verbose_name="أنشأه",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="created_demo_investments",
+    )
+    created_at = models.DateTimeField("تاريخ الإنشاء", auto_now_add=True)
+
+    class Meta:
+        ordering = ("-invested_at", "-pk")
+        constraints = [
+            models.UniqueConstraint(fields=("user", "film_title"), name="demo_user_film_title_uniq"),
+        ]
+        verbose_name = "استثمار تجريبي"
+        verbose_name_plural = "الاستثمارات التجريبية"
+
+    def __str__(self):
+        return f"{self.film_title} — {self.user.phone} (تجريبي)"
+
+    @property
+    def is_demo(self):
+        return True
+
+    @property
+    def film_image_url(self):
+        return ""
+
+    @property
+    def expected_profit(self):
+        return self.realized_profit
+
+    @property
+    def matures_at(self):
+        return self.invested_at
+
+
 class Wallet(models.Model):
     user = models.OneToOneField(User, verbose_name="المستخدم", on_delete=models.CASCADE, related_name="wallet")
     address = models.CharField("عنوان TRON TRC20", max_length=64, unique=True)

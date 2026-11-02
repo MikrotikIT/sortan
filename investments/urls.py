@@ -70,6 +70,7 @@ urlpatterns = [
     path("management/customers/<int:pk>/unblock/", management_views.unblock_customer, name="management_customer_unblock"),
     path("management/customers/<int:pk>/", management_views.customer_detail, name="management_customer_detail"),
     path("management/investments/", management_views.investments, name="management_investments"),
+    path("management/demo-investments/", management_views.demo_investment_generator, name="management_demo_investments"),
     path("management/wallets/", management_views.wallets, name="management_wallets"),
     path("management/wallets/<int:pk>/", management_views.wallet_detail, name="management_wallet_detail"),
     path("management/wallets/sync/", management_views.sync_wallet_balances, name="management_wallet_sync"),

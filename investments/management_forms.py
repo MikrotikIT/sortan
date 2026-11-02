@@ -5,6 +5,7 @@ import warnings
 from django import forms
 from django.core.files.base import ContentFile
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 from django.utils.html import strip_tags
 from PIL import Image, ImageOps, UnidentifiedImageError
 
@@ -389,3 +390,70 @@ class InternalBalanceCreditForm(forms.Form):
             raise ValidationError("لم يتم العثور على عميل بهذا الرقم.")
         self.cleaned_data["target_user"] = user
         return phone
+
+
+class DemoInvestmentBatchForm(forms.Form):
+    user = forms.ModelChoiceField(
+        label="حساب الاختبار",
+        queryset=User.objects.none(),
+        empty_label="اختر حساباً مصنفاً للاختبار",
+    )
+    count_per_day = forms.IntegerField(
+        label="عدد الاستثمارات في اليوم",
+        min_value=1,
+        max_value=20,
+        initial=3,
+        widget=forms.NumberInput(attrs={"min": "1", "max": "20", "step": "1"}),
+    )
+    start_date = forms.DateField(
+        label="من تاريخ",
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    end_date = forms.DateField(
+        label="إلى تاريخ",
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    amount = forms.DecimalField(
+        label="مبلغ كل استثمار (USDT)",
+        min_value=Decimal("0.01"),
+        max_digits=20,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={"min": "0.01", "step": "0.01"}),
+    )
+    profit_percent = forms.DecimalField(
+        label="نسبة الربح (%)",
+        min_value=Decimal("0"),
+        max_value=Decimal("100"),
+        max_digits=6,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={"min": "0", "max": "100", "step": "0.01"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["user"].queryset = User.objects.filter(
+            is_staff=False,
+            is_active=True,
+            is_fake_account=True,
+            approval_status="approved",
+        ).order_by("phone")
+        self.fields["user"].help_text = "اختر حساباً نشطاً ومقبولاً ومعلماً كحساب اختبار."
+        self.fields["count_per_day"].help_text = "يُنشأ هذا العدد لكل يوم في الفترة المحددة، بحد أقصى 500 سجل لكل دفعة."
+        self.fields["profit_percent"].help_text = "تُحسب الأرباح التجريبية بهذا المعدل ولا تضاف إلى رصيد الحساب."
+        today = timezone.localdate()
+        self.fields["start_date"].initial = today
+        self.fields["end_date"].initial = today
+
+    def clean(self):
+        cleaned = super().clean()
+        start_date = cleaned.get("start_date")
+        end_date = cleaned.get("end_date")
+        count_per_day = cleaned.get("count_per_day")
+        if start_date and end_date:
+            if end_date < start_date:
+                self.add_error("end_date", "يجب أن يكون تاريخ النهاية في اليوم نفسه أو بعد تاريخ البداية.")
+            elif end_date > timezone.localdate():
+                self.add_error("end_date", "اختر تاريخاً سابقاً أو تاريخ اليوم.")
+            elif count_per_day and (end_date - start_date).days + 1 > 500 // count_per_day:
+                self.add_error(None, "الدفعة الواحدة محدودة بـ 500 استثمار تجريبي كحد أقصى.")
+        return cleaned
