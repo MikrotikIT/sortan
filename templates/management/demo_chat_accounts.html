@@ -1,7 +1,7 @@
 {% extends 'management/base.html' %}
 {% load static %}
 {% block title %}حسابات المحادثة التجريبية — إدارة KODI{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/demo-chat-accounts.css' %}?v=1"><link rel="stylesheet" href="{% static 'css/demo-chat-accounts-filter.css' %}?v=1">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/demo-chat-accounts.css' %}?v=1"><link rel="stylesheet" href="{% static 'css/demo-chat-accounts-filter.css' %}?v=1"><link rel="stylesheet" href="{% static 'css/demo-chat-account-delete.css' %}?v=1">{% endblock %}
 {% block content %}
 <section class="management-heading demo-accounts-heading"><div><span class="eyebrow">أدوات اختبار المحادثة</span><h1>حسابات المحادثة التجريبية</h1><p>أنشئ هويات محادثة مؤقتة للاختبار وافتح لكل واحدة صفحة مستقلة.</p></div></section>
 
@@ -22,7 +22,7 @@
 </section>
 
 <section class="management-panel demo-account-list-panel">
-  <div class="management-panel-head"><div><h2>{% if selected_group %}حسابات {{ selected_group.title }}{% else %}الحسابات المحفوظة{% endif %}</h2><p>يمكنك تعديل الاسم أو توليد اسم آخر أو إعادة فتح المحادثة.</p></div><div class="demo-account-list-actions"><form class="demo-account-group-filter" method="get" data-demo-account-group-filter><label for="demo-account-list-group">المجموعة</label><select id="demo-account-list-group" name="group">{% for group in groups %}<option value="{{ group.pk }}" {% if selected_group.pk == group.pk %}selected{% endif %}>{{ group.title }}</option>{% endfor %}</select><button class="btn btn-quiet btn-small" type="submit">عرض</button></form><span class="count-pill">{{ accounts|length }} حساب</span>{% if accounts %}<button class="btn btn-quiet btn-small" type="button" data-open-all-accounts>فتح الكل</button>{% endif %}</div></div>
+  <div class="management-panel-head"><div><h2>{% if selected_group %}حسابات {{ selected_group.title }}{% else %}الحسابات المحفوظة{% endif %}</h2><p>يمكنك تعديل الاسم أو توليد اسم آخر أو إعادة فتح المحادثة.</p></div><div class="demo-account-list-actions"><form class="demo-account-group-filter" method="get" data-demo-account-group-filter><label for="demo-account-list-group">المجموعة</label><select id="demo-account-list-group" name="group">{% for group in groups %}<option value="{{ group.pk }}" {% if selected_group.pk == group.pk %}selected{% endif %}>{{ group.title }}</option>{% endfor %}</select><button class="btn btn-quiet btn-small" type="submit">عرض</button></form><span class="count-pill">{{ accounts|length }} حساب</span>{% if accounts %}<button class="btn btn-quiet btn-small" type="button" data-open-all-accounts>فتح الكل</button><form method="post" action="{% url 'management_demo_chat_accounts_delete_group' selected_group.pk %}" onsubmit="return confirm('حذف جميع هويات المحادثة التجريبية لهذه المجموعة؟ ستبقى رسائلها محفوظة.')">{% csrf_token %}<button class="btn btn-quiet btn-small demo-account-delete-all" type="submit">حذف الجميع</button></form>{% endif %}</div></div>
   {% if accounts %}
   <div class="demo-account-list">
     {% for account in accounts %}
@@ -35,6 +35,7 @@
       <div class="demo-account-actions">
         <a class="btn btn-primary btn-small" href="{% url 'management_demo_chat_account_room' account.pk %}" target="_blank" rel="noopener" data-demo-account-url>فتح المحادثة</a>
         <form method="post" action="{% url 'management_demo_chat_account_regenerate_name' account.pk %}" onsubmit="return confirm('توليد اسم جديد؟ ستبقى الرسائل السابقة باسمها الحالي.')">{% csrf_token %}<button class="btn btn-quiet btn-small" type="submit">توليد اسم جديد</button></form>
+        <form method="post" action="{% url 'management_demo_chat_account_delete' account.pk %}" onsubmit="return confirm('حذف هذه الهوية؟ ستبقى رسائلها السابقة محفوظة في المجموعة.')">{% csrf_token %}<button class="btn btn-quiet btn-small demo-account-delete" type="submit">حذف الحساب</button></form>
       </div>
     </article>
     {% endfor %}

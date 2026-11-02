@@ -345,6 +345,26 @@ def demo_chat_account_regenerate_name(request, pk):
 
 
 @staff_required
+@require_POST
+def demo_chat_account_delete(request, pk):
+    account = get_object_or_404(ChatDemoAccount.objects.select_related("group"), pk=pk)
+    group_id = account.group_id
+    display_name = account.display_name
+    account.delete()
+    messages.success(request, f"تم حذف هوية {display_name}. بقيت رسائلها السابقة محفوظة في المجموعة.")
+    return redirect(_demo_accounts_page_url(group_id))
+
+
+@staff_required
+@require_POST
+def demo_chat_accounts_delete_group(request, group_id):
+    group = get_object_or_404(ChatGroup, pk=group_id)
+    deleted_count, _ = ChatDemoAccount.objects.filter(group=group).delete()
+    messages.success(request, f"تم حذف {deleted_count} حساباً تجريبياً من مجموعة {group.title}. بقيت رسائلها محفوظة.")
+    return redirect(_demo_accounts_page_url(group.pk))
+
+
+@staff_required
 def demo_chat_account_room(request, pk):
     account = get_object_or_404(
         ChatDemoAccount.objects.select_related("group"),
