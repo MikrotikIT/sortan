@@ -850,9 +850,38 @@ class ChatGroupBan(models.Model):
         return f"{self.user} — {self.group}"
 
 
+class ChatDemoAccount(models.Model):
+    """A persistent chat persona for staff testing; it is not an auth.User."""
+
+    group = models.ForeignKey(ChatGroup, on_delete=models.CASCADE, related_name="demo_accounts")
+    display_name = models.CharField("الاسم والكنية", max_length=120)
+    created_at = models.DateTimeField("تاريخ الإنشاء", auto_now_add=True)
+    updated_at = models.DateTimeField("آخر تعديل", auto_now=True)
+
+    class Meta:
+        ordering = ("display_name", "pk")
+        constraints = [
+            models.UniqueConstraint(fields=("group", "display_name"), name="unique_chat_demo_account_name_per_group"),
+        ]
+        verbose_name = "حساب محادثة تجريبي"
+        verbose_name_plural = "حسابات المحادثة التجريبية"
+
+    def __str__(self):
+        return f"{self.display_name} — {self.group} (تجريبي)"
+
+
 class ChatMessage(models.Model):
     group = models.ForeignKey(ChatGroup, on_delete=models.CASCADE, related_name="messages")
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name="chat_messages")
+    demo_account = models.ForeignKey(
+        ChatDemoAccount,
+        verbose_name="هوية الحساب التجريبي",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="messages",
+    )
+    demo_sender_name = models.CharField("اسم المرسل التجريبي وقت الإرسال", max_length=120, blank=True)
     reply_to = models.ForeignKey(
         "self",
         verbose_name="رد على رسالة",
@@ -903,7 +932,7 @@ class ChatMessage(models.Model):
         verbose_name_plural = "رسائل المجموعات"
 
     def __str__(self):
-        return f"{self.group} — {self.sender} — {self.created_at:%Y-%m-%d %H:%M}"
+        return f"{self.group} — {self.demo_sender_name or self.sender} — {self.created_at:%Y-%m-%d %H:%M}"
 
 
 class ChatReaction(models.Model):

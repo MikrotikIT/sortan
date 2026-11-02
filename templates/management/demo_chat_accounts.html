@@ -1,0 +1,46 @@
+{% extends 'management/base.html' %}
+{% load static %}
+{% block title %}حسابات المحادثة التجريبية — إدارة KODI{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/demo-chat-accounts.css' %}?v=1"><link rel="stylesheet" href="{% static 'css/demo-chat-accounts-filter.css' %}?v=1">{% endblock %}
+{% block content %}
+<section class="management-heading demo-accounts-heading"><div><span class="eyebrow">أدوات اختبار المحادثة</span><h1>حسابات المحادثة التجريبية</h1><p>أنشئ هويات محادثة مؤقتة للاختبار وافتح لكل واحدة صفحة مستقلة.</p></div></section>
+
+<div class="demo-accounts-notice" role="note"><span aria-hidden="true">ⓘ</span><p>هذه الهويات ليست حسابات دخول ولا تُضاف إلى قائمة العملاء. تظهر رسائلها للعملاء بوسم <strong>تجريبي</strong>، وتبقى محفوظة عند إغلاق صفحات المحادثة.</p></div>
+{% if popup_blocked %}<div class="demo-accounts-popup-note" role="status">حظر المتصفح فتح {{ popup_blocked }} صفحة. افتح الحسابات من أزرار «فتح المحادثة» في القائمة.</div>{% endif %}
+
+<section class="management-panel demo-account-create-panel">
+  <div class="management-panel-head"><div><h2>إنشاء حسابات تجريبية</h2><p>تُولّد أسماء عربية فريدة للمجموعة المحددة، ثم تُفتح الصفحات في تبويبات منفصلة.</p></div></div>
+  {% if groups %}
+  <form class="demo-account-create-form" id="demo-account-create-form" method="post" action="{% url 'management_demo_chat_accounts_create' %}">
+    {% csrf_token %}
+    <div class="admin-field"><label for="{{ form.group.id_for_label }}">{{ form.group.label }}</label>{{ form.group }}{% for error in form.group.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>
+    <div class="admin-field demo-account-count-field"><label for="{{ form.count.id_for_label }}">{{ form.count.label }}</label>{{ form.count }}<small>من 1 إلى 20 حساباً في المرة.</small>{% for error in form.count.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>
+    <button class="btn btn-primary" type="submit" data-create-demo-accounts><span aria-hidden="true">＋</span> إنشاء وفتح الحسابات</button>
+    <p class="demo-account-create-status" data-create-status role="status" aria-live="polite" hidden></p>
+  </form>
+  {% else %}<div class="admin-empty">أنشئ مجموعة محادثة وفعّلها أولاً لاستخدام الحسابات التجريبية.</div>{% endif %}
+</section>
+
+<section class="management-panel demo-account-list-panel">
+  <div class="management-panel-head"><div><h2>{% if selected_group %}حسابات {{ selected_group.title }}{% else %}الحسابات المحفوظة{% endif %}</h2><p>يمكنك تعديل الاسم أو توليد اسم آخر أو إعادة فتح المحادثة.</p></div><div class="demo-account-list-actions"><form class="demo-account-group-filter" method="get" data-demo-account-group-filter><label for="demo-account-list-group">المجموعة</label><select id="demo-account-list-group" name="group">{% for group in groups %}<option value="{{ group.pk }}" {% if selected_group.pk == group.pk %}selected{% endif %}>{{ group.title }}</option>{% endfor %}</select><button class="btn btn-quiet btn-small" type="submit">عرض</button></form><span class="count-pill">{{ accounts|length }} حساب</span>{% if accounts %}<button class="btn btn-quiet btn-small" type="button" data-open-all-accounts>فتح الكل</button>{% endif %}</div></div>
+  {% if accounts %}
+  <div class="demo-account-list">
+    {% for account in accounts %}
+    <article class="demo-account-card">
+      <div class="demo-account-avatar" aria-hidden="true">{{ account.display_name|slice:":1" }}</div>
+      <form class="demo-account-edit-form" method="post" action="{% url 'management_demo_chat_account_edit' account.pk %}">
+        {% csrf_token %}<label for="demo-account-name-{{ account.pk }}">اسم الحساب التجريبي</label><div class="demo-account-name-row"><input id="demo-account-name-{{ account.pk }}" type="text" name="display_name" maxlength="120" value="{{ account.display_name }}" required><button class="table-action" type="submit">حفظ الاسم</button></div>
+      </form>
+      <div class="demo-account-meta"><span class="demo-account-label">حساب تجريبي</span><small>{{ account.message_count }} رسالة محفوظة</small></div>
+      <div class="demo-account-actions">
+        <a class="btn btn-primary btn-small" href="{% url 'management_demo_chat_account_room' account.pk %}" target="_blank" rel="noopener" data-demo-account-url>فتح المحادثة</a>
+        <form method="post" action="{% url 'management_demo_chat_account_regenerate_name' account.pk %}" onsubmit="return confirm('توليد اسم جديد؟ ستبقى الرسائل السابقة باسمها الحالي.')">{% csrf_token %}<button class="btn btn-quiet btn-small" type="submit">توليد اسم جديد</button></form>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% elif selected_group %}<div class="admin-empty">لا توجد حسابات تجريبية لهذه المجموعة. اختر العدد واضغط «إنشاء وفتح الحسابات».</div>
+  {% else %}<div class="admin-empty">لا توجد مجموعات محادثة مفعّلة.</div>{% endif %}
+</section>
+{% endblock %}
+{% block extra_js %}<script src="{% static 'js/demo-chat-accounts.js' %}?v=1" defer></script>{% endblock %}

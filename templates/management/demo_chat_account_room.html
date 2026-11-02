@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block body_class %}demo-chat-account-room-page{% endblock %}
+{% block title %}{{ account.display_name }} — محادثة تجريبية{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/demo-chat-room.css' %}?v=1">{% endblock %}
+{% block content %}
+<main class="demo-chat-room" data-demo-chat-room data-history-url="{{ history_url }}" data-send-url="{{ send_url }}" data-last-message-id="{{ last_message_id }}">
+  <header class="demo-chat-room-header">
+    <a class="demo-chat-back" href="{% url 'management_demo_chat_accounts' %}?group={{ group.pk }}">← الإدارة</a>
+    <div class="demo-chat-group-heading"><span class="demo-chat-group-icon" aria-hidden="true">✦</span><span><strong>{{ group.title }}</strong><small>جلسة اختبار للمجموعة</small></span></div>
+    <div class="demo-chat-identity"><span class="demo-chat-avatar" aria-hidden="true">{{ account.display_name|slice:":1" }}</span><span><strong>{{ account.display_name }}</strong><small>هوية محادثة تجريبية</small></span><b>تجريبي</b></div>
+  </header>
+  <div class="demo-chat-transparency"><span aria-hidden="true">ⓘ</span><p>الرسائل التي ترسلها ستظهر في المجموعة باسم <strong>{{ account.display_name }}</strong> مع وسم «تجريبي». إغلاق هذه الصفحة لا يحذف الرسائل.</p></div>
+  <section class="demo-chat-transcript" aria-label="رسائل المجموعة">
+    <ol class="demo-chat-message-list" data-demo-chat-messages aria-live="polite">
+      {% for message in messages_data %}
+      <li class="demo-chat-message{% if message.is_demo %} is-demo{% endif %}" data-message-id="{{ message.id }}">
+        <article class="demo-chat-message-card"><header><strong>{{ message.sender }}</strong>{% if message.is_demo %}<span class="demo-chat-message-badge">تجريبي</span>{% elif message.sender_is_admin %}<span class="demo-chat-admin-badge">مشرف</span>{% endif %}<time>{{ message.created_at|slice:"11:16" }}</time></header>
+          {% if message.text %}<p>{{ message.text }}</p>{% endif %}
+          {% if message.image and message.media_url %}<a href="{{ message.media_url }}" target="_blank" rel="noopener">صورة مرفقة</a>{% elif message.attachment and message.media_url %}<a href="{{ message.media_url }}">{{ message.attachment_name|default:"ملف مرفق" }}</a>{% endif %}
+        </article>
+      </li>
+      {% empty %}<li class="demo-chat-empty" data-demo-chat-empty>لا توجد رسائل بعد. أرسل أول رسالة من هذه الهوية التجريبية.</li>{% endfor %}
+    </ol>
+  </section>
+  <form class="demo-chat-compose" data-demo-chat-form method="post" action="{{ send_url }}">
+    {% csrf_token %}<textarea name="text" rows="1" maxlength="2000" placeholder="اكتب رسالة باسم {{ account.display_name }}…" aria-label="نص الرسالة" required></textarea><button type="submit"><span>إرسال</span><b aria-hidden="true">➤</b></button>
+  </form>
+  <p class="demo-chat-error" data-demo-chat-error role="alert" hidden></p>
+</main>
+{% endblock %}
+{% block extra_js %}<script src="{% static 'js/demo-chat-room.js' %}?v=1" defer></script>{% endblock %}

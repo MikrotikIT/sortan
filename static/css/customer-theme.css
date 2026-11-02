@@ -499,3 +499,9 @@ html[data-customer-theme="dark"] body.customer-shell .group-detail-alert {
 html[data-customer-theme="dark"] body.customer-shell .chat-room-title-link:hover h1 {
   color: #68cde5;
 }
+
+html[data-customer-theme="dark"] body.customer-shell .chat-demo-sender-badge {
+  border-color: #68573a;
+  background: #493a25;
+  color: #f0cb76;
+}

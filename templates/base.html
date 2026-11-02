@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="{% static 'css/notifications.css' %}">
   <link rel="stylesheet" href="{% static 'css/brand-assets.css' %}">
   {% block extra_head %}{% endblock %}
-  <link rel="stylesheet" href="{% static 'css/customer-theme.css' %}?v=3">
+  <link rel="stylesheet" href="{% static 'css/customer-theme.css' %}?v=4">
 </head>
 <body class="{% if user.is_authenticated %}customer-shell{% else %}public-shell{% endif %} {% block body_class %}{% endblock %}">
   {% if messages %}{% include 'includes/toasts.html' %}{% endif %}

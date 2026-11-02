@@ -10,7 +10,7 @@ from django.core.files.base import ContentFile
 from django.utils import timezone
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-from .models import ChatGroup, ChatMembership, ChatReaction, User
+from .models import ChatDemoAccount, ChatGroup, ChatMembership, ChatReaction, User
 
 
 CHAT_REACTION_EMOJIS = {
@@ -284,3 +284,34 @@ class GroupBanForm(forms.Form):
             raise ValidationError("لم يُعثر على عميل بهذا الرقم.")
         self.cleaned_data["target_user"] = user
         return phone
+
+
+class ChatDemoAccountBatchForm(forms.Form):
+    group = forms.ModelChoiceField(
+        label="مجموعة المحادثة",
+        queryset=ChatGroup.objects.filter(is_active=True).order_by("title", "pk"),
+    )
+    count = forms.IntegerField(
+        label="عدد الحسابات",
+        min_value=1,
+        max_value=20,
+        initial=5,
+        widget=forms.NumberInput(attrs={"min": 1, "max": 20, "step": 1}),
+    )
+
+
+class ChatDemoAccountEditForm(forms.ModelForm):
+    class Meta:
+        model = ChatDemoAccount
+        fields = ("display_name",)
+        widgets = {
+            "display_name": forms.TextInput(attrs={"maxlength": 120, "autocomplete": "off"}),
+        }
+
+    def clean_display_name(self):
+        from django.utils.html import strip_tags
+
+        name = strip_tags(self.cleaned_data["display_name"]).strip()
+        if not name:
+            raise ValidationError("أدخل اسماً وكنية للحساب التجريبي.")
+        return name

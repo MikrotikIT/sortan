@@ -462,7 +462,12 @@
     author.textContent = escapeText(message.sender);
     author.title = escapeText(message.sender);
     header.append(author);
-    if (message.sender_is_admin) {
+    if (message.is_demo) {
+      const demoBadge = document.createElement("span");
+      demoBadge.className = "chat-demo-sender-badge";
+      demoBadge.textContent = "تجريبي";
+      header.append(demoBadge);
+    } else if (message.sender_is_admin) {
       const role = document.createElement("span");
       role.className = "chat-admin-badge";
       role.textContent = "مشرف";
@@ -627,7 +632,12 @@
     const author = document.createElement("strong");
     author.textContent = String(message.sender || "عضو");
     header.appendChild(author);
-    if (message.sender_is_admin) {
+    if (message.is_demo) {
+      const badge = document.createElement("span");
+      badge.className = "chat-demo-sender-badge";
+      badge.textContent = "تجريبي";
+      header.appendChild(badge);
+    } else if (message.sender_is_admin) {
       const badge = document.createElement("span");
       badge.className = "chat-admin-badge";
       badge.textContent = "مشرف";

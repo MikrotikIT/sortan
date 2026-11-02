@@ -10,7 +10,7 @@ from django.utils.html import strip_tags
 from django.urls import reverse
 from django.utils.text import get_valid_filename
 
-from .models import ChatGroup, ChatGroupBan, ChatGroupReadState, ChatMembership, ChatMessage, ChatReaction, JoinApplication, User
+from .models import ChatDemoAccount, ChatGroup, ChatGroupBan, ChatGroupReadState, ChatMembership, ChatMessage, ChatReaction, JoinApplication, User
 
 
 REACTION_GLYPHS = {
@@ -152,7 +152,7 @@ def user_can_moderate(user, group):
     return bool(membership and membership.role == ChatMembership.Role.MODERATOR)
 
 
-def _check_text_rules(group, user, text):
+def _check_text_rules(group, user, text, *, demo_account=None):
     text = strip_tags(text or "").strip()
     if text:
         if len(text) > 2000:
@@ -165,7 +165,12 @@ def _check_text_rules(group, user, text):
         if not group.allow_links and re.search(r"(?:https?://|www\.)", normalized):
             raise ChatRuleError("إرسال الروابط متوقف في هذه المجموعة.")
     if group.slow_mode_seconds:
-        last_message = ChatMessage.objects.filter(group=group, sender=user).order_by("-created_at").first()
+        sender_messages = ChatMessage.objects.filter(group=group)
+        if demo_account is None:
+            sender_messages = sender_messages.filter(sender=user)
+        else:
+            sender_messages = sender_messages.filter(demo_account=demo_account)
+        last_message = sender_messages.order_by("-created_at").first()
         if last_message:
             elapsed = (timezone.now() - last_message.created_at).total_seconds()
             if elapsed < group.slow_mode_seconds:
@@ -184,6 +189,10 @@ def _display_sender_name(value):
 def _get_sender_name(user):
     name = JoinApplication.objects.filter(user_id=user.pk).values_list("full_name", flat=True).first()
     return _display_sender_name(name or user.get_full_name())
+
+
+def _message_sender_name(message):
+    return _display_sender_name(message.demo_sender_name) if message.demo_sender_name else _get_sender_name(message.sender)
 
 
 def _reply_preview(message):
@@ -223,7 +232,7 @@ def serialize_chat_message(message, viewer_id=None):
     if reply:
         reply_data = {
             "id": message.reply_to_original_id or reply.pk,
-            "sender": _get_sender_name(reply.sender),
+            "sender": _message_sender_name(reply),
             "preview": message.reply_to_preview or _reply_preview(reply),
             "deleted": False,
         }
@@ -237,8 +246,9 @@ def serialize_chat_message(message, viewer_id=None):
     return {
         "id": message.pk,
         "sender_id": message.sender_id,
-        "sender": _get_sender_name(message.sender),
-        "sender_is_admin": bool(message.sender.is_staff),
+        "sender": _message_sender_name(message),
+        "sender_is_admin": bool(message.sender.is_staff and not message.demo_sender_name),
+        "is_demo": bool(message.demo_sender_name),
         "text": message.text,
         "reply_to": reply_data,
         "created_at": timezone.localtime(message.created_at).strftime("%Y-%m-%d %H:%M"),
@@ -325,7 +335,7 @@ def _reply_snapshot(reply):
     return {
         "reply_to": reply,
         "reply_to_original_id": reply.pk,
-        "reply_to_sender_name": _get_sender_name(reply.sender)[:120],
+        "reply_to_sender_name": _message_sender_name(reply)[:120],
         "reply_to_preview": _reply_preview(reply),
     }
 
@@ -404,6 +414,33 @@ def create_text_message(group_id, user_id, text, reply_to_id=None):
     from .push_services import queue_group_message_push
 
     queue_group_message_push(message.pk)
+    return serialize_chat_message(message, viewer_id=user.pk)
+
+
+@transaction.atomic
+def create_demo_text_message(group_id, demo_account_id, user_id, text):
+    user = User.objects.select_for_update().get(pk=user_id)
+    if not user.is_active or not user.is_staff:
+        raise ChatRuleError("إرسال رسائل الحسابات التجريبية متاح للإدارة فقط.")
+    group = ChatGroup.objects.select_for_update().filter(pk=group_id, is_active=True).first()
+    if group is None:
+        raise ChatRuleError("مجموعة المحادثة غير متاحة الآن.")
+    demo_account = ChatDemoAccount.objects.select_for_update().filter(
+        pk=demo_account_id,
+        group=group,
+    ).first()
+    if demo_account is None:
+        raise ChatRuleError("الحساب التجريبي غير متاح الآن.")
+    text = _check_text_rules(group, user, text, demo_account=demo_account)
+    if not text:
+        raise ChatRuleError("اكتب نص الرسالة.")
+    message = ChatMessage.objects.create(
+        group=group,
+        sender=user,
+        demo_account=demo_account,
+        demo_sender_name=demo_account.display_name,
+        text=text,
+    )
     return serialize_chat_message(message, viewer_id=user.pk)
 
 

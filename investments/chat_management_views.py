@@ -1,13 +1,30 @@
+import logging
+from random import choice
+
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.contrib import messages
 from django.db import transaction
+from django.db.models import Count
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
+from django.urls import reverse
+from django.views.decorators.http import require_GET, require_POST
 
-from .chat_forms import ChatGroupForm, GroupBanForm, GroupMemberForm, GroupMemberPermissionForm
+from .chat_forms import (
+    ChatDemoAccountBatchForm,
+    ChatDemoAccountEditForm,
+    ChatGroupForm,
+    GroupBanForm,
+    GroupMemberForm,
+    GroupMemberPermissionForm,
+)
+from .chat_services import ChatRuleError, create_demo_text_message, serialize_chat_message
 from .management_views import staff_required
-from .models import ChatGroup, ChatGroupBan, ChatMembership
+from .models import ChatDemoAccount, ChatGroup, ChatGroupBan, ChatMembership, ChatMessage
+
+
+logger = logging.getLogger(__name__)
 
 
 def _broadcast_group_event(group_id, payload):
@@ -169,3 +186,239 @@ def chat_group_unban(request, pk, ban_id):
     ban.delete()
     messages.success(request, f"تم رفع الحظر عن {phone}. يمكنه الانضمام مجدداً إذا كانت المجموعة متاحة.")
     return redirect("management_chat_group_edit", pk=group.pk)
+
+
+DEMO_CHAT_FIRST_NAMES = (
+    "آدم", "أحمد", "أنس", "إياد", "باسل", "بهاء", "تامر", "تيم", "جواد", "حازم",
+    "حسام", "حمزة", "خالد", "رامي", "رائد", "ريان", "زيد", "سامر", "سليم", "سيف",
+    "شادي", "طارق", "عادل", "عاصم", "عباس", "عمر", "عمار", "فارس", "فراس", "قيس",
+    "كريم", "ليث", "مازن", "محمد", "مروان", "مهند", "نادر", "نديم", "هادي", "هيثم",
+    "وسام", "يزن", "ياسر", "يوسف", "سارة", "آية", "بتول", "جنى", "جود", "حلا",
+    "دانا", "ديمة", "رنا", "ريم", "زينة", "سلمى", "شهد", "صفا", "عبير", "غنى",
+    "فرح", "لارا", "لمى", "لين", "ليان", "مريم", "ميس", "نادين", "ندى", "نور",
+    "هبة", "هند", "ياسمين",
+)
+
+DEMO_CHAT_NISBAS = (
+    "الحموي", "الدمشقي", "الحلبي", "الحمصي", "الشامي", "العلي", "الحسن", "الناصر", "الخطيب", "بركات",
+    "الرفاعي", "الزيني", "النجار", "الحاج", "الحداد", "الملحم", "الأسعد", "العباس", "الدياب", "السالم",
+    "المرعي", "البدوي", "العمر", "اليوسف", "القاسم", "الموسى", "الدرويش", "الشقير", "العبيد", "الغانم",
+    "الطويل", "القصير", "الزعبي", "الحريري", "الشقيف", "العثمان", "المراد", "الشرع", "الصالح", "الطاهر",
+    "الخوري", "الكردي", "النعيم", "الحسين", "السيد", "القادري", "النجدي", "المالكي", "الأنصاري", "التميمي",
+    "القرشي", "الجبوري", "الربيعي", "الشمري", "العنزي", "السلطان", "العابد", "المنصور", "النجار", "الصفدي",
+)
+
+
+def _new_demo_chat_name(reserved_names):
+    for _ in range(5000):
+        candidate = f"{choice(DEMO_CHAT_FIRST_NAMES)} {choice(DEMO_CHAT_NISBAS)}"
+        if candidate.casefold() not in reserved_names:
+            reserved_names.add(candidate.casefold())
+            return candidate
+    raise ValueError("نفدت الأسماء التجريبية الفريدة. عدّل اسماً موجوداً ثم أعد التوليد.")
+
+
+def _reserved_demo_chat_names():
+    names = {
+        name.casefold() for name in ChatDemoAccount.objects.values_list("display_name", flat=True)
+    }
+    names.update(
+        name.casefold()
+        for name in ChatMessage.objects.exclude(demo_sender_name="")
+        .values_list("demo_sender_name", flat=True)
+        .distinct()
+    )
+    return names
+
+
+def _demo_accounts_page_url(group_id):
+    return f"{reverse('management_demo_chat_accounts')}?group={group_id}"
+
+
+@staff_required
+def demo_chat_accounts(request):
+    groups = ChatGroup.objects.filter(is_active=True).order_by("title", "pk")
+    requested_group_id = request.GET.get("group")
+    try:
+        selected_group = groups.filter(pk=int(requested_group_id)).first() if requested_group_id else None
+    except (TypeError, ValueError):
+        selected_group = None
+    if selected_group is None:
+        selected_group = groups.first()
+    form = ChatDemoAccountBatchForm(
+        initial={"group": selected_group.pk, "count": 5} if selected_group else {"count": 5}
+    )
+    accounts = (
+        ChatDemoAccount.objects.filter(group=selected_group)
+        .select_related("group")
+        .annotate(message_count=Count("messages", distinct=True))
+        .order_by("display_name", "pk")
+        if selected_group else ChatDemoAccount.objects.none()
+    )
+    try:
+        popup_blocked = max(0, int(request.GET.get("popup_blocked", "0")))
+    except (TypeError, ValueError):
+        popup_blocked = 0
+    return render(
+        request,
+        "management/demo_chat_accounts.html",
+        {
+            "groups": groups,
+            "selected_group": selected_group,
+            "form": form,
+            "accounts": accounts,
+            "popup_blocked": popup_blocked,
+        },
+    )
+
+
+@staff_required
+@require_POST
+def demo_chat_accounts_create(request):
+    form = ChatDemoAccountBatchForm(request.POST)
+    if not form.is_valid():
+        error = next(iter(form.errors.values()), ["راجع بيانات المجموعة وعدد الحسابات."])[0]
+        return JsonResponse({"ok": False, "error": str(error)}, status=400)
+
+    group = form.cleaned_data["group"]
+    count = form.cleaned_data["count"]
+    created_accounts = []
+    try:
+        with transaction.atomic():
+            group = ChatGroup.objects.select_for_update().get(pk=group.pk, is_active=True)
+            reserved_names = _reserved_demo_chat_names()
+            for _ in range(count):
+                created_accounts.append(
+                    ChatDemoAccount.objects.create(
+                        group=group,
+                        display_name=_new_demo_chat_name(reserved_names),
+                    )
+                )
+    except (ChatGroup.DoesNotExist, ValueError) as exc:
+        error = str(exc) if isinstance(exc, ValueError) else "المجموعة غير متاحة الآن."
+        return JsonResponse({"ok": False, "error": error}, status=400)
+
+    messages.success(request, f"تم إنشاء {len(created_accounts)} حساب محادثة تجريبي للمجموعة {group.title}.")
+    return JsonResponse(
+        {
+            "ok": True,
+            "accounts": [
+                {
+                    "id": account.pk,
+                    "name": account.display_name,
+                    "url": reverse("management_demo_chat_account_room", args=(account.pk,)),
+                }
+                for account in created_accounts
+            ],
+            "page_url": _demo_accounts_page_url(group.pk),
+        }
+    )
+
+
+@staff_required
+@require_POST
+def demo_chat_account_edit(request, pk):
+    account = get_object_or_404(ChatDemoAccount.objects.select_related("group"), pk=pk)
+    form = ChatDemoAccountEditForm(request.POST, instance=account)
+    if form.is_valid():
+        form.save()
+        messages.success(request, "تم حفظ اسم الحساب التجريبي. الرسائل السابقة تحتفظ بالاسم الذي أُرسلت به.")
+    else:
+        errors = [str(error) for field_errors in form.errors.values() for error in field_errors]
+        messages.error(request, errors[0] if errors else "تعذر حفظ اسم الحساب.")
+    return redirect(_demo_accounts_page_url(account.group_id))
+
+
+@staff_required
+@require_POST
+def demo_chat_account_regenerate_name(request, pk):
+    try:
+        with transaction.atomic():
+            account = get_object_or_404(ChatDemoAccount.objects.select_related("group"), pk=pk)
+            ChatGroup.objects.select_for_update().get(pk=account.group_id)
+            account.display_name = _new_demo_chat_name(_reserved_demo_chat_names())
+            account.save(update_fields=("display_name", "updated_at"))
+        messages.success(request, f"تم توليد اسم جديد: {account.display_name}. الرسائل السابقة لم تتغير.")
+    except ValueError as exc:
+        messages.error(request, str(exc))
+    return redirect(_demo_accounts_page_url(account.group_id))
+
+
+@staff_required
+def demo_chat_account_room(request, pk):
+    account = get_object_or_404(
+        ChatDemoAccount.objects.select_related("group"),
+        pk=pk,
+        group__is_active=True,
+    )
+    recent_messages = list(
+        ChatMessage.objects.filter(group=account.group)
+        .select_related("group", "sender", "reply_to", "reply_to__sender")
+        .prefetch_related("reactions", "demo_reaction_counts")
+        .order_by("-created_at", "-pk")[:100]
+    )
+    recent_messages.reverse()
+    messages_data = [serialize_chat_message(message, viewer_id=request.user.pk) for message in recent_messages]
+    return render(
+        request,
+        "management/demo_chat_account_room.html",
+        {
+            "account": account,
+            "group": account.group,
+            "messages_data": messages_data,
+            "last_message_id": recent_messages[-1].pk if recent_messages else 0,
+            "history_url": reverse("management_demo_chat_account_history", args=(account.pk,)),
+            "send_url": reverse("management_demo_chat_account_send", args=(account.pk,)),
+        },
+    )
+
+
+@staff_required
+@require_GET
+def demo_chat_account_history(request, pk):
+    account = get_object_or_404(
+        ChatDemoAccount.objects.select_related("group"),
+        pk=pk,
+        group__is_active=True,
+    )
+    try:
+        after_id = max(0, int(request.GET.get("after", "0")))
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "error": "مؤشر الرسائل غير صالح."}, status=400)
+    page_messages = list(
+        ChatMessage.objects.filter(group=account.group, pk__gt=after_id)
+        .select_related("group", "sender", "reply_to", "reply_to__sender")
+        .prefetch_related("reactions", "demo_reaction_counts")
+        .order_by("pk")[:100]
+    )
+    response = JsonResponse({
+        "ok": True,
+        "messages": [serialize_chat_message(message, viewer_id=request.user.pk) for message in page_messages],
+        "last_message_id": page_messages[-1].pk if page_messages else after_id,
+    })
+    response["Cache-Control"] = "private, no-store"
+    return response
+
+
+@staff_required
+@require_POST
+def demo_chat_account_send(request, pk):
+    account = get_object_or_404(
+        ChatDemoAccount.objects.select_related("group"),
+        pk=pk,
+        group__is_active=True,
+    )
+    try:
+        message_data = create_demo_text_message(
+            account.group_id,
+            account.pk,
+            request.user.pk,
+            request.POST.get("text", ""),
+        )
+    except ChatRuleError as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+    try:
+        _broadcast_group_event(account.group_id, {"type": "message_created", "message": message_data})
+    except Exception:
+        logger.exception("Could not broadcast demo chat message %s", message_data["id"])
+    return JsonResponse({"ok": True, "message": message_data})
