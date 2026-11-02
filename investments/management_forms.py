@@ -10,6 +10,7 @@ from django.utils.html import strip_tags
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from .models import Film, InvestmentVoucher, JoinApplication, PlatformSettings, SupportOption, User
+from .demo_film_titles import DEMO_FILM_TITLES
 from .notification_services import sanitize_notification_html
 from .services import parse_withdrawal_referral_rules
 
@@ -438,7 +439,8 @@ class DemoInvestmentBatchForm(forms.Form):
             approval_status="approved",
         ).order_by("phone")
         self.fields["user"].help_text = "اختر حساباً نشطاً ومقبولاً ومعلماً كحساب اختبار."
-        self.fields["count_per_day"].help_text = "يُنشأ هذا العدد لكل يوم في الفترة المحددة، بحد أقصى 500 سجل لكل دفعة."
+        self.max_demo_title_count = len({title.casefold() for title in DEMO_FILM_TITLES})
+        self.fields["count_per_day"].help_text = f"يُنشأ هذا العدد لكل يوم في الفترة المحددة، بحد أقصى {self.max_demo_title_count} سجل لكل دفعة."
         self.fields["profit_percent"].help_text = "تُحسب الأرباح التجريبية بهذا المعدل ولا تضاف إلى رصيد الحساب."
         today = timezone.localdate()
         self.fields["start_date"].initial = today
@@ -454,6 +456,6 @@ class DemoInvestmentBatchForm(forms.Form):
                 self.add_error("end_date", "يجب أن يكون تاريخ النهاية في اليوم نفسه أو بعد تاريخ البداية.")
             elif end_date > timezone.localdate():
                 self.add_error("end_date", "اختر تاريخاً سابقاً أو تاريخ اليوم.")
-            elif count_per_day and (end_date - start_date).days + 1 > 500 // count_per_day:
-                self.add_error(None, "الدفعة الواحدة محدودة بـ 500 استثمار تجريبي كحد أقصى.")
+            elif count_per_day and (end_date - start_date).days + 1 > self.max_demo_title_count // count_per_day:
+                self.add_error(None, f"الدفعة الواحدة محدودة بـ {self.max_demo_title_count} استثمار تجريبي كحد أقصى.")
         return cleaned

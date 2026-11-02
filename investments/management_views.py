@@ -22,6 +22,7 @@ from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_POST
 
 from .management_forms import CustomerBlockForm, CustomerInfoForm, CustomerPasswordForm, DemoInvestmentBatchForm, FilmForm, InternalBalanceCreditForm, JoinApplicationDecisionForm, ManualDepositForm, NotificationForm, PlatformSettingsForm, SupportOptionForm, VoucherAmountForm, VoucherIssueForm
+from .demo_film_titles import DEMO_FILM_TITLES
 from .firebase_credentials import save_service_account_upload, service_account_status
 from .models import DemoInvestment, Deposit, Film, InternalBalanceCredit, Investment, InvestmentVoucher, JoinApplication, ServiceHeartbeat, SupportOption, User, UserNotification, Wallet, WalletSyncRun, WithdrawalRequest
 from .push_services import queue_bulk_notification_push
@@ -875,12 +876,14 @@ def demo_investment_generator(request):
                 used_titles.update(
                     DemoInvestment.objects.filter(user=target).values_list("film_title", flat=True)
                 )
-                available_titles = list(
-                    Film.objects.filter(active=True)
-                    .exclude(title__in=used_titles)
-                    .values_list("title", flat=True)
-                    .distinct()
-                )
+                used_titles = {title.casefold() for title in used_titles}
+                available_titles = []
+                seen_titles = set()
+                for title in DEMO_FILM_TITLES:
+                    normalized_title = title.casefold()
+                    if normalized_title not in used_titles and normalized_title not in seen_titles:
+                        available_titles.append(title)
+                        seen_titles.add(normalized_title)
                 if len(available_titles) < record_count:
                     form.add_error(
                         None,
