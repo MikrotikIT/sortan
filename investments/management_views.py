@@ -761,6 +761,20 @@ def customer_detail(request, pk):
                 )
                 messages.success(request, f"تم إرسال إشعار إلى العميل {customer.phone}.")
                 return redirect("management_customer_detail", pk=customer.pk)
+        elif action == "fake_account":
+            if customer.is_staff:
+                messages.error(request, "يمكن تعيين الحساب الوهمي للعملاء فقط.")
+                return redirect("management_customer_detail", pk=customer.pk)
+            is_fake_account = request.POST.get("is_fake_account") == "on"
+            with transaction.atomic():
+                customer = get_object_or_404(User.objects.select_for_update(), pk=pk, is_staff=False)
+                customer.is_fake_account = is_fake_account
+                customer.save(update_fields=("is_fake_account",))
+            if is_fake_account:
+                messages.success(request, f"تم تفعيل الحساب الوهمي للعميل {customer.phone} واستبعاد بياناته من المالية والمطابقة المالية.")
+            else:
+                messages.success(request, f"تم إلغاء تصنيف الحساب الوهمي للعميل {customer.phone} وإعادة بياناته إلى تقريري المالية والمطابقة المالية.")
+            return redirect("management_customer_detail", pk=customer.pk)
     if customer.is_staff:
         wallet = Wallet.objects.filter(user=customer).first()
     else:
@@ -977,7 +991,7 @@ def finance(request):
         period_days = 30
     today = timezone.localdate()
     start_date = today - timedelta(days=period_days - 1)
-    approved = Deposit.objects.filter(status=Deposit.Status.APPROVED).filter(
+    approved = Deposit.objects.filter(status=Deposit.Status.APPROVED, user__is_fake_account=False).filter(
         Q(occurred_at__date__gte=start_date) | Q(occurred_at__isnull=True, created_at__date__gte=start_date)
     )
     date_expr = TruncDate(
@@ -995,7 +1009,7 @@ def finance(request):
     maximum = max((float(item["total"]) for item in daily_deposits), default=0)
     for item in daily_deposits:
         item["width"] = min(100, max(4, (float(item["total"]) / maximum * 100))) if maximum else 4
-    today_deposits = Deposit.objects.filter(status=Deposit.Status.APPROVED).filter(
+    today_deposits = Deposit.objects.filter(status=Deposit.Status.APPROVED, user__is_fake_account=False).filter(
         Q(occurred_at__date=today) | Q(occurred_at__isnull=True, created_at__date=today)
     ).aggregate(total=Sum("amount"))["total"] or 0
     period_total = sum((item["total"] for item in daily_deposits), 0)
@@ -1008,7 +1022,7 @@ def finance(request):
             "today_deposits": today_deposits,
             "period_total": period_total,
             "period_count": approved.count(),
-            "recent_deposits": Deposit.objects.filter(status=Deposit.Status.APPROVED)
+            "recent_deposits": Deposit.objects.filter(status=Deposit.Status.APPROVED, user__is_fake_account=False)
             .select_related("user", "wallet").order_by("-occurred_at", "-created_at")[:30],
         },
     )
@@ -1021,7 +1035,9 @@ def _reconciliation_data(request):
         date_from = today - timedelta(days=29)
         date_to = today
 
-    deposits = _apply_deposit_date_range(Deposit.objects.select_related("user", "wallet"), date_from, date_to)
+    deposits = _apply_deposit_date_range(
+        Deposit.objects.select_related("user", "wallet").filter(user__is_fake_account=False), date_from, date_to
+    )
     approved_tron = deposits.filter(status=Deposit.Status.APPROVED, source=Deposit.Source.TRON)
     approved_manual = deposits.filter(status=Deposit.Status.APPROVED, source=Deposit.Source.MANUAL)
     approved_deposits = deposits.filter(status=Deposit.Status.APPROVED)
@@ -1029,14 +1045,16 @@ def _reconciliation_data(request):
     pending = deposits.filter(status=Deposit.Status.PENDING)
 
     paid_withdrawals = _apply_date_range(
-        WithdrawalRequest.objects.select_related("user").filter(status=WithdrawalRequest.Status.PAID),
+        WithdrawalRequest.objects.select_related("user").filter(
+            status=WithdrawalRequest.Status.PAID, user__is_fake_account=False
+        ),
         "processed_at",
         date_from,
         date_to,
     )
     inflow_total = approved_deposits.aggregate(total=Sum("amount"))["total"] or 0
     outflow_total = paid_withdrawals.aggregate(total=Sum("net_amount"))["total"] or 0
-    wallet_queryset = Wallet.objects.select_related("user").order_by("pk")
+    wallet_queryset = Wallet.objects.select_related("user").filter(user__is_fake_account=False).order_by("pk")
     stale_before = timezone.now() - timedelta(seconds=max(settings.TRON_DEPOSIT_SYNC_INTERVAL_SECONDS * 2, 600))
     wallet_totals = wallet_queryset.aggregate(
         total=Sum("usdt_balance"),

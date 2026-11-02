@@ -80,6 +80,7 @@ class User(AbstractUser):
         ("blocked", "محظور"),
     )
     approval_status = models.CharField("حالة طلب الانضمام", max_length=12, choices=APPROVAL_STATUS, default="approved")
+    is_fake_account = models.BooleanField("حساب وهمي", default=False)
     blocked_from_status = models.CharField(
         "الحالة قبل الحظر",
         max_length=12,
