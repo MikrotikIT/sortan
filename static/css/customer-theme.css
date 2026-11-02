@@ -26,6 +26,38 @@ html[data-customer-theme="dark"] body.customer-shell .bottom-nav {
   background: rgba(16, 35, 43, .97);
 }
 
+html[data-customer-theme="dark"] body.customer-shell .online-counter {
+  border-color: #34515b;
+  background: #172c34;
+  color: #b9cbd0;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .online-counter strong {
+  color: #e2ecef;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .online-counter-dot {
+  box-shadow: 0 0 0 3px #21483e;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .chat-page-heading {
+  border-color: #2d4851;
+  background: radial-gradient(circle at 8% 15%, rgba(20, 158, 204, .12), transparent 34%), linear-gradient(135deg, #142a32, #10232a);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .16);
+}
+
+html[data-customer-theme="dark"] body.customer-shell .chat-page-heading h1 {
+  color: #e2ecef;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .chat-page-heading p {
+  color: #a9bbc0;
+}
+
+html[data-customer-theme="dark"] body.customer-shell .chat-page-heading .eyebrow {
+  color: #68cde5;
+}
+
 html[data-customer-theme="dark"] body.customer-shell .site-footer,
 html[data-customer-theme="dark"] body.customer-shell .breadcrumb,
 html[data-customer-theme="dark"] body.customer-shell .date-muted,
@@ -255,12 +287,6 @@ html[data-customer-theme="dark"] body.customer-shell .chat-room-header {
 html[data-customer-theme="dark"] body.customer-shell .chat-group-avatar {
   border-color: #30464e;
   background: #172b33;
-}
-
-html[data-customer-theme="dark"] body.customer-shell .chat-room-header .customer-theme-toggle {
-  flex-basis: 32px;
-  width: 32px;
-  height: 32px;
 }
 
 html[data-customer-theme="dark"] body.customer-shell .chat-group-card-copy > small,
