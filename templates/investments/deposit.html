@@ -74,9 +74,6 @@
           <span>TRON · TRC20</span>
         </div>
       </div>
-      <div class="deposit-history-transaction">
-        {% if item.transaction_id %}<a class="deposit-tx-link" href="https://tronscan.org/#/transaction/{{ item.transaction_id }}" target="_blank" rel="noopener noreferrer">تفاصيل التحويل <span>↗</span></a>{% else %}<small class="deposit-no-tx">—</small>{% endif %}
-      </div>
     </article>
     {% endfor %}
   </div>
