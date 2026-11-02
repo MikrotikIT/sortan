@@ -61,7 +61,7 @@ def chat_groups(request):
         form.save_m2m()
         messages.success(request, "تم إنشاء مجموعة المحادثة.")
         return redirect("management_chat_group_edit", pk=group.pk)
-    groups = ChatGroup.objects.order_by("title", "pk")
+    groups = ChatGroup.objects.order_by("display_order", "title", "pk")
     return render(request, "management/chat_groups.html", {"form": form, "groups": groups})
 
 

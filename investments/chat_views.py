@@ -68,7 +68,7 @@ def chat_groups(request):
             )
         )
         .distinct()
-        .order_by("title", "pk")
+        .order_by("display_order", "title", "pk")
     )
     memberships = dict(
         ChatMembership.objects.filter(user=request.user).values_list("group_id", "notifications_muted")

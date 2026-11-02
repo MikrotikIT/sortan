@@ -783,9 +783,11 @@ class ChatGroup(models.Model):
     updated_at = models.DateTimeField("آخر تعديل", auto_now=True)
 
     class Meta:
-        ordering = ("title", "pk")
+        ordering = ("display_order", "title", "pk")
         verbose_name = "مجموعة محادثة"
         verbose_name_plural = "مجموعات المحادثة"
+
+    display_order = models.PositiveSmallIntegerField("ترتيب الظهور", default=0)
 
     def __str__(self):
         return self.title

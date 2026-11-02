@@ -74,6 +74,14 @@ def _normalize_image(upload, *, canvas_size=None, max_size=(1600, 1600), output_
 
 
 class ChatGroupForm(forms.ModelForm):
+    display_order = forms.IntegerField(
+        label="ترتيب الظهور",
+        min_value=0,
+        max_value=32767,
+        help_text="الرقم الأصغر يظهر أولاً؛ وعند تساوي الرقم تُرتب المجموعات حسب الاسم.",
+        widget=forms.NumberInput(attrs={"min": "0", "max": "32767", "step": "1"}),
+    )
+
     allowed_reactions = forms.MultipleChoiceField(
         label="أنواع التفاعلات المسموحة",
         choices=tuple(
@@ -88,7 +96,7 @@ class ChatGroupForm(forms.ModelForm):
     class Meta:
         model = ChatGroup
         fields = (
-            "title", "description", "image", "is_active", "is_public", "max_members",
+            "title", "display_order", "description", "image", "is_active", "is_public", "max_members",
             "demo_member_offset", "demo_member_growth_enabled", "demo_member_interval_min_seconds",
             "demo_member_interval_max_seconds", "demo_member_increment_min", "demo_member_increment_max",
             "message_mode", "notifications_muted_by_default", "allow_images", "allow_files", "allow_links", "reactions_enabled", "allowed_reactions",
