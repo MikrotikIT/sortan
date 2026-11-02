@@ -971,7 +971,7 @@ class ChatDemoReaction(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=("message", "demo_account"), name="unique_chat_demo_reaction")]
-        indexes = [models.Index(fields=("message", "kind"), name="chat_demo_reaction_msg_kind_idx")]
+        indexes = [models.Index(fields=("message", "kind"), name="chat_demo_rxn_msg_kind_idx")]
         verbose_name = "تفاعل حساب محادثة تجريبي"
         verbose_name_plural = "تفاعلات حسابات المحادثة التجريبية"
 

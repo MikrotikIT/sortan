@@ -28,6 +28,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name="chatdemoreaction",
-            index=models.Index(fields=["message", "kind"], name="chat_demo_reaction_msg_kind_idx"),
+            index=models.Index(fields=["message", "kind"], name="chat_demo_rxn_msg_kind_idx"),
         ),
     ]
