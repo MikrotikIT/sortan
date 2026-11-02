@@ -233,6 +233,7 @@
       });
       options.append(option);
     });
+    options.style.setProperty("--reaction-option-columns", String(Math.max(1, options.childElementCount)));
     picker.append(options);
     picker.addEventListener("toggle", () => {
       if (picker.open) window.requestAnimationFrame(() => positionReactionMenu(picker));

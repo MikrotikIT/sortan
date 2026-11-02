@@ -1486,7 +1486,7 @@
 .chat-reaction-options {
   right: auto;
   left: 0;
-  grid-template-columns: repeat(5, 36px);
+  grid-template-columns: repeat(var(--reaction-option-columns, 5), 36px);
   min-width: auto;
 }
 
