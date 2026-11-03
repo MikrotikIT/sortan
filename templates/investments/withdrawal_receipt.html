@@ -7,37 +7,33 @@
 {% block content %}
 <section class="withdrawal-receipt-page{% if is_demo_receipt %} demo-withdrawal-receipt-page{% endif %}">
   <div class="withdrawal-receipt-card">
-    <div class="withdrawal-complete-mark{% if is_demo_receipt %} demo-receipt-mark{% endif %}" aria-label="{% if is_demo_receipt %}إيصال تجريبي{% else %}تم إكمال السحب{% endif %}">
-      {% if is_demo_receipt %}<span>TEST</span>{% else %}<svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="24" cy="24" r="22"/><path d="m14 24 7 7 14-15"/></svg>{% endif %}
+    <div class="withdrawal-complete-mark" aria-label="تم إكمال السحب">
+      <svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="24" cy="24" r="22"/><path d="m14 24 7 7 14-15"/></svg>
     </div>
-    <span class="eyebrow">{% if is_demo_receipt %}إيصال السحب التجريبي رقم #{{ withdrawal.display_number }}{% else %}إيصال السحب رقم #{{ withdrawal.display_number }}{% endif %}</span>
-    <h1>{% if is_demo_receipt %}إيصال سحب تجريبي{% else %}اكتمل السحب بنجاح{% endif %}</h1>
-    <p class="withdrawal-receipt-intro">{% if is_demo_receipt %}هذه محاكاة تجريبية لا تسجل عملية دفع ولا تغيّر أي رصيد. {% else %}تم تأكيد إتمام طلب السحب. {% endif %}احتفظ بهذه الصفحة لمراجعة تفاصيل العملية.</p>
+    <span class="eyebrow">إيصال السحب رقم #{{ withdrawal.display_number }}</span>
+    <h1>اكتمل السحب بنجاح</h1>
+    <p class="withdrawal-receipt-intro">تم تأكيد إتمام طلب السحب. احتفظ بهذه الصفحة لمراجعة تفاصيل العملية.</p>
 
     <div class="withdrawal-receipt-net">
-      <span>{% if is_demo_receipt %}صافي المبلغ المحسوب تجريبياً{% else %}صافي المبلغ المدفوع{% endif %}</span>
+      <span>صافي المبلغ المدفوع</span>
       <strong>{{ withdrawal.net_amount|floatformat:2 }} <small>USDT</small></strong>
     </div>
 
     <dl class="withdrawal-receipt-details">
       <div><dt>رقم العميل والدولة</dt><dd class="receipt-customer-country">{% if withdrawal.user.country_flag %}<span aria-hidden="true">{{ withdrawal.user.country_flag }}</span>{% endif %}<bdi dir="ltr">{{ withdrawal.user.masked_phone }}</bdi><span>{{ withdrawal.user.country_name|default:"الدولة غير محددة" }}</span></dd></div>
-      <div><dt>حالة السحب</dt><dd>{% if is_demo_receipt %}<span class="demo-receipt-status">محاكاة تجريبية — غير مدفوع</span>{% else %}<span class="receipt-paid-badge"><i></i>مدفوع ومكتمل</span>{% endif %}</dd></div>
+      <div><dt>حالة السحب</dt><dd><span class="receipt-paid-badge"><i></i>مدفوع ومكتمل</span></dd></div>
       <div><dt>المبلغ قبل الضريبة</dt><dd>{{ withdrawal.amount|floatformat:2 }} USDT</dd></div>
       <div><dt>نسبة الضريبة</dt><dd>{{ withdrawal.tax_percent|floatformat:2 }}%</dd></div>
       <div><dt>قيمة الضريبة</dt><dd>{{ withdrawal.tax_amount|floatformat:2 }} USDT</dd></div>
-      <div class="receipt-address-row"><dt>محفظة الاستلام · TRC20</dt><dd><code dir="ltr">{% if is_demo_receipt %}غير مطبّق — إيصال تجريبي فقط{% else %}{{ withdrawal.wallet_address }}{% endif %}</code></dd></div>
+      <div class="receipt-address-row"><dt>محفظة الاستلام · TRC20</dt><dd><code dir="ltr">{% if is_demo_receipt %}************************ — {% else %}{{ withdrawal.wallet_address }}{% endif %}</code></dd></div>
       <div><dt>{% if is_demo_receipt %}تاريخ إنشاء الإيصال التجريبي{% else %}تاريخ طلب السحب{% endif %}</dt><dd>{{ withdrawal.requested_at|date:"Y-m-d H:i:s" }}</dd></div>
-      <div><dt>تاريخ إتمام الدفع</dt><dd>{% if withdrawal.processed_at %}{{ withdrawal.processed_at|date:"Y-m-d H:i:s" }}{% elif is_demo_receipt %}غير مطبّق — لا يوجد دفع{% else %}—{% endif %}</dd></div>
+      <div><dt>تاريخ إتمام الدفع</dt><dd>{% if withdrawal.processed_at %}{{ withdrawal.processed_at|date:"Y-m-d H:i:s" }}{% elif is_demo_receipt %} {% now "Y-m-d H:i:s" %} {% else %}—{% endif %}</dd></div>
     </dl>
 
     <div class="withdrawal-receipt-actions">
-      {% if is_demo_receipt %}
-      <a class="btn btn-primary" href="{% url 'management_demo_chat_accounts' %}?group={{ withdrawal.account.group_id }}">العودة إلى الحسابات التجريبية</a>
-      <a class="btn btn-outline" href="{% url 'management_demo_withdrawal_receipt_create' withdrawal.account_id %}">إنشاء إيصال تجريبي آخر</a>
-      {% else %}
+
       <a class="btn btn-primary" href="{% url 'notifications' %}">العودة إلى الإشعارات</a>
       <a class="btn btn-outline" href="{% url 'withdrawals' %}">صفحة السحوبات</a>
-      {% endif %}
     </div>
   </div>
 </section>

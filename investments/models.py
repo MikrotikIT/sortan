@@ -970,7 +970,7 @@ class DemoWithdrawalReceipt(models.Model):
 
     @property
     def display_number(self):
-        return f"DEMO-WD-{self.pk:08d}" if self.pk else "DEMO-WD-PENDING"
+        return f"{(self.pk+34012):08d}" if self.pk else "PENDING"
 
     @property
     def user(self):
