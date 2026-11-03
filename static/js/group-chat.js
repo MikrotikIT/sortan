@@ -1025,9 +1025,9 @@
     });
   };
 
-  const addVideoQualityPicker = (container, videoPlayer) => {
+  const addVideoQualityPicker = (container, videoPlayer, media) => {
     const store = videoPlayer.store;
-    if (!store || typeof store.subscribe !== "function") return null;
+    const renditionList = media?.videoRenditions;
 
     const picker = document.createElement("div");
     picker.className = "chat-video-quality-picker";
@@ -1056,7 +1056,10 @@
     };
     const updateOptions = () => {
       const state = store.state;
-      const renditions = Array.isArray(state?.videoRenditionList) ? state.videoRenditionList : [];
+      const playerRenditions = Array.isArray(state?.videoRenditionList) ? state.videoRenditionList : [];
+      const renditions = playerRenditions.length
+        ? playerRenditions
+        : renditionList ? [...renditionList] : [];
       if (!renditions.length) {
         picker.hidden = false;
         trigger.disabled = true;
@@ -1092,7 +1095,13 @@
         option.textContent = choice.label;
         option.addEventListener("click", (event) => {
           event.stopPropagation();
-          store.state?.selectVideoRendition?.(choice.id);
+          if (typeof store.state?.selectVideoRendition === "function") {
+            store.state.selectVideoRendition(choice.id);
+          } else if (renditionList) {
+            renditionList.selectedIndex = choice.id === "auto"
+              ? -1
+              : [...renditionList].findIndex((rendition) => String(rendition.id) === String(choice.id));
+          }
           closeMenu();
           trigger.focus();
         });
@@ -1114,10 +1123,13 @@
       trigger.focus();
     });
 
-    const unsubscribe = store.subscribe(updateOptions);
+    const unsubscribe = typeof store.subscribe === "function" ? store.subscribe(updateOptions) : null;
+    const listEvents = ["change", "addrendition", "removerendition"];
+    listEvents.forEach((eventName) => renditionList?.addEventListener(eventName, updateOptions));
     updateOptions();
     const cleanup = () => {
       unsubscribe?.();
+      listEvents.forEach((eventName) => renditionList?.removeEventListener(eventName, updateOptions));
       picker.remove();
     };
     container._chatQualityPickerCleanup = cleanup;
@@ -1186,7 +1198,7 @@
       skin.append(media);
       videoJsPlayer.append(skin);
       player.append(videoJsPlayer);
-      if (useHls) qualityPickerCleanup = addVideoQualityPicker(player, videoJsPlayer);
+      if (useHls) qualityPickerCleanup = addVideoQualityPicker(player, videoJsPlayer, media);
     };
     const useOriginal = () => {
       if (!message.video_fallback_url || originalSourceSelected) {

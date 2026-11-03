@@ -195,8 +195,8 @@ def process_chat_video(message_id):
             raise ValueError("The uploaded video has invalid dimensions.")
 
         output_root.mkdir(parents=True, exist_ok=True)
-        target_heights = [height for height in (240, 360, 480, 720) if height < source_height]
-        target_heights.append(min(source_height, 240) if not target_heights else min(source_height, 720))
+        target_heights = [height for height in (144, 240, 360, 480, 720) if height < source_height]
+        target_heights.append(min(source_height, 720))
         target_heights = sorted(set(target_heights))
         variants = []
 
