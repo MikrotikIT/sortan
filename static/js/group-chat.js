@@ -57,9 +57,11 @@
       microphoneStand.setAttribute("d", "M19 10a7 7 0 0 1-14 0M12 17v5M8 22h8");
       microphoneIcon.append(microphonePath, microphoneStand);
       audioRecordLabel = document.createElement("span");
+      audioRecordLabel.className = "chat-audio-record-label";
       audioRecordLabel.textContent = "تسجيل";
-      audioRecordButton.append(microphoneIcon, audioRecordLabel);
+      audioRecordButton.append(microphoneIcon);
       composer.insertBefore(audioRecordButton, composeSendButton);
+      composer.insertBefore(audioRecordLabel, composeSendButton);
     }
   }
   const glyphs = { like: "👍", heart: "❤️", fire: "🔥", clap: "👏", dislike: "👎" };
@@ -1627,6 +1629,7 @@
           button.textContent = buttonText;
         }
       }
+      syncComposerActions();
     }
   });
 

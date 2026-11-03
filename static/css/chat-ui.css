@@ -991,7 +991,7 @@
   min-height: 38px;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: 50%;
+  border-radius: 8px;
   background: transparent;
   color: #527984;
   font: 700 10px "Tajawal", sans-serif;
@@ -1028,7 +1028,18 @@
 
 .chat-audio-record-label {
   display: none;
+  align-self: center;
+  margin-inline: -2px 2px;
+  color: #b34e47;
+  font: 600 10px "Tajawal", sans-serif;
+  direction: rtl;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+.chat-audio-record-button.is-recording + .chat-audio-record-label {
+  display: inline-flex;
+  align-items: center;
 }
 
 .chat-composer .chat-audio-record-button[hidden],
