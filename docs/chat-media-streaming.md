@@ -1,6 +1,6 @@
 # Group chat audio and video
 
-Audio notes are recorded in the browser and uploaded as private chat media. Video messages are uploaded as resumable 8 MiB chunks (two at a time), with automatic retries for failed chunks. Videos remain private and are transcoded by the Celery worker into HLS renditions. Playback uses the self-hosted Video.js player with automatic HLS quality selection and falls back to the original video if transcoding fails.
+Audio notes are recorded in the browser and uploaded as private chat media. Video messages are uploaded as resumable 8 MiB chunks (two at a time), with automatic retries for failed chunks. Videos remain private and are transcoded by the Celery worker into HLS renditions. Playback uses the self-hosted Video.js player with an explicit quality picker and automatic HLS quality selection; it falls back to the original video if transcoding fails.
 
 ## Production requirements
 

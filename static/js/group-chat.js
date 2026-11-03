@@ -1011,6 +1011,10 @@
   const createVoiceMessagePlayer = (audioUrl) => createStyledAudioPlayer(audioUrl);
 
   const destroyChatMessageMedia = (container) => {
+    container.querySelectorAll(".chat-video-message-player").forEach((player) => {
+      player._chatQualityPickerCleanup?.();
+      player._chatQualityPickerCleanup = null;
+    });
     container.querySelectorAll("video-player").forEach((player) => player.destroy?.());
     container.querySelectorAll(".chat-wave-audio-preview").forEach((player) => {
       player._audio?.pause();
@@ -1019,6 +1023,112 @@
         player._audio.load();
       }
     });
+  };
+
+  const addVideoQualityPicker = (container, videoPlayer) => {
+    const store = videoPlayer.store;
+    if (!store || typeof store.subscribe !== "function") return null;
+
+    const picker = document.createElement("div");
+    picker.className = "chat-video-quality-picker";
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.className = "chat-video-quality-trigger";
+    trigger.setAttribute("aria-haspopup", "menu");
+    trigger.setAttribute("aria-expanded", "false");
+    trigger.textContent = "الجودة";
+    const menu = document.createElement("div");
+    menu.className = "chat-video-quality-menu";
+    menu.setAttribute("role", "menu");
+    menu.setAttribute("aria-label", "اختيار جودة الفيديو");
+    menu.hidden = true;
+    picker.append(trigger, menu);
+    container.append(picker);
+
+    const closeMenu = () => {
+      menu.hidden = true;
+      trigger.setAttribute("aria-expanded", "false");
+    };
+    const openMenu = () => {
+      if (trigger.disabled) return;
+      menu.hidden = false;
+      trigger.setAttribute("aria-expanded", "true");
+    };
+    const updateOptions = () => {
+      const state = store.state;
+      const renditions = Array.isArray(state?.videoRenditionList) ? state.videoRenditionList : [];
+      if (!renditions.length) {
+        picker.hidden = false;
+        trigger.disabled = true;
+        trigger.textContent = "الجودة";
+        trigger.title = "جارٍ تحميل خيارات الجودة";
+        menu.replaceChildren();
+        closeMenu();
+        return;
+      }
+
+      picker.hidden = false;
+      trigger.disabled = renditions.length < 2;
+      trigger.textContent = renditions.length > 1 ? "الجودة" : `الجودة · ${renditionLabel(renditions[0])}`;
+      trigger.title = renditions.length > 1
+        ? "تغيير جودة الفيديو"
+        : "يتوفر مستوى جودة واحد لهذا الفيديو";
+      menu.replaceChildren();
+
+      const choices = [
+        { id: "auto", label: "تلقائي", selected: !renditions.some((rendition) => rendition.selected) },
+        ...renditions.map((rendition) => ({
+          id: rendition.id,
+          label: renditionLabel(rendition),
+          selected: Boolean(rendition.selected),
+        })),
+      ];
+      choices.forEach((choice) => {
+        const option = document.createElement("button");
+        option.type = "button";
+        option.className = "chat-video-quality-option";
+        option.setAttribute("role", "menuitemradio");
+        option.setAttribute("aria-checked", choice.selected ? "true" : "false");
+        option.textContent = choice.label;
+        option.addEventListener("click", (event) => {
+          event.stopPropagation();
+          store.state?.selectVideoRendition?.(choice.id);
+          closeMenu();
+          trigger.focus();
+        });
+        menu.append(option);
+      });
+    };
+
+    trigger.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (menu.hidden) openMenu();
+      else closeMenu();
+    });
+    picker.addEventListener("click", (event) => event.stopPropagation());
+    container.addEventListener("click", closeMenu);
+    picker.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape" || menu.hidden) return;
+      event.preventDefault();
+      closeMenu();
+      trigger.focus();
+    });
+
+    const unsubscribe = store.subscribe(updateOptions);
+    updateOptions();
+    const cleanup = () => {
+      unsubscribe?.();
+      picker.remove();
+    };
+    container._chatQualityPickerCleanup = cleanup;
+    return cleanup;
+  };
+
+  const renditionLabel = (rendition) => {
+    if (rendition?.height) return `${Math.round(rendition.height)}p`;
+    if (rendition?.width) return `${Math.round(rendition.width)}p`;
+    if (rendition?.bitrate) return `${Math.round(rendition.bitrate / 1000)} كيلوبت/ث`;
+    return "جودة الفيديو";
   };
 
   const createVideoMessagePlayer = (message) => {
@@ -1035,6 +1145,7 @@
 
     let videoJsPlayer = null;
     let originalSourceSelected = false;
+    let qualityPickerCleanup = null;
     const showPlaybackError = () => {
       if (player.querySelector(".chat-video-processing-status")) return;
       const status = document.createElement("div");
@@ -1075,6 +1186,7 @@
       skin.append(media);
       videoJsPlayer.append(skin);
       player.append(videoJsPlayer);
+      if (useHls) qualityPickerCleanup = addVideoQualityPicker(player, videoJsPlayer);
     };
     const useOriginal = () => {
       if (!message.video_fallback_url || originalSourceSelected) {
@@ -1082,6 +1194,8 @@
         return;
       }
       originalSourceSelected = true;
+      qualityPickerCleanup?.();
+      qualityPickerCleanup = null;
       videoJsPlayer?.destroy?.();
       videoJsPlayer?.remove();
       videoJsPlayer = null;
