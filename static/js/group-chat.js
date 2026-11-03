@@ -32,6 +32,7 @@
   const replyText = compose?.querySelector("[data-reply-text]");
   let recordedAudioFile = null;
   let isSubmittingChatMessage = false;
+  let activeVideoUploadRequest = null;
   let audioRecorder = null;
   let audioStream = null;
   let audioChunks = [];
@@ -497,9 +498,16 @@
 
   const sendVideoFormWithProgress = (formData) => new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
+    const cancelButton = compose?.querySelector("[data-attachment-cancel]");
+    const finishUpload = () => {
+      if (activeVideoUploadRequest === xhr) activeVideoUploadRequest = null;
+      if (cancelButton) cancelButton.textContent = "إلغاء";
+    };
     xhr.open("POST", compose.action, true);
     xhr.setRequestHeader("Accept", "application/json");
     xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+    activeVideoUploadRequest = xhr;
+    if (cancelButton) cancelButton.textContent = "إلغاء الرفع";
     xhr.upload.addEventListener("progress", (event) => {
       if (!event.lengthComputable) return;
       const percent = Math.round((event.loaded / event.total) * 100);
@@ -509,6 +517,7 @@
       updateVideoUploadProgress(100, "اكتمل الرفع، جارٍ تجهيز الفيديو…");
     });
     xhr.addEventListener("load", () => {
+      finishUpload();
       let result;
       try {
         result = JSON.parse(xhr.responseText);
@@ -526,12 +535,14 @@
       resolve(result);
     });
     xhr.addEventListener("error", () => {
+      finishUpload();
       updateVideoUploadProgress(null, "انقطع الاتصال أثناء رفع الفيديو.", "error");
       reject(new Error("انقطع الاتصال أثناء رفع الفيديو."));
     });
     xhr.addEventListener("abort", () => {
+      finishUpload();
       updateVideoUploadProgress(null, "تم إيقاف رفع الفيديو.", "error");
-      reject(new Error("تم إيقاف رفع الفيديو."));
+      reject(new DOMException("تم إيقاف رفع الفيديو.", "AbortError"));
     });
     xhr.send(formData);
   });
@@ -1565,7 +1576,10 @@
     });
   });
   audioRecordButton?.addEventListener("click", startAudioRecording);
-  compose?.querySelector("[data-attachment-cancel]")?.addEventListener("click", clearSelectedAttachments);
+  compose?.querySelector("[data-attachment-cancel]")?.addEventListener("click", () => {
+    activeVideoUploadRequest?.abort();
+    clearSelectedAttachments();
+  });
   root.addEventListener("click", (event) => {
     root.querySelectorAll("details[open]").forEach((details) => {
       if (!details.contains(event.target)) details.open = false;
@@ -1623,7 +1637,7 @@
       resizeMessageInput();
       scrollToLatest("smooth");
     } catch (error) {
-      showError(error.message || "تعذر إرسال الرسالة.");
+      if (error.name !== "AbortError") showError(error.message || "تعذر إرسال الرسالة.");
     } finally {
       if (button) {
         button.disabled = false;
