@@ -1,98 +1,32 @@
 {% extends 'management/base.html' %}
 {% load static %}
-{% block title %}حسابات المحادثة والذكاء الاصطناعي — إدارة KODI{% endblock %}
-{% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/demo-chat-accounts.css' %}?v=2">
-<link rel="stylesheet" href="{% static 'css/demo-chat-accounts-filter.css' %}?v=1">
-<link rel="stylesheet" href="{% static 'css/demo-chat-account-delete.css' %}?v=1">
-<link rel="stylesheet" href="{% static 'css/ai-chat-accounts.css' %}?v=1">
-{% endblock %}
+{% block title %}حسابات اختبار المحادثة — إدارة KODI{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/demo-chat-accounts.css' %}?v=3"><link rel="stylesheet" href="{% static 'css/demo-chat-accounts-filter.css' %}?v=1"><link rel="stylesheet" href="{% static 'css/demo-chat-account-delete.css' %}?v=1">{% endblock %}
 {% block content %}
-<section class="management-heading demo-accounts-heading"><div><span class="eyebrow">إدارة المحادثة</span><h1>حسابات المحادثة والذكاء الاصطناعي</h1><p>إعداد شخصيات AI وتشغيلها في مجموعات المحادثة، مع إبقاء هويات الاختبار اليدوية.</p></div></section>
+<section class="management-heading demo-accounts-heading"><div><span class="eyebrow">أدوات اختبار المحادثة</span><h1>حسابات اختبار المحادثة</h1><p>أنشئ هويات يدوية مؤقتة لاختبار الرسائل والمرفقات في مجموعات المحادثة.</p></div><a class="btn btn-primary" href="{% url 'management_ai_chat_accounts' %}">إدارة بوتات الذكاء الاصطناعي</a></section>
 
-<section class="management-panel ai-chat-panel" data-models-url="{% url 'management_openrouter_model_list' %}">
-  <div class="management-panel-head"><div><h2>تشغيل البوتات وربط OpenRouter</h2><p>افتراضياً تعمل البوتات فقط أثناء وجود شخص في صفحة المجموعة. عند التوقف تتحول إلى <code>PAUSED</code>.</p></div><span class="ai-connection-state {% if openrouter_key_present %}is-ready{% endif %}">{% if openrouter_key_present %}مفتاح OpenRouter محفوظ{% else %}أدخل مفتاح OpenRouter{% endif %}</span></div>
-  <form class="ai-settings-form" method="post" action="{% url 'management_ai_chat_settings_update' %}">
-    {% csrf_token %}<input type="hidden" name="group" value="{{ selected_group.pk|default:'' }}">
-    <div class="ai-settings-options">
-      <label class="ai-toggle-field">{{ ai_settings_form.enabled }}<span>{{ ai_settings_form.enabled.label }}</span></label>
-      <div class="admin-field"><label for="{{ ai_settings_form.run_mode.id_for_label }}">{{ ai_settings_form.run_mode.label }}</label>{{ ai_settings_form.run_mode }}</div>
-      <label class="ai-toggle-field">{{ ai_settings_form.active_time_only }}<span>{{ ai_settings_form.active_time_only.label }}</span><small>غير التحديد لاحتساب عمر البوت حتى وهو متوقف.</small></label>
-    </div>
-    <div class="ai-settings-connection">
-      <div class="admin-field"><label for="{{ ai_settings_form.openrouter_api_key.id_for_label }}">{{ ai_settings_form.openrouter_api_key.label }}</label>{{ ai_settings_form.openrouter_api_key }}<small>{{ ai_settings_form.openrouter_api_key.help_text }}</small></div>
-      <div class="admin-field"><label for="{{ ai_settings_form.selected_model.id_for_label }}">{{ ai_settings_form.selected_model.label }}</label>{{ ai_settings_form.selected_model }}<small>اختر موديل افتراضياً أو اكتب معرّفه من قائمة OpenRouter.</small></div>
-      <button class="btn btn-primary" type="submit">حفظ إعدادات الذكاء الاصطناعي</button>
-    </div>
-    <datalist id="openrouter-model-options"></datalist>
-    <p class="ai-model-status" data-model-status role="status" aria-live="polite">جارٍ تحميل قائمة الموديلات…</p>
-  </form>
-</section>
-
-<section class="management-panel ai-chat-panel">
-  <div class="management-panel-head"><div><h2>قوالب الشخصيات</h2><p>القالب يحفظ وظيفة الحساب وتعليماته والموديل وفترة الإرسال وعمر البوت. تُنسخ هذه الإعدادات عند توليد كل بوت.</p></div></div>
-  <form class="ai-template-form" method="post" action="{% url 'management_ai_bot_template_create' %}">
-    {% csrf_token %}<input type="hidden" name="group" value="{{ selected_group.pk|default:'' }}">
-    <div class="admin-field"><label for="{{ template_form.name.id_for_label }}">{{ template_form.name.label }}</label>{{ template_form.name }}</div>
-    <div class="admin-field"><label for="{{ template_form.role.id_for_label }}">{{ template_form.role.label }}</label>{{ template_form.role }}</div>
-    <div class="admin-field"><label for="{{ template_form.model_id.id_for_label }}">{{ template_form.model_id.label }}</label>{{ template_form.model_id }}</div>
-    <div class="admin-field ai-template-prompt"><label for="{{ template_form.system_prompt.id_for_label }}">{{ template_form.system_prompt.label }}</label>{{ template_form.system_prompt }}</div>
-    <div class="admin-field"><label for="{{ template_form.wait_min_seconds.id_for_label }}">{{ template_form.wait_min_seconds.label }}</label>{{ template_form.wait_min_seconds }}</div>
-    <div class="admin-field"><label for="{{ template_form.wait_max_seconds.id_for_label }}">{{ template_form.wait_max_seconds.label }}</label>{{ template_form.wait_max_seconds }}</div>
-    <div class="admin-field"><label for="{{ template_form.lifetime_minutes.id_for_label }}">{{ template_form.lifetime_minutes.label }}</label>{{ template_form.lifetime_minutes }}</div>
-    <label class="ai-toggle-field">{{ template_form.is_active }}<span>{{ template_form.is_active.label }}</span></label>
-    <button class="btn btn-primary" type="submit">حفظ قالب الشخصية</button>
-  </form>
-  {% if template_rows %}<div class="ai-template-list">{% for template, edit_form in template_rows %}<article class="ai-template-item"><strong>{{ template.name }}</strong><span>{{ template.get_role_display }}{% if not template.is_active %} · غير متاح للقوالب الجديدة{% endif %}</span><code dir="ltr">{{ template.model_id }}</code><small>انتظار {{ template.wait_min_seconds }}–{{ template.wait_max_seconds }} ث · العمر {{ template.lifetime_minutes }} د</small><details class="ai-template-edit"><summary>تعديل القالب</summary><form method="post" action="{% url 'management_ai_bot_template_edit' template.pk %}">{% csrf_token %}<input type="hidden" name="group" value="{{ selected_group.pk|default:'' }}"><div class="admin-field"><label for="{{ edit_form.name.id_for_label }}">{{ edit_form.name.label }}</label>{{ edit_form.name }}</div><div class="admin-field"><label for="{{ edit_form.role.id_for_label }}">{{ edit_form.role.label }}</label>{{ edit_form.role }}</div><div class="admin-field"><label for="{{ edit_form.model_id.id_for_label }}">{{ edit_form.model_id.label }}</label>{{ edit_form.model_id }}</div><div class="admin-field"><label for="{{ edit_form.system_prompt.id_for_label }}">{{ edit_form.system_prompt.label }}</label>{{ edit_form.system_prompt }}</div><div class="admin-field"><label for="{{ edit_form.wait_min_seconds.id_for_label }}">{{ edit_form.wait_min_seconds.label }}</label>{{ edit_form.wait_min_seconds }}</div><div class="admin-field"><label for="{{ edit_form.wait_max_seconds.id_for_label }}">{{ edit_form.wait_max_seconds.label }}</label>{{ edit_form.wait_max_seconds }}</div><div class="admin-field"><label for="{{ edit_form.lifetime_minutes.id_for_label }}">{{ edit_form.lifetime_minutes.label }}</label>{{ edit_form.lifetime_minutes }}</div><label class="ai-toggle-field">{{ edit_form.is_active }}<span>{{ edit_form.is_active.label }}</span></label><button class="btn btn-quiet btn-small" type="submit">حفظ تغييرات القالب</button></form></details></article>{% endfor %}</div>{% else %}<div class="admin-empty">أضف قالب شخصية قبل ضبط عدد البوتات.</div>{% endif %}
-</section>
-
-<section class="management-panel ai-chat-panel">
-  <div class="management-panel-head"><div><h2>توليد حسابات الذكاء الاصطناعي</h2><p>أنشئ العدد المطلوب من كل قالب. عند انتهاء عمر بوت، يُولّد بديل بعد فترة الانتظار التي تحددها.</p></div></div>
-  {% if groups and templates %}
-  <form class="ai-pool-form" method="post" action="{% url 'management_ai_bot_pool_save' %}">
-    {% csrf_token %}
-    <div class="admin-field"><label for="{{ pool_form.group.id_for_label }}">{{ pool_form.group.label }}</label>{{ pool_form.group }}</div>
-    <div class="admin-field"><label for="{{ pool_form.template.id_for_label }}">{{ pool_form.template.label }}</label>{{ pool_form.template }}</div>
-    <div class="admin-field"><label for="{{ pool_form.desired_count.id_for_label }}">{{ pool_form.desired_count.label }}</label>{{ pool_form.desired_count }}<small>من 0 إلى 200 بوت لهذا القالب.</small></div>
-    <div class="admin-field"><label for="{{ pool_form.replacement_min_seconds.id_for_label }}">{{ pool_form.replacement_min_seconds.label }}</label>{{ pool_form.replacement_min_seconds }}</div>
-    <div class="admin-field"><label for="{{ pool_form.replacement_max_seconds.id_for_label }}">{{ pool_form.replacement_max_seconds.label }}</label>{{ pool_form.replacement_max_seconds }}</div>
-    <button class="btn btn-primary" type="submit">تطبيق عدد البوتات</button>
-  </form>
-  {% elif not groups %}<div class="admin-empty">أنشئ مجموعة محادثة وفعّلها أولاً.</div>
-  {% else %}<div class="admin-empty">أنشئ قالب شخصية أولاً.</div>{% endif %}
-
-  {% if bot_pools %}<div class="ai-pool-list"><h3>أعداد البوتات حسب المجموعة والقالب</h3>{% for pool in bot_pools %}<div class="ai-pool-row"><strong>{{ pool.template.name }}</strong><span>{{ pool.group.title }}</span><span>{{ pool.active_count }} من {{ pool.desired_count }} بوت</span><small>بديل بعد {{ pool.replacement_min_seconds }}–{{ pool.replacement_max_seconds }} ثانية</small></div>{% endfor %}</div>{% endif %}
-</section>
-
-<section class="management-panel ai-chat-panel ai-account-list-panel">
-  <div class="management-panel-head"><div><h2>حسابات الذكاء الاصطناعي{% if selected_group %} في {{ selected_group.title }}{% endif %}</h2><p>المحادثات موسومة بوضوح «ذكاء اصطناعي». الحساب غير المقرون ينتظر بوتاً مقابلاً.</p></div><form class="demo-account-group-filter" method="get"><label for="ai-account-list-group">المجموعة</label><select id="ai-account-list-group" name="group">{% for group in groups %}<option value="{{ group.pk }}" {% if selected_group.pk == group.pk %}selected{% endif %}>{{ group.title }}</option>{% endfor %}</select><button class="btn btn-quiet btn-small" type="submit">عرض</button></form></div>
-  {% if ai_accounts %}<div class="ai-account-list">{% for account in ai_accounts %}<article class="ai-account-card"><div class="demo-account-avatar ai-account-avatar" aria-hidden="true">{{ account.display_name|slice:":1" }}</div><div class="ai-account-main"><strong>{{ account.display_name }}</strong><span>{{ account.get_ai_role_display }}{% if account.ai_partner %} · مرتبط بـ {{ account.ai_partner.display_name }}{% elif account.ai_role == 'asker' or account.ai_role == 'bot_responder' %} · ينتظر بوتاً مقابلاً{% endif %}</span><code dir="ltr">{{ account.ai_model_id }}</code></div><div class="ai-account-state state-{{ account.ai_state|lower }}">{{ account.get_ai_state_display }}</div><small>{{ account.message_count }} رسالة · العمر {{ account.ai_lifetime_seconds|floatformat:0 }} ثانية</small><a class="btn btn-quiet btn-small" href="{% url 'management_demo_chat_account_room' account.pk %}" target="_blank" rel="noopener">فتح المحادثة</a></article>{% endfor %}</div>
-  {% elif selected_group %}<div class="admin-empty">لا توجد بوتات بعد لهذه المجموعة. اضبط العدد من قالب شخصية أعلاه.</div>
-  {% else %}<div class="admin-empty">لا توجد مجموعات محادثة مفعّلة.</div>{% endif %}
-</section>
-
-<div class="demo-accounts-notice" role="note"><span aria-hidden="true">ⓘ</span><p>هويات الاختبار اليدوية ليست حسابات دخول ولا تُضاف إلى قائمة العملاء. تظهر رسائلها بوسم «تجريبي».</p></div>
+<div class="demo-accounts-notice" role="note"><span aria-hidden="true">ⓘ</span><p>هذه الهويات ليست حسابات دخول ولا تُضاف إلى قائمة العملاء. تظهر رسائلها بوسم <strong>تجريبي</strong>، وتبقى محفوظة عند إغلاق صفحات المحادثة.</p></div>
 {% if popup_blocked %}<div class="demo-accounts-popup-note" role="status">حظر المتصفح فتح {{ popup_blocked }} صفحة. افتح الحسابات من أزرار «فتح المحادثة» في القائمة.</div>{% endif %}
 
 <section class="management-panel demo-account-create-panel">
-  <div class="management-panel-head"><div><h2>إنشاء حسابات اختبار يدوية</h2><p>لإنشاء هويات مؤقتة للاختبار وفتحها في تبويبات منفصلة.</p></div></div>
+  <div class="management-panel-head"><div><h2>إنشاء حسابات اختبار يدوية</h2><p>تُولّد أسماء عربية فريدة للمجموعة المحددة، ثم تُفتح الصفحات في تبويبات منفصلة.</p></div></div>
   {% if groups %}<form class="demo-account-create-form" id="demo-account-create-form" method="post" action="{% url 'management_demo_chat_accounts_create' %}">
     {% csrf_token %}
     <div class="admin-field"><label for="{{ form.group.id_for_label }}">{{ form.group.label }}</label>{{ form.group }}</div>
     <div class="admin-field demo-account-count-field"><label for="{{ form.count.id_for_label }}">{{ form.count.label }}</label>{{ form.count }}<small>من 1 إلى 20 حساباً في المرة.</small></div>
     <button class="btn btn-primary" type="submit" data-create-demo-accounts><span aria-hidden="true">＋</span> إنشاء وفتح الحسابات</button>
     <p class="demo-account-create-status" data-create-status role="status" aria-live="polite" hidden></p>
-  </form>{% endif %}
+  </form>{% else %}<div class="admin-empty">أنشئ مجموعة محادثة وفعّلها أولاً.</div>{% endif %}
 </section>
 
 <section class="management-panel demo-account-list-panel">
-  <div class="management-panel-head"><div><h2>{% if selected_group %}حسابات الاختبار في {{ selected_group.title }}{% else %}حسابات الاختبار المحفوظة{% endif %}</h2><p>يمكنك تعديل الاسم أو إعادة فتح المحادثة.</p></div><div class="demo-account-list-actions"><form class="demo-account-group-filter" method="get"><label for="demo-account-list-group">المجموعة</label><select id="demo-account-list-group" name="group">{% for group in groups %}<option value="{{ group.pk }}" {% if selected_group.pk == group.pk %}selected{% endif %}>{{ group.title }}</option>{% endfor %}</select><button class="btn btn-quiet btn-small" type="submit">عرض</button></form><span class="count-pill">{{ accounts|length }} حساب</span>{% if accounts %}<button class="btn btn-quiet btn-small" type="button" data-open-all-accounts>فتح الكل</button>{% endif %}{% if accounts or ai_accounts %}<form method="post" action="{% url 'management_demo_chat_accounts_delete_group' selected_group.pk %}" onsubmit="return confirm('حذف جميع الحسابات التجريبية والبوتات لهذه المجموعة؟ ستبقى الرسائل محفوظة ولن تُولّد بدائل.')">{% csrf_token %}<button class="btn btn-quiet btn-small demo-account-delete-all" type="submit">حذف كل الهويات</button></form>{% endif %}</div></div>
+  <div class="management-panel-head"><div><h2>{% if selected_group %}حسابات الاختبار في {{ selected_group.title }}{% else %}حسابات الاختبار المحفوظة{% endif %}</h2><p>يمكنك تعديل الاسم أو إعادة فتح المحادثة.</p></div><div class="demo-account-list-actions"><form class="demo-account-group-filter" method="get"><label for="demo-account-list-group">المجموعة</label><select id="demo-account-list-group" name="group">{% for group in groups %}<option value="{{ group.pk }}" {% if selected_group.pk == group.pk %}selected{% endif %}>{{ group.title }}</option>{% endfor %}</select><button class="btn btn-quiet btn-small" type="submit">عرض</button></form><span class="count-pill">{{ accounts|length }} حساب</span>{% if accounts %}<button class="btn btn-quiet btn-small" type="button" data-open-all-accounts>فتح الكل</button><form method="post" action="{% url 'management_demo_chat_accounts_delete_group' selected_group.pk %}" onsubmit="return confirm('حذف جميع حسابات الاختبار لهذه المجموعة؟ ستبقى الرسائل محفوظة.')">{% csrf_token %}<button class="btn btn-quiet btn-small demo-account-delete-all" type="submit">حذف حسابات الاختبار</button></form>{% endif %}</div></div>
   {% if accounts %}<div class="demo-account-list">{% for account in accounts %}<article class="demo-account-card">
     <div class="demo-account-avatar" aria-hidden="true">{{ account.display_name|slice:":1" }}</div>
     <form class="demo-account-edit-form" method="post" action="{% url 'management_demo_chat_account_edit' account.pk %}">{% csrf_token %}<label for="demo-account-name-{{ account.pk }}">اسم حساب الاختبار</label><div class="demo-account-name-row"><input id="demo-account-name-{{ account.pk }}" type="text" name="display_name" maxlength="120" value="{{ account.display_name }}" required><button class="table-action" type="submit">حفظ الاسم</button></div></form>
     <div class="demo-account-meta"><span class="demo-account-label">حساب اختبار</span><small>{{ account.message_count }} رسالة محفوظة</small></div>
     <div class="demo-account-actions"><a class="btn btn-primary btn-small" href="{% url 'management_demo_chat_account_room' account.pk %}" target="_blank" rel="noopener" data-demo-account-url>فتح المحادثة</a><a class="btn btn-quiet btn-small" href="{% url 'management_demo_withdrawal_receipt_create' account.pk %}">إنشاء إيصال سحب تجريبي</a><form method="post" action="{% url 'management_demo_chat_account_regenerate_name' account.pk %}" onsubmit="return confirm('توليد اسم جديد؟ ستبقى الرسائل السابقة باسمها الحالي.')">{% csrf_token %}<button class="btn btn-quiet btn-small" type="submit">توليد اسم جديد</button></form><form method="post" action="{% url 'management_demo_chat_account_delete' account.pk %}" onsubmit="return confirm('حذف هذه الهوية؟ ستبقى رسائلها السابقة محفوظة في المجموعة.')">{% csrf_token %}<button class="btn btn-quiet btn-small demo-account-delete" type="submit">حذف الحساب</button></form></div>
-  </article>{% endfor %}</div>{% elif selected_group %}<div class="admin-empty">لا توجد حسابات اختبار يدوية لهذه المجموعة.</div>{% endif %}
+  </article>{% endfor %}</div>{% elif selected_group %}<div class="admin-empty">لا توجد حسابات اختبار لهذه المجموعة.</div>{% else %}<div class="admin-empty">لا توجد مجموعات محادثة مفعّلة.</div>{% endif %}
 </section>
 {% endblock %}
-{% block extra_js %}<script src="{% static 'js/demo-chat-accounts.js' %}?v=1" defer></script><script src="{% static 'js/ai-chat-accounts.js' %}?v=1" defer></script>{% endblock %}
+{% block extra_js %}<script src="{% static 'js/demo-chat-accounts.js' %}?v=1" defer></script>{% endblock %}

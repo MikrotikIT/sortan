@@ -295,6 +295,11 @@ def _demo_accounts_page_url(group_id):
     return f"{reverse('management_demo_chat_accounts')}?group={group_id}"
 
 
+def _ai_accounts_page_url(group_id=None):
+    page_url = reverse("management_ai_chat_accounts")
+    return f"{page_url}?group={group_id}" if group_id else page_url
+
+
 @staff_required
 def demo_chat_accounts(request):
     groups = ChatGroup.objects.filter(is_active=True).order_by("title", "pk")
@@ -315,35 +320,6 @@ def demo_chat_accounts(request):
         .order_by("display_name", "pk")
         if selected_group else ChatDemoAccount.objects.none()
     )
-    ai_accounts = (
-        ChatDemoAccount.objects.filter(group=selected_group, is_ai=True)
-        .select_related("bot_pool__template", "ai_partner")
-        .annotate(message_count=Count("messages", distinct=True))
-        .order_by("bot_pool__template__name", "display_name", "pk")
-        if selected_group else ChatDemoAccount.objects.none()
-    )
-    bot_pools = (
-        AIBotPool.objects.filter(group=selected_group)
-        .select_related("template")
-        .annotate(
-            active_count=Count(
-                "accounts",
-                filter=Q(accounts__is_ai=True, accounts__ai_state__in=("ACTIVE", "PAUSED")),
-                distinct=True,
-            )
-        )
-        .order_by("template__name", "pk")
-        if selected_group else AIBotPool.objects.none()
-    )
-    ai_settings, _ = AIChatSettings.objects.get_or_create(pk=1)
-    ai_settings_form = AIChatSettingsForm(instance=ai_settings)
-    template_form = AIBotTemplateForm()
-    pool_form = AIBotPoolForm(initial={"group": selected_group.pk} if selected_group else None)
-    templates = AIBotTemplate.objects.order_by("name", "pk")
-    template_rows = [
-        (template, AIBotTemplateForm(instance=template, prefix=f"template-{template.pk}"))
-        for template in templates
-    ]
     try:
         popup_blocked = max(0, int(request.GET.get("popup_blocked", "0")))
     except (TypeError, ValueError):
@@ -356,16 +332,66 @@ def demo_chat_accounts(request):
             "selected_group": selected_group,
             "form": form,
             "accounts": accounts,
-            "ai_accounts": ai_accounts,
-            "bot_pools": bot_pools,
+            "popup_blocked": popup_blocked,
+        },
+    )
+
+
+@staff_required
+def ai_chat_accounts(request):
+    groups = ChatGroup.objects.filter(is_active=True).order_by("title", "pk")
+    requested_group_id = request.GET.get("group")
+    try:
+        selected_group = groups.filter(pk=int(requested_group_id)).first() if requested_group_id else None
+    except (TypeError, ValueError):
+        selected_group = None
+    if selected_group is None:
+        selected_group = groups.first()
+
+    ai_settings, _ = AIChatSettings.objects.get_or_create(pk=1)
+    templates = list(AIBotTemplate.objects.order_by("name", "pk"))
+    template_rows = [
+        (template, AIBotTemplateForm(instance=template, prefix=f"template-{template.pk}"))
+        for template in templates
+    ]
+    ai_accounts = (
+        ChatDemoAccount.objects.filter(group=selected_group, is_ai=True)
+        .select_related("bot_pool__template", "ai_partner")
+        .annotate(message_count=Count("messages", distinct=True))
+        .order_by("bot_pool__template__name", "display_name", "pk")
+        if selected_group else ChatDemoAccount.objects.none()
+    )
+    bot_pools = (
+        AIBotPool.objects.filter(group=selected_group)
+        .select_related("template")
+        .annotate(
+            active_count=Count("accounts", filter=Q(accounts__is_ai=True, accounts__ai_state="ACTIVE"), distinct=True),
+            paused_count=Count("accounts", filter=Q(accounts__is_ai=True, accounts__ai_state="PAUSED"), distinct=True),
+            dead_count=Count("accounts", filter=Q(accounts__is_ai=True, accounts__ai_state="DEAD"), distinct=True),
+        )
+        .order_by("template__name", "pk")
+        if selected_group else AIBotPool.objects.none()
+    )
+    return render(
+        request,
+        "management/ai_chat_accounts.html",
+        {
+            "groups": groups,
+            "selected_group": selected_group,
             "ai_settings": ai_settings,
-            "ai_settings_form": ai_settings_form,
+            "ai_settings_form": AIChatSettingsForm(instance=ai_settings),
             "templates": templates,
             "template_rows": template_rows,
-            "template_form": template_form,
-            "pool_form": pool_form,
-            "openrouter_key_present": bool(ai_settings.encrypted_openrouter_api_key or getattr(settings, "OPENROUTER_API_KEY", "")),
-            "popup_blocked": popup_blocked,
+            "template_form": AIBotTemplateForm(),
+            "pool_form": AIBotPoolForm(initial={"group": selected_group.pk} if selected_group else None),
+            "ai_accounts": ai_accounts,
+            "bot_pools": bot_pools,
+            "openrouter_key_present": bool(
+                ai_settings.encrypted_openrouter_api_key or getattr(settings, "OPENROUTER_API_KEY", "")
+            ),
+            "active_bot_count": ai_accounts.filter(ai_state="ACTIVE").count(),
+            "paused_bot_count": ai_accounts.filter(ai_state="PAUSED").count(),
+            "dead_bot_count": ai_accounts.filter(ai_state="DEAD").count(),
         },
     )
 
@@ -412,7 +438,7 @@ def ai_chat_settings_update(request):
     else:
         error = next(iter(form.errors.values()), ["راجع الحقول المحددة."])[0]
         messages.error(request, f"تعذر حفظ الإعدادات: {error}")
-    return redirect(_demo_accounts_page_url(request.POST.get("group", "")) if request.POST.get("group") else "management_demo_chat_accounts")
+    return redirect(_ai_accounts_page_url(request.POST.get("group") or None))
 
 
 @staff_required
@@ -426,7 +452,7 @@ def ai_bot_template_create(request):
         error = next(iter(form.errors.values()), ["راجع الحقول المحددة."])[0]
         messages.error(request, f"تعذر حفظ القالب: {error}")
     group_id = request.POST.get("group", "")
-    return redirect(_demo_accounts_page_url(group_id) if group_id else "management_demo_chat_accounts")
+    return redirect(_ai_accounts_page_url(group_id or None))
 
 
 @staff_required
@@ -441,7 +467,7 @@ def ai_bot_template_edit(request, pk):
         error = next(iter(form.errors.values()), ["راجع الحقول المحددة."])[0]
         messages.error(request, f"تعذر تحديث القالب: {error}")
     group_id = request.POST.get("group", "")
-    return redirect(_demo_accounts_page_url(group_id) if group_id else "management_demo_chat_accounts")
+    return redirect(_ai_accounts_page_url(group_id or None))
 
 
 @staff_required
@@ -451,7 +477,7 @@ def ai_bot_pool_save(request):
     if not form.is_valid():
         error = next(iter(form.errors.values()), ["راجع الحقول المحددة."])[0]
         messages.error(request, f"تعذر ضبط عدد البوتات: {error}")
-        return redirect(_demo_accounts_page_url(request.POST.get("group", "")) if request.POST.get("group") else "management_demo_chat_accounts")
+        return redirect(_ai_accounts_page_url(request.POST.get("group") or None))
     template = form.cleaned_data["template"]
     requested_group = form.cleaned_data["group"]
     try:
@@ -490,9 +516,9 @@ def ai_bot_pool_save(request):
             pool.save(update_fields=("next_replacement_at", "updated_at"))
     except ChatGroup.DoesNotExist:
         messages.error(request, "مجموعة المحادثة لم تعد متاحة.")
-        return redirect("management_demo_chat_accounts")
+        return redirect(_ai_accounts_page_url())
     messages.success(request, f"تم ضبط {desired_count} بوت من قالب {template.name} في {group.title}.")
-    return redirect(_demo_accounts_page_url(group.pk))
+    return redirect(_ai_accounts_page_url(group.pk))
 
 
 @staff_required
@@ -631,7 +657,7 @@ def demo_chat_account_regenerate_name(request, pk):
         messages.success(request, f"تم توليد اسم جديد: {account.display_name}. الرسائل السابقة لم تتغير.")
     except ValueError as exc:
         messages.error(request, str(exc))
-    return redirect(_demo_accounts_page_url(account.group_id))
+    return redirect(_ai_accounts_page_url(account.group_id) if account.is_ai else _demo_accounts_page_url(account.group_id))
 
 
 @staff_required
@@ -640,20 +666,30 @@ def demo_chat_account_delete(request, pk):
     account = get_object_or_404(ChatDemoAccount.objects.select_related("group"), pk=pk)
     group_id = account.group_id
     display_name = account.display_name
+    is_ai = account.is_ai
     account.delete()
     messages.success(request, f"تم حذف هوية {display_name}. بقيت رسائلها السابقة محفوظة في المجموعة.")
-    return redirect(_demo_accounts_page_url(group_id))
+    return redirect(_ai_accounts_page_url(group_id) if is_ai else _demo_accounts_page_url(group_id))
 
 
 @staff_required
 @require_POST
 def demo_chat_accounts_delete_group(request, group_id):
     group = get_object_or_404(ChatGroup, pk=group_id)
+    deleted_count, _ = ChatDemoAccount.objects.filter(group=group, is_ai=False).delete()
+    messages.success(request, f"تم حذف {deleted_count} حساب اختبار من مجموعة {group.title}. بقيت الرسائل محفوظة.")
+    return redirect(_demo_accounts_page_url(group.pk))
+
+
+@staff_required
+@require_POST
+def ai_chat_accounts_delete_group(request, group_id):
+    group = get_object_or_404(ChatGroup, pk=group_id)
     with transaction.atomic():
         AIBotPool.objects.filter(group=group).delete()
-        deleted_count, _ = ChatDemoAccount.objects.filter(group=group).delete()
-    messages.success(request, f"تم حذف {deleted_count} هوية من مجموعة {group.title}. بقيت الرسائل محفوظة ولن تُولّد بدائل.")
-    return redirect(_demo_accounts_page_url(group.pk))
+        deleted_count, _ = ChatDemoAccount.objects.filter(group=group, is_ai=True).delete()
+    messages.success(request, f"تم حذف {deleted_count} بوت من مجموعة {group.title}. بقيت الرسائل محفوظة ولن تُولّد بدائل.")
+    return redirect(_ai_accounts_page_url(group.pk))
 
 
 @staff_required

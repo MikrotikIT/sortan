@@ -1,0 +1,78 @@
+{% extends 'management/base.html' %}
+{% load static %}
+{% block title %}إدارة بوتات الذكاء الاصطناعي — إدارة KODI{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/ai-chat-accounts.css' %}?v=2">{% endblock %}
+{% block content %}
+<div class="ai-workspace" data-models-url="{% url 'management_openrouter_model_list' %}">
+  <section class="ai-page-heading">
+    <div class="ai-page-title"><span class="ai-eyebrow"><i></i> إعداد ومتابعة المحادثة</span><h1>بوتات الذكاء الاصطناعي</h1><p>أنشئ شخصيات، وزّعها على المجموعات، واترك النظام يدير المحادثات والأعمار والبدائل.</p></div>
+    <form class="ai-group-switcher" method="get"><label for="ai-selected-group">المجموعة الحالية</label><div><select id="ai-selected-group" name="group">{% for group in groups %}<option value="{{ group.pk }}" {% if selected_group.pk == group.pk %}selected{% endif %}>{{ group.title }}</option>{% endfor %}</select><button class="btn btn-quiet" type="submit">عرض المجموعة</button></div></form>
+  </section>
+
+  <section class="ai-overview" aria-label="ملخص البوتات">
+    <article class="ai-overview-card ai-overview-system"><span class="ai-overview-icon" aria-hidden="true">✦</span><div><small>حالة النظام</small><strong class="{% if ai_settings.enabled %}is-on{% else %}is-off{% endif %}">{% if ai_settings.enabled %}مفعّل{% else %}متوقف{% endif %}</strong><span>{% if ai_settings.run_mode == 'presence' %}يعمل مع وجود شخص{% else %}تشغيل مستمر{% endif %}</span></div></article>
+    <article class="ai-overview-card"><span class="ai-overview-icon is-green" aria-hidden="true">●</span><div><small>بوتات نشطة</small><strong>{{ active_bot_count }}</strong><span>تعمل الآن</span></div></article>
+    <article class="ai-overview-card"><span class="ai-overview-icon is-amber" aria-hidden="true">Ⅱ</span><div><small>بوتات متوقفة</small><strong>{{ paused_bot_count }}</strong><span>في حالة PAUSED</span></div></article>
+    <article class="ai-overview-card"><span class="ai-overview-icon is-muted" aria-hidden="true">↻</span><div><small>انتهى عمرها</small><strong>{{ dead_bot_count }}</strong><span>تنتظر التبديل</span></div></article>
+  </section>
+
+  {% if not groups %}<div class="ai-empty-global">أنشئ مجموعة محادثة وفعّلها حتى تبدأ إعداد البوتات.</div>{% else %}
+  <section class="ai-config-section" aria-labelledby="ai-connection-title">
+    <div class="ai-section-heading"><span class="ai-step-number">1</span><div><h2 id="ai-connection-title">الاتصال والتشغيل</h2><p>اربط OpenRouter وحدد متى يسمح للبوتات بإرسال الرسائل.</p></div><span class="ai-connection-state {% if openrouter_key_present %}is-ready{% endif %}"><i></i>{% if openrouter_key_present %}الاتصال مُعدّ{% else %}بحاجة إلى مفتاح{% endif %}</span></div>
+    <form class="ai-settings-form" method="post" action="{% url 'management_ai_chat_settings_update' %}">
+      {% csrf_token %}<input type="hidden" name="group" value="{{ selected_group.pk }}">
+      <div class="ai-settings-topline">
+        <label class="ai-toggle-card">{{ ai_settings_form.enabled }}<span class="ai-toggle-copy"><strong>تفعيل النظام</strong><small>عند الإيقاف تنتقل البوتات إلى PAUSED.</small></span><span class="ai-toggle-ui" aria-hidden="true"></span></label>
+        <div class="ai-field"><label for="{{ ai_settings_form.run_mode.id_for_label }}">طريقة التشغيل</label>{{ ai_settings_form.run_mode }}<small>الافتراضي: يعمل فقط أثناء وجود شخص داخل المجموعة.</small></div>
+        <label class="ai-toggle-card">{{ ai_settings_form.active_time_only }}<span class="ai-toggle-copy"><strong>احتساب العمر وقت التشغيل فقط</strong><small>أزل التحديد ليُحتسب العمر حتى أثناء التوقف.</small></span><span class="ai-toggle-ui" aria-hidden="true"></span></label>
+      </div>
+      <div class="ai-settings-bottomline">
+        <div class="ai-field"><label for="{{ ai_settings_form.openrouter_api_key.id_for_label }}">مفتاح OpenRouter</label>{{ ai_settings_form.openrouter_api_key }}<small>يُحفظ مشفّراً. اتركه فارغاً للاحتفاظ بالمفتاح الحالي.</small></div>
+        <div class="ai-field"><label for="{{ ai_settings_form.selected_model.id_for_label }}">الموديل الافتراضي</label>{{ ai_settings_form.selected_model }}<small>يستخدمه البوت عند عدم تحديد موديل في قالب الشخصية.</small></div>
+        <button class="btn btn-primary ai-save-button" type="submit">حفظ إعدادات الاتصال</button>
+      </div>
+      <datalist id="openrouter-model-options"></datalist>
+      <p class="ai-model-status" data-model-status role="status" aria-live="polite">جارٍ تحميل موديلات OpenRouter…</p>
+    </form>
+  </section>
+
+  <section class="ai-config-section" aria-labelledby="ai-personas-title">
+    <div class="ai-section-heading"><span class="ai-step-number">2</span><div><h2 id="ai-personas-title">قوالب الشخصيات</h2><p>القالب يحدد دور البوت وشخصيته والموديل وسرعة الرد وعمره.</p></div></div>
+    <form class="ai-template-form" method="post" action="{% url 'management_ai_bot_template_create' %}">
+      {% csrf_token %}<input type="hidden" name="group" value="{{ selected_group.pk }}">
+      <div class="ai-field"><label for="{{ template_form.name.id_for_label }}">اسم الشخصية</label>{{ template_form.name }}</div>
+      <div class="ai-field"><label for="{{ template_form.role.id_for_label }}">دور البوت</label>{{ template_form.role }}</div>
+      <div class="ai-field"><label for="{{ template_form.model_id.id_for_label }}">موديل OpenRouter</label>{{ template_form.model_id }}</div>
+      <div class="ai-field"><label for="{{ template_form.lifetime_minutes.id_for_label }}">عمر البوت بالدقائق</label>{{ template_form.lifetime_minutes }}</div>
+      <div class="ai-field ai-field-wide"><label for="{{ template_form.system_prompt.id_for_label }}">تعليمات الشخصية</label>{{ template_form.system_prompt }}<small>اكتب نبرة الكلام واهتمامات الشخصية وطريقة تفاعلها.</small></div>
+      <div class="ai-field"><label for="{{ template_form.wait_min_seconds.id_for_label }}">أقل انتظار (ثانية)</label>{{ template_form.wait_min_seconds }}</div>
+      <div class="ai-field"><label for="{{ template_form.wait_max_seconds.id_for_label }}">أعلى انتظار (ثانية)</label>{{ template_form.wait_max_seconds }}</div>
+      <label class="ai-template-active">{{ template_form.is_active }}<span>إتاحة القالب للبوتات الجديدة</span></label>
+      <button class="btn btn-primary" type="submit">＋ إنشاء قالب الشخصية</button>
+    </form>
+    {% if template_rows %}<div class="ai-template-grid">{% for template, edit_form in template_rows %}<article class="ai-template-card"><div class="ai-template-card-top"><span class="ai-template-avatar">{{ template.name|slice:":1" }}</span><div><strong>{{ template.name }}</strong><small>{{ template.get_role_display }}</small></div><span class="ai-template-dot {% if template.is_active %}is-active{% endif %}" title="{% if template.is_active %}متاح{% else %}متوقف{% endif %}"></span></div><div class="ai-template-model" dir="ltr">{{ template.model_id }}</div><div class="ai-template-facts"><span>انتظار {{ template.wait_min_seconds }}–{{ template.wait_max_seconds }} ث</span><span>عمر {{ template.lifetime_minutes }} د</span></div><details class="ai-template-edit"><summary>تعديل القالب</summary><form method="post" action="{% url 'management_ai_bot_template_edit' template.pk %}">{% csrf_token %}<input type="hidden" name="group" value="{{ selected_group.pk }}"><div class="ai-field"><label for="{{ edit_form.name.id_for_label }}">{{ edit_form.name.label }}</label>{{ edit_form.name }}</div><div class="ai-field"><label for="{{ edit_form.role.id_for_label }}">{{ edit_form.role.label }}</label>{{ edit_form.role }}</div><div class="ai-field"><label for="{{ edit_form.model_id.id_for_label }}">{{ edit_form.model_id.label }}</label>{{ edit_form.model_id }}</div><div class="ai-field"><label for="{{ edit_form.lifetime_minutes.id_for_label }}">{{ edit_form.lifetime_minutes.label }}</label>{{ edit_form.lifetime_minutes }}</div><div class="ai-field ai-field-wide"><label for="{{ edit_form.system_prompt.id_for_label }}">{{ edit_form.system_prompt.label }}</label>{{ edit_form.system_prompt }}</div><div class="ai-field"><label for="{{ edit_form.wait_min_seconds.id_for_label }}">{{ edit_form.wait_min_seconds.label }}</label>{{ edit_form.wait_min_seconds }}</div><div class="ai-field"><label for="{{ edit_form.wait_max_seconds.id_for_label }}">{{ edit_form.wait_max_seconds.label }}</label>{{ edit_form.wait_max_seconds }}</div><label class="ai-template-active">{{ edit_form.is_active }}<span>إتاحة القالب</span></label><button class="btn btn-quiet btn-small" type="submit">حفظ التعديلات</button></form></details></article>{% endfor %}</div>{% else %}<div class="ai-empty-inline">لم تُنشئ قوالب بعد. ابدأ بقالب للسؤال وآخر للرد.</div>{% endif %}
+  </section>
+
+  <section class="ai-config-section" aria-labelledby="ai-pools-title">
+    <div class="ai-section-heading"><span class="ai-step-number">3</span><div><h2 id="ai-pools-title">توزيع البوتات على المجموعة</h2><p>حدد عدد النسخ من كل قالب، ومدة الانتظار قبل إنشاء البديل بعد انتهاء عمر بوت.</p></div></div>
+    {% if templates %}<form class="ai-pool-form" method="post" action="{% url 'management_ai_bot_pool_save' %}">
+      {% csrf_token %}
+      <div class="ai-field"><label for="{{ pool_form.group.id_for_label }}">المجموعة</label>{{ pool_form.group }}</div>
+      <div class="ai-field"><label for="{{ pool_form.template.id_for_label }}">قالب الشخصية</label>{{ pool_form.template }}</div>
+      <div class="ai-field"><label for="{{ pool_form.desired_count.id_for_label }}">عدد البوتات</label>{{ pool_form.desired_count }}<small>صفر يوقف هذا القالب في المجموعة.</small></div>
+      <div class="ai-field"><label for="{{ pool_form.replacement_min_seconds.id_for_label }}">أقل انتظار للبديل</label>{{ pool_form.replacement_min_seconds }}</div>
+      <div class="ai-field"><label for="{{ pool_form.replacement_max_seconds.id_for_label }}">أعلى انتظار للبديل</label>{{ pool_form.replacement_max_seconds }}</div>
+      <button class="btn btn-primary" type="submit">تطبيق التوزيع</button>
+    </form>{% else %}<div class="ai-empty-inline">أنشئ قالب شخصية أولاً لتوزيع البوتات.</div>{% endif %}
+    {% if bot_pools %}<div class="ai-deployment-list"><h3>التوزيعات الحالية</h3>{% for pool in bot_pools %}<div class="ai-deployment-row"><span class="ai-template-avatar">{{ pool.template.name|slice:":1" }}</span><div class="ai-deployment-info"><strong>{{ pool.template.name }}</strong><small>{{ pool.group.title }}</small></div><span class="ai-deployment-count">{{ pool.active_count }} نشط · {{ pool.paused_count }} متوقف</span><span class="ai-deployment-target">المطلوب {{ pool.desired_count }}</span><small class="ai-replacement-hint">بديل خلال {{ pool.replacement_min_seconds }}–{{ pool.replacement_max_seconds }} ث</small></div>{% endfor %}</div>{% endif %}
+  </section>
+
+  <section class="ai-config-section ai-directory-section" aria-labelledby="ai-directory-title">
+    <div class="ai-section-heading"><span class="ai-step-number ai-step-last">4</span><div><h2 id="ai-directory-title">حسابات المجموعة</h2><p>الأزواج متوازنة تلقائياً؛ وأي بوت بلا شريك ينتظر حتى يتوفر شريك مناسب.</p></div><span class="ai-directory-total">{{ ai_accounts|length }} حساب</span></div>
+    {% if ai_accounts %}<div class="ai-directory-list">{% for account in ai_accounts %}<article class="ai-directory-row"><span class="ai-template-avatar">{{ account.display_name|slice:":1" }}</span><div class="ai-directory-identity"><strong>{{ account.display_name }}</strong><small>{{ account.get_ai_role_display }}{% if account.ai_partner %} · مع {{ account.ai_partner.display_name }}{% elif account.ai_role == 'asker' or account.ai_role == 'bot_responder' %} · ينتظر شريكاً{% endif %}</small><code dir="ltr">{{ account.ai_model_id }}</code></div><span class="ai-account-state state-{{ account.ai_state|lower }}">{{ account.get_ai_state_display }}</span><span class="ai-message-count">{{ account.message_count }} رسالة</span><a class="btn btn-quiet btn-small" href="{% url 'management_demo_chat_account_room' account.pk %}" target="_blank" rel="noopener">فتح المحادثة</a></article>{% endfor %}</div><form class="ai-delete-group-form" method="post" action="{% url 'management_ai_chat_accounts_delete_group' selected_group.pk %}" onsubmit="return confirm('حذف بوتات هذه المجموعة وإيقاف توليد البدائل؟ ستبقى الرسائل المحفوظة.')">{% csrf_token %}<button class="btn btn-quiet btn-small" type="submit">حذف بوتات المجموعة وإيقافها</button></form>
+    {% elif selected_group %}<div class="ai-empty-inline">لا توجد بوتات في {{ selected_group.title }}. وزّع قالباً من الخطوة السابقة لإنشائها.</div>{% endif %}
+  </section>
+  {% endif %}
+</div>
+{% endblock %}
+{% block extra_js %}<script src="{% static 'js/ai-chat-accounts.js' %}?v=2" defer></script>{% endblock %}
