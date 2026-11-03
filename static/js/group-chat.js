@@ -1264,6 +1264,12 @@
       role.textContent = "مشرف";
       header.append(role);
     }
+    if (message.is_ai) {
+      const role = document.createElement("span");
+      role.className = "chat-admin-badge chat-ai-badge";
+      role.textContent = "ذكاء اصطناعي";
+      header.append(role);
+    }
     const time = document.createElement("time");
     time.textContent = escapeText(dateInfo.time);
     if (dateInfo.day && dateInfo.time) time.dateTime = `${dateInfo.day}T${dateInfo.time}`;
@@ -1435,6 +1441,12 @@
       const badge = document.createElement("span");
       badge.className = "chat-admin-badge";
       badge.textContent = "مشرف";
+      header.appendChild(badge);
+    }
+    if (message.is_ai) {
+      const badge = document.createElement("span");
+      badge.className = "chat-admin-badge chat-ai-badge";
+      badge.textContent = "ذكاء اصطناعي";
       header.appendChild(badge);
     }
     const time = document.createElement("time");
@@ -1696,6 +1708,7 @@
     socket = new WebSocket(`${protocol}//${window.location.host}${root.dataset.wsPath}`);
     socket.addEventListener("open", () => {
       retryCount = 0;
+      socket.send(JSON.stringify({ action: "heartbeat" }));
       if (status) {
         status.textContent = "متصل";
         status.title = "المحادثة متصلة مباشرة";
@@ -1781,6 +1794,12 @@
     });
     socket.addEventListener("error", () => socket.close());
   };
+
+  window.setInterval(() => {
+    if (socket?.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ action: "heartbeat" }));
+    }
+  }, 15000);
 
   try {
     const initial = JSON.parse(document.getElementById("chat-initial-messages")?.textContent || "[]");

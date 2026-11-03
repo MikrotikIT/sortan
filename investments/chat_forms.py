@@ -6,12 +6,13 @@ from pathlib import PurePath
 from random import randint
 
 from django import forms
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.utils import timezone
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-from .models import ChatDemoAccount, ChatGroup, ChatMembership, ChatReaction, User
+from .models import AIBotPool, AIBotTemplate, AIChatSettings, ChatDemoAccount, ChatGroup, ChatMembership, ChatReaction, User
 
 
 CHAT_REACTION_EMOJIS = {
@@ -358,6 +359,150 @@ class ChatDemoAccountEditForm(forms.ModelForm):
         if not name:
             raise ValidationError("أدخل اسماً وكنية للحساب التجريبي.")
         return name
+
+
+class AIChatSettingsForm(forms.Form):
+    enabled = forms.BooleanField(label="تفعيل نظام البوتات", required=False)
+    run_mode = forms.ChoiceField(label="تشغيل البوتات عند", choices=AIChatSettings.RunMode.choices)
+    active_time_only = forms.BooleanField(label="احتساب عمر البوت أثناء التشغيل فقط", required=False)
+    openrouter_api_key = forms.CharField(
+        label="مفتاح OpenRouter",
+        required=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password", "dir": "ltr"}),
+        help_text="أدخل المفتاح لحفظه. اتركه فارغاً للاحتفاظ بالمفتاح الحالي.",
+    )
+    selected_model = forms.CharField(
+        label="الموديل الافتراضي",
+        required=False,
+        widget=forms.TextInput(attrs={"dir": "ltr", "list": "openrouter-model-options", "autocomplete": "off"}),
+    )
+
+    def __init__(self, *args, instance=None, **kwargs):
+        self.instance = instance or AIChatSettings()
+        kwargs.setdefault("initial", {
+            "enabled": self.instance.enabled,
+            "run_mode": self.instance.run_mode,
+            "active_time_only": self.instance.active_time_only,
+            "selected_model": self.instance.selected_model,
+        })
+        super().__init__(*args, **kwargs)
+
+    def clean_openrouter_api_key(self):
+        return self.cleaned_data.get("openrouter_api_key", "").strip()
+
+    def clean(self):
+        cleaned = super().clean()
+        has_saved_key = bool(self.instance.encrypted_openrouter_api_key)
+        if cleaned.get("enabled") and not (
+            cleaned.get("openrouter_api_key") or has_saved_key or getattr(settings, "OPENROUTER_API_KEY", "")
+        ):
+            self.add_error("openrouter_api_key", "أدخل مفتاح OpenRouter قبل تفعيل البوتات.")
+        return cleaned
+
+    def save(self):
+        self.instance.enabled = self.cleaned_data["enabled"]
+        self.instance.run_mode = self.cleaned_data["run_mode"]
+        self.instance.active_time_only = self.cleaned_data["active_time_only"]
+        self.instance.selected_model = self.cleaned_data["selected_model"].strip()
+        if self.cleaned_data["openrouter_api_key"]:
+            self.instance.openrouter_api_key = self.cleaned_data["openrouter_api_key"]
+        self.instance.save()
+        return self.instance
+
+
+class AIBotTemplateForm(forms.ModelForm):
+    wait_min_seconds = forms.IntegerField(
+        label="أقل انتظار قبل الإرسال (ثانية)", min_value=1, max_value=3600,
+        widget=forms.NumberInput(attrs={"min": 1, "max": 3600}),
+    )
+    wait_max_seconds = forms.IntegerField(
+        label="أعلى انتظار قبل الإرسال (ثانية)", min_value=1, max_value=3600,
+        widget=forms.NumberInput(attrs={"min": 1, "max": 3600}),
+    )
+    lifetime_minutes = forms.IntegerField(
+        label="عمر البوت (دقيقة)", min_value=1, max_value=10080,
+        widget=forms.NumberInput(attrs={"min": 1, "max": 10080}),
+    )
+
+    class Meta:
+        model = AIBotTemplate
+        fields = (
+            "name", "role", "model_id", "system_prompt", "wait_min_seconds", "wait_max_seconds",
+            "lifetime_minutes", "is_active",
+        )
+        widgets = {
+            "model_id": forms.TextInput(attrs={"dir": "ltr", "list": "openrouter-model-options", "autocomplete": "off"}),
+            "system_prompt": forms.Textarea(attrs={"rows": 4, "maxlength": 4000}),
+            "wait_min_seconds": forms.NumberInput(attrs={"min": 1, "max": 3600}),
+            "wait_max_seconds": forms.NumberInput(attrs={"min": 1, "max": 3600}),
+            "lifetime_minutes": forms.NumberInput(attrs={"min": 1, "max": 10080}),
+        }
+        labels = {
+            "name": "اسم الشخصية",
+            "role": "وظيفة الحساب",
+            "model_id": "موديل OpenRouter",
+            "system_prompt": "تعليمات الشخصية",
+            "wait_min_seconds": "أقل انتظار قبل الإرسال (ثانية)",
+            "wait_max_seconds": "أعلى انتظار قبل الإرسال (ثانية)",
+            "lifetime_minutes": "عمر البوت (دقيقة)",
+            "is_active": "السماح بإنشاء بوتات من هذا القالب",
+        }
+
+    def clean_name(self):
+        from django.utils.html import strip_tags
+
+        name = strip_tags(self.cleaned_data["name"]).strip()
+        if not name or any(character.isdigit() for character in name):
+            raise ValidationError("اكتب اسماً صالحاً للشخصية دون أرقام.")
+        return name
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("wait_min_seconds", 0) > cleaned.get("wait_max_seconds", 0):
+            self.add_error("wait_max_seconds", "يجب أن يكون الحد الأعلى مساوياً للحد الأدنى أو أكبر منه.")
+        return cleaned
+
+
+class AIBotPoolForm(forms.ModelForm):
+    desired_count = forms.IntegerField(
+        label="عدد الحسابات من هذا القالب", min_value=0, max_value=200,
+        widget=forms.NumberInput(attrs={"min": 0, "max": 200}),
+    )
+    replacement_min_seconds = forms.IntegerField(
+        label="أقل انتظار لتوليد البديل (ثانية)", min_value=1, max_value=3600,
+        widget=forms.NumberInput(attrs={"min": 1, "max": 3600}),
+    )
+    replacement_max_seconds = forms.IntegerField(
+        label="أعلى انتظار لتوليد البديل (ثانية)", min_value=1, max_value=3600,
+        widget=forms.NumberInput(attrs={"min": 1, "max": 3600}),
+    )
+
+    class Meta:
+        model = AIBotPool
+        fields = ("group", "template", "desired_count", "replacement_min_seconds", "replacement_max_seconds")
+        widgets = {
+            "desired_count": forms.NumberInput(attrs={"min": 0, "max": 200}),
+            "replacement_min_seconds": forms.NumberInput(attrs={"min": 1, "max": 3600}),
+            "replacement_max_seconds": forms.NumberInput(attrs={"min": 1, "max": 3600}),
+        }
+        labels = {
+            "group": "مجموعة المحادثة",
+            "template": "قالب الشخصية",
+            "desired_count": "عدد الحسابات من هذا القالب",
+            "replacement_min_seconds": "أقل انتظار لتوليد البديل (ثانية)",
+            "replacement_max_seconds": "أعلى انتظار لتوليد البديل (ثانية)",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["group"].queryset = ChatGroup.objects.filter(is_active=True).order_by("title", "pk")
+        self.fields["template"].queryset = AIBotTemplate.objects.filter(is_active=True).order_by("name", "pk")
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("replacement_min_seconds", 0) > cleaned.get("replacement_max_seconds", 0):
+            self.add_error("replacement_max_seconds", "يجب أن يكون الحد الأعلى مساوياً للحد الأدنى أو أكبر منه.")
+        return cleaned
 
 
 class DemoWithdrawalReceiptForm(forms.Form):

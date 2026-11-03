@@ -403,3 +403,10 @@ def advance_demo_chat_metrics():
             message_data = serialize_chat_message(message)
             _broadcast_chat(message.group_id, {"type": "message_updated", "message": message_data})
     return {"groups": grown_groups, "messages": advanced_messages}
+
+
+@shared_task
+def advance_ai_chat_bots():
+    from .ai_chat_services import advance_ai_chat_bots as run_ai_chat_bots
+
+    return run_ai_chat_bots()

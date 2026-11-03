@@ -1,20 +1,26 @@
 import logging
+from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
-from random import choice
+from random import choice, randint
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+from django.conf import settings
 from django.contrib import messages
 from django.db import transaction
 from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from .chat_forms import (
     ChatDemoAccountBatchForm,
     ChatDemoAccountEditForm,
+    AIBotPoolForm,
+    AIBotTemplateForm,
+    AIChatSettingsForm,
     DemoWithdrawalReceiptForm,
     ChatUploadForm,
     ChatGroupForm,
@@ -30,7 +36,18 @@ from .chat_services import (
     set_demo_message_reaction,
 )
 from .management_views import staff_required
-from .models import ChatDemoAccount, ChatGroup, ChatGroupBan, ChatMembership, ChatMessage, DemoWithdrawalReceipt, PlatformSettings
+from .models import (
+    AIBotPool,
+    AIBotTemplate,
+    AIChatSettings,
+    ChatDemoAccount,
+    ChatGroup,
+    ChatGroupBan,
+    ChatMembership,
+    ChatMessage,
+    DemoWithdrawalReceipt,
+    PlatformSettings,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -292,12 +309,41 @@ def demo_chat_accounts(request):
         initial={"group": selected_group.pk, "count": 5} if selected_group else {"count": 5}
     )
     accounts = (
-        ChatDemoAccount.objects.filter(group=selected_group)
+        ChatDemoAccount.objects.filter(group=selected_group, is_ai=False)
         .select_related("group")
         .annotate(message_count=Count("messages", distinct=True))
         .order_by("display_name", "pk")
         if selected_group else ChatDemoAccount.objects.none()
     )
+    ai_accounts = (
+        ChatDemoAccount.objects.filter(group=selected_group, is_ai=True)
+        .select_related("bot_pool__template", "ai_partner")
+        .annotate(message_count=Count("messages", distinct=True))
+        .order_by("bot_pool__template__name", "display_name", "pk")
+        if selected_group else ChatDemoAccount.objects.none()
+    )
+    bot_pools = (
+        AIBotPool.objects.filter(group=selected_group)
+        .select_related("template")
+        .annotate(
+            active_count=Count(
+                "accounts",
+                filter=Q(accounts__is_ai=True, accounts__ai_state__in=("ACTIVE", "PAUSED")),
+                distinct=True,
+            )
+        )
+        .order_by("template__name", "pk")
+        if selected_group else AIBotPool.objects.none()
+    )
+    ai_settings, _ = AIChatSettings.objects.get_or_create(pk=1)
+    ai_settings_form = AIChatSettingsForm(instance=ai_settings)
+    template_form = AIBotTemplateForm()
+    pool_form = AIBotPoolForm(initial={"group": selected_group.pk} if selected_group else None)
+    templates = AIBotTemplate.objects.order_by("name", "pk")
+    template_rows = [
+        (template, AIBotTemplateForm(instance=template, prefix=f"template-{template.pk}"))
+        for template in templates
+    ]
     try:
         popup_blocked = max(0, int(request.GET.get("popup_blocked", "0")))
     except (TypeError, ValueError):
@@ -310,9 +356,173 @@ def demo_chat_accounts(request):
             "selected_group": selected_group,
             "form": form,
             "accounts": accounts,
+            "ai_accounts": ai_accounts,
+            "bot_pools": bot_pools,
+            "ai_settings": ai_settings,
+            "ai_settings_form": ai_settings_form,
+            "templates": templates,
+            "template_rows": template_rows,
+            "template_form": template_form,
+            "pool_form": pool_form,
+            "openrouter_key_present": bool(ai_settings.encrypted_openrouter_api_key or getattr(settings, "OPENROUTER_API_KEY", "")),
             "popup_blocked": popup_blocked,
         },
     )
+
+
+def _new_ai_bot_account(group, template, pool, reserved_names, *, display_name=None):
+    if display_name is None:
+        try:
+            display_name = _new_demo_chat_name(reserved_names)
+        except ValueError:
+            letters = "ابتثجحخدذرزسشصضطظعغفقكلمنهوي"
+            for _ in range(50):
+                candidate = f"{template.name} {''.join(choice(letters) for _ in range(6))}"
+                if candidate.casefold() not in reserved_names:
+                    display_name = candidate
+                    reserved_names.add(candidate.casefold())
+                    break
+            if display_name is None:
+                raise ValueError("تعذر توليد اسم فريد لبوت الذكاء الاصطناعي.")
+    return ChatDemoAccount.objects.create(
+        group=group,
+        display_name=display_name,
+        is_ai=True,
+        bot_pool=pool,
+        ai_role=template.role,
+        ai_model_id=template.model_id,
+        ai_system_prompt=template.system_prompt,
+        ai_wait_min_seconds=template.wait_min_seconds,
+        ai_wait_max_seconds=template.wait_max_seconds,
+        ai_lifetime_seconds=template.lifetime_minutes * 60,
+        ai_next_action_at=timezone.now() + timedelta(
+            seconds=randint(template.wait_min_seconds, template.wait_max_seconds)
+        ),
+    )
+
+
+@staff_required
+@require_POST
+def ai_chat_settings_update(request):
+    settings_row, _ = AIChatSettings.objects.get_or_create(pk=1)
+    form = AIChatSettingsForm(request.POST, instance=settings_row)
+    if form.is_valid():
+        form.save()
+        messages.success(request, "تم حفظ إعدادات تشغيل البوتات وربط OpenRouter.")
+    else:
+        error = next(iter(form.errors.values()), ["راجع الحقول المحددة."])[0]
+        messages.error(request, f"تعذر حفظ الإعدادات: {error}")
+    return redirect(_demo_accounts_page_url(request.POST.get("group", "")) if request.POST.get("group") else "management_demo_chat_accounts")
+
+
+@staff_required
+@require_POST
+def ai_bot_template_create(request):
+    form = AIBotTemplateForm(request.POST)
+    if form.is_valid():
+        form.save()
+        messages.success(request, "تم حفظ قالب شخصية الذكاء الاصطناعي.")
+    else:
+        error = next(iter(form.errors.values()), ["راجع الحقول المحددة."])[0]
+        messages.error(request, f"تعذر حفظ القالب: {error}")
+    group_id = request.POST.get("group", "")
+    return redirect(_demo_accounts_page_url(group_id) if group_id else "management_demo_chat_accounts")
+
+
+@staff_required
+@require_POST
+def ai_bot_template_edit(request, pk):
+    template = get_object_or_404(AIBotTemplate, pk=pk)
+    form = AIBotTemplateForm(request.POST, instance=template)
+    if form.is_valid():
+        form.save()
+        messages.success(request, f"تم تحديث قالب {template.name}. البوتات الموجودة تحتفظ بنسختها؛ التحديث يطبق على البدائل الجديدة.")
+    else:
+        error = next(iter(form.errors.values()), ["راجع الحقول المحددة."])[0]
+        messages.error(request, f"تعذر تحديث القالب: {error}")
+    group_id = request.POST.get("group", "")
+    return redirect(_demo_accounts_page_url(group_id) if group_id else "management_demo_chat_accounts")
+
+
+@staff_required
+@require_POST
+def ai_bot_pool_save(request):
+    form = AIBotPoolForm(request.POST)
+    if not form.is_valid():
+        error = next(iter(form.errors.values()), ["راجع الحقول المحددة."])[0]
+        messages.error(request, f"تعذر ضبط عدد البوتات: {error}")
+        return redirect(_demo_accounts_page_url(request.POST.get("group", "")) if request.POST.get("group") else "management_demo_chat_accounts")
+    template = form.cleaned_data["template"]
+    requested_group = form.cleaned_data["group"]
+    try:
+        with transaction.atomic():
+            group = ChatGroup.objects.select_for_update().get(pk=requested_group.pk, is_active=True)
+            pool, _ = AIBotPool.objects.get_or_create(
+                group=group,
+                template=template,
+                defaults={"created_by": request.user},
+            )
+            pool = AIBotPool.objects.select_for_update().get(pk=pool.pk)
+            pool.desired_count = form.cleaned_data["desired_count"]
+            pool.replacement_min_seconds = form.cleaned_data["replacement_min_seconds"]
+            pool.replacement_max_seconds = form.cleaned_data["replacement_max_seconds"]
+            pool.created_by = request.user
+            pool.save()
+            current_accounts = list(pool.accounts.filter(is_ai=True, ai_state__in=("ACTIVE", "PAUSED")).order_by("pk"))
+            desired_count = pool.desired_count
+            if len(current_accounts) > desired_count:
+                for account in current_accounts[desired_count:]:
+                    if account.ai_partner_id:
+                        ChatDemoAccount.objects.filter(
+                            pk=account.ai_partner_id, ai_partner_id=account.pk
+                        ).update(ai_partner=None)
+                    account.ai_state = "DEAD"
+                    account.ai_dead_at = timezone.now()
+                    account.ai_next_action_at = None
+                    account.ai_last_active_at = None
+                    account.ai_partner = None
+                    account.save(update_fields=("ai_state", "ai_dead_at", "ai_next_action_at", "ai_last_active_at", "ai_partner"))
+            elif len(current_accounts) < desired_count:
+                reserved_names = _reserved_demo_chat_names()
+                for _ in range(desired_count - len(current_accounts)):
+                    _new_ai_bot_account(group, template, pool, reserved_names)
+            pool.next_replacement_at = None
+            pool.save(update_fields=("next_replacement_at", "updated_at"))
+    except ChatGroup.DoesNotExist:
+        messages.error(request, "مجموعة المحادثة لم تعد متاحة.")
+        return redirect("management_demo_chat_accounts")
+    messages.success(request, f"تم ضبط {desired_count} بوت من قالب {template.name} في {group.title}.")
+    return redirect(_demo_accounts_page_url(group.pk))
+
+
+@staff_required
+@require_GET
+def openrouter_model_list(request):
+    import json
+    from urllib.request import Request, urlopen
+
+    endpoint = "https://openrouter.ai/api/v1/models?output_modalities=text"
+    try:
+        ai_settings = AIChatSettings.objects.filter(pk=1).first()
+        api_key = (ai_settings.openrouter_api_key if ai_settings else "") or getattr(settings, "OPENROUTER_API_KEY", "")
+        headers = {"Accept": "application/json", "User-Agent": "Kodi-TV/1.0"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        req = Request(endpoint, headers=headers)
+        with urlopen(req, timeout=12) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except Exception:
+        logger.exception("Could not fetch OpenRouter models")
+        return JsonResponse({"ok": False, "models": [], "error": "تعذر تحميل قائمة موديلات OpenRouter."}, status=502)
+    rows = payload.get("data", []) if isinstance(payload, dict) else []
+    if not isinstance(rows, list):
+        rows = []
+    models = [
+        {"id": row.get("id", ""), "name": row.get("name") or row.get("id", "")}
+        for row in rows
+        if isinstance(row, dict) and row.get("id")
+    ]
+    return JsonResponse({"ok": True, "models": models})
 
 
 @staff_required
@@ -439,8 +649,10 @@ def demo_chat_account_delete(request, pk):
 @require_POST
 def demo_chat_accounts_delete_group(request, group_id):
     group = get_object_or_404(ChatGroup, pk=group_id)
-    deleted_count, _ = ChatDemoAccount.objects.filter(group=group).delete()
-    messages.success(request, f"تم حذف {deleted_count} حساباً تجريبياً من مجموعة {group.title}. بقيت رسائلها محفوظة.")
+    with transaction.atomic():
+        AIBotPool.objects.filter(group=group).delete()
+        deleted_count, _ = ChatDemoAccount.objects.filter(group=group).delete()
+    messages.success(request, f"تم حذف {deleted_count} هوية من مجموعة {group.title}. بقيت الرسائل محفوظة ولن تُولّد بدائل.")
     return redirect(_demo_accounts_page_url(group.pk))
 
 

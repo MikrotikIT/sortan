@@ -1,6 +1,9 @@
+import uuid
+
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from django.core.exceptions import ObjectDoesNotExist
+from django.utils import timezone
 
 from .chat_services import (
     ChatRuleError,
@@ -12,7 +15,7 @@ from .chat_services import (
     user_can_moderate,
     user_can_post,
 )
-from .models import ChatGroup
+from .models import ChatGroup, ChatGroupPresence
 
 
 @database_sync_to_async
@@ -27,6 +30,30 @@ def _socket_context(group_id, user):
         "can_moderate": user_can_moderate(user, group),
         "can_react": group.reactions_enabled,
     }
+
+
+@database_sync_to_async
+def _register_presence(group_id, user_id, connection_id):
+    ChatGroupPresence.objects.update_or_create(
+        group_id=group_id,
+        user_id=user_id,
+        connection_id=connection_id,
+        defaults={},
+    )
+
+
+@database_sync_to_async
+def _touch_presence(group_id, user_id, connection_id):
+    return ChatGroupPresence.objects.filter(
+        group_id=group_id, user_id=user_id, connection_id=connection_id
+    ).update(last_seen_at=timezone.now())
+
+
+@database_sync_to_async
+def _remove_presence(group_id, user_id, connection_id):
+    ChatGroupPresence.objects.filter(
+        group_id=group_id, user_id=user_id, connection_id=connection_id
+    ).delete()
 
 
 class GroupChatConsumer(AsyncJsonWebsocketConsumer):
@@ -45,6 +72,10 @@ class GroupChatConsumer(AsyncJsonWebsocketConsumer):
         if self.chat_context is None:
             await self.close(code=4403)
             return
+        self.presence_connection_id = uuid.uuid4()
+        await _register_presence(
+            self.chat_context["group_id"], self.chat_context["user_id"], self.presence_connection_id
+        )
         self.room_group_name = f"chat_group_{self.chat_context['group_id']}"
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
@@ -54,6 +85,10 @@ class GroupChatConsumer(AsyncJsonWebsocketConsumer):
         room_group_name = getattr(self, "room_group_name", None)
         if room_group_name:
             await self.channel_layer.group_discard(room_group_name, self.channel_name)
+        if getattr(self, "presence_connection_id", None) and getattr(self, "chat_context", None):
+            await _remove_presence(
+                self.chat_context["group_id"], self.chat_context["user_id"], self.presence_connection_id
+            )
 
     async def receive_json(self, content, **kwargs):
         if not isinstance(content, dict):
@@ -62,7 +97,11 @@ class GroupChatConsumer(AsyncJsonWebsocketConsumer):
         action = content.get("action")
         user_id = self.chat_context["user_id"]
         try:
-            if action == "send":
+            if action == "heartbeat":
+                await _touch_presence(
+                    self.chat_context["group_id"], user_id, self.presence_connection_id
+                )
+            elif action == "send":
                 message = await database_sync_to_async(create_text_message)(
                     self.chat_context["group_id"], user_id, str(content.get("text", ""))[:2000],
                     content.get("reply_to"),

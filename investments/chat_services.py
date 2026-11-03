@@ -10,7 +10,20 @@ from django.utils.html import strip_tags
 from django.urls import reverse
 from django.utils.text import get_valid_filename
 
-from .models import ChatDemoAccount, ChatDemoReaction, ChatGroup, ChatGroupBan, ChatGroupReadState, ChatMembership, ChatMessage, ChatReaction, JoinApplication, User
+from .models import (
+    AIChatSettings,
+    ChatDemoAccount,
+    ChatDemoReaction,
+    ChatGroup,
+    ChatGroupBan,
+    ChatGroupPresence,
+    ChatGroupReadState,
+    ChatMembership,
+    ChatMessage,
+    ChatReaction,
+    JoinApplication,
+    User,
+)
 
 
 REACTION_GLYPHS = {
@@ -267,6 +280,7 @@ def serialize_chat_message(message, viewer_id=None, demo_account_id=None):
         "sender": _message_sender_name(message),
         "sender_is_admin": bool(message.sender.is_staff and not message.demo_sender_name),
         "is_demo": bool(message.demo_sender_name),
+        "is_ai": bool(message.demo_sender_is_ai),
         "text": message.text,
         "reply_to": reply_data,
         "created_at": timezone.localtime(message.created_at).strftime("%Y-%m-%d %H:%M"),
@@ -496,6 +510,43 @@ def create_demo_uploaded_message(group_id, demo_account_id, user_id, form):
         from .tasks import process_chat_video
 
         transaction.on_commit(lambda message_id=message.pk: process_chat_video.delay(message_id))
+    return serialize_chat_message(message, viewer_id=user.pk)
+
+
+@transaction.atomic
+def create_ai_chat_message(account_id, text, reply_to_id):
+    account = ChatDemoAccount.objects.select_for_update(of=("self",)).select_related(
+        "group", "bot_pool", "bot_pool__created_by"
+    ).filter(pk=account_id, is_ai=True, ai_state="ACTIVE").first()
+    if account is None or not account.group.is_active or account.bot_pool is None:
+        raise ChatRuleError("حساب الذكاء الاصطناعي غير متاح الآن.")
+    if account.group.message_mode == ChatGroup.MessageMode.LOCKED:
+        raise ChatRuleError("مجموعة المحادثة مقفلة.")
+    ai_settings = AIChatSettings.objects.filter(pk=1).first()
+    if not ai_settings or not ai_settings.enabled:
+        raise ChatRuleError("نظام بوتات الذكاء الاصطناعي متوقف.")
+    if ai_settings.run_mode == AIChatSettings.RunMode.HUMAN_PRESENCE and not ChatGroupPresence.objects.filter(
+        group_id=account.group_id,
+        last_seen_at__gte=timezone.now() - timedelta(seconds=90),
+        user__is_active=True,
+    ).exists():
+        raise ChatRuleError("لا يوجد شخص داخل المجموعة الآن.")
+    user = account.bot_pool.created_by
+    if user is None or not user.is_active or not user.is_staff:
+        raise ChatRuleError("لا يوجد حساب إدارة نشط لإرسال رسالة البوت.")
+    text = _check_text_rules(account.group, user, text, demo_account=account)
+    if not text:
+        raise ChatRuleError("لم ينتج الموديل نصاً صالحاً للإرسال.")
+    reply = _get_reply_target(account.group, reply_to_id)
+    message = ChatMessage.objects.create(
+        group=account.group,
+        sender=user,
+        demo_account=account,
+        demo_sender_name=account.display_name,
+        demo_sender_is_ai=True,
+        text=text[:2000],
+        **_reply_snapshot(reply),
+    )
     return serialize_chat_message(message, viewer_id=user.pk)
 
 

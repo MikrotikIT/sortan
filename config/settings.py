@@ -164,6 +164,11 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": 1.0,
         "options": {"expires": 3},
     },
+    "advance-ai-chat-bots": {
+        "task": "investments.tasks.advance_ai_chat_bots",
+        "schedule": 2.0,
+        "options": {"expires": 5},
+    },
 }
 
 STATIC_URL = "static/"
@@ -173,6 +178,8 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 PRIVATE_MEDIA_ROOT = Path(os.environ.get("DJANGO_PRIVATE_MEDIA_ROOT", BASE_DIR / "private_media"))
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
+OPENROUTER_ENCRYPTION_KEY = os.environ.get("OPENROUTER_ENCRYPTION_KEY", "")
 FIREBASE_PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID", "kodi-fbcf3")
 FIREBASE_SERVICE_ACCOUNT_FILE = Path(
     os.environ.get(

@@ -820,6 +820,107 @@ class ChatGroup(models.Model):
         return self.memberships.filter(user__is_active=True, user__approval_status="approved").count()
 
 
+class AIChatSettings(models.Model):
+    class RunMode(models.TextChoices):
+        HUMAN_PRESENCE = "presence", "عند وجود شخص في المجموعة"
+        ALWAYS = "always", "تشغيل يدوي مستمر"
+
+    enabled = models.BooleanField("تفعيل نظام البوتات", default=False)
+    run_mode = models.CharField("شرط التشغيل", max_length=12, choices=RunMode.choices, default=RunMode.HUMAN_PRESENCE)
+    active_time_only = models.BooleanField(
+        "احتساب عمر البوت أثناء التشغيل فقط",
+        default=True,
+        help_text="عند إيقاف النظام أو غياب الأشخاص، يتوقف عدّاد العمر. أزل التحديد ليُحتسب الوقت حتى أثناء التوقف.",
+    )
+    encrypted_openrouter_api_key = models.TextField("مفتاح OpenRouter المشفر", blank=True)
+    selected_model = models.CharField("الموديل الافتراضي", max_length=200, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "إعدادات بوتات المحادثة"
+        verbose_name_plural = "إعدادات بوتات المحادثة"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @property
+    def openrouter_api_key(self):
+        if not self.encrypted_openrouter_api_key:
+            return ""
+        from .ai_security import decrypt_openrouter_api_key
+
+        return decrypt_openrouter_api_key(self.encrypted_openrouter_api_key)
+
+    @openrouter_api_key.setter
+    def openrouter_api_key(self, value):
+        if not value:
+            self.encrypted_openrouter_api_key = ""
+            return
+        from .ai_security import encrypt_openrouter_api_key
+
+        self.encrypted_openrouter_api_key = encrypt_openrouter_api_key(value)
+
+
+class AIBotTemplate(models.Model):
+    class Role(models.TextChoices):
+        ASKER = "asker", "يسأل بوتاً آخر"
+        BOT_RESPONDER = "bot_responder", "يرد على بوت محدد"
+        HUMAN_RESPONDER = "human_responder", "يرد على الأشخاص"
+
+    name = models.CharField("اسم الشخصية", max_length=80)
+    role = models.CharField("وظيفة البوت", max_length=20, choices=Role.choices)
+    model_id = models.CharField("موديل OpenRouter", max_length=200)
+    system_prompt = models.TextField("تعليمات الشخصية", max_length=4000)
+    wait_min_seconds = models.PositiveSmallIntegerField("أقل انتظار بين الرسائل (ثانية)", default=1)
+    wait_max_seconds = models.PositiveSmallIntegerField("أعلى انتظار بين الرسائل (ثانية)", default=5)
+    lifetime_minutes = models.PositiveSmallIntegerField("عمر البوت (دقيقة)", default=10)
+    is_active = models.BooleanField("متاح للاستخدام", default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("name", "pk")
+        verbose_name = "قالب شخصية بوت"
+        verbose_name_plural = "قوالب شخصيات البوتات"
+
+    def __str__(self):
+        return self.name
+
+
+class AIBotPool(models.Model):
+    group = models.ForeignKey(ChatGroup, on_delete=models.CASCADE, related_name="ai_bot_pools")
+    template = models.ForeignKey(AIBotTemplate, on_delete=models.PROTECT, related_name="pools")
+    desired_count = models.PositiveSmallIntegerField("عدد البوتات المطلوبة", default=1)
+    replacement_min_seconds = models.PositiveSmallIntegerField("أقل انتظار قبل البديل (ثانية)", default=5)
+    replacement_max_seconds = models.PositiveSmallIntegerField("أعلى انتظار قبل البديل (ثانية)", default=60)
+    next_replacement_at = models.DateTimeField(null=True, blank=True, editable=False)
+    created_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="created_ai_bot_pools"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("group__title", "template__name", "pk")
+        constraints = [models.UniqueConstraint(fields=("group", "template"), name="ai_pool_group_template_uniq")]
+        verbose_name = "مجموعة تشغيل بوتات"
+        verbose_name_plural = "مجموعات تشغيل البوتات"
+
+
+class ChatGroupPresence(models.Model):
+    group = models.ForeignKey(ChatGroup, on_delete=models.CASCADE, related_name="live_presences")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="chat_live_presences")
+    connection_id = models.UUIDField(default=uuid.uuid4)
+    last_seen_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=("group", "user", "connection_id"), name="chat_presence_conn_uniq")
+        ]
+        indexes = [models.Index(fields=("group", "last_seen_at"), name="chat_presence_group_seen_idx")]
+
+
 class ChatMembership(models.Model):
     class Role(models.TextChoices):
         MEMBER = "member", "عضو"
@@ -880,6 +981,28 @@ class ChatDemoAccount(models.Model):
 
     group = models.ForeignKey(ChatGroup, on_delete=models.CASCADE, related_name="demo_accounts")
     display_name = models.CharField("الاسم والكنية", max_length=120)
+    is_ai = models.BooleanField("حساب ذكاء اصطناعي", default=False)
+    bot_pool = models.ForeignKey(AIBotPool, null=True, blank=True, on_delete=models.SET_NULL, related_name="accounts")
+    ai_role = models.CharField(
+        "وظيفة البوت", max_length=20, choices=AIBotTemplate.Role.choices, blank=True
+    )
+    ai_model_id = models.CharField("موديل البوت", max_length=200, blank=True)
+    ai_system_prompt = models.TextField("تعليمات البوت", max_length=4000, blank=True)
+    ai_wait_min_seconds = models.PositiveSmallIntegerField(default=1)
+    ai_wait_max_seconds = models.PositiveSmallIntegerField(default=5)
+    ai_lifetime_seconds = models.PositiveIntegerField(default=600)
+    ai_elapsed_active_seconds = models.PositiveIntegerField(default=0)
+    ai_state = models.CharField(
+        "حالة البوت", max_length=8, choices=(("ACTIVE", "نشط"), ("PAUSED", "متوقف"), ("DEAD", "انتهى عمره")),
+        default="ACTIVE",
+    )
+    ai_partner = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.SET_NULL, related_name="ai_partnered_accounts"
+    )
+    ai_last_active_at = models.DateTimeField(null=True, blank=True)
+    ai_next_action_at = models.DateTimeField(null=True, blank=True)
+    ai_wait_remaining_seconds = models.PositiveSmallIntegerField(null=True, blank=True)
+    ai_dead_at = models.DateTimeField(null=True, blank=True)
     demo_customer_number = models.CharField(
         "رقم العميل",
         max_length=20,
@@ -999,6 +1122,7 @@ class ChatMessage(models.Model):
         related_name="messages",
     )
     demo_sender_name = models.CharField("اسم المرسل التجريبي وقت الإرسال", max_length=120, blank=True)
+    demo_sender_is_ai = models.BooleanField("رسالة مرسلة بواسطة بوت ذكاء اصطناعي", default=False)
     reply_to = models.ForeignKey(
         "self",
         verbose_name="رد على رسالة",
