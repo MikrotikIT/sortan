@@ -31,6 +31,7 @@
   const replySender = compose?.querySelector("[data-reply-sender]");
   const replyText = compose?.querySelector("[data-reply-text]");
   let recordedAudioFile = null;
+  let isSubmittingChatMessage = false;
   let audioRecorder = null;
   let audioStream = null;
   let audioChunks = [];
@@ -392,7 +393,7 @@
     const isRecording = audioRecorder?.state === "recording";
     if (audioRecordButton) {
       audioRecordButton.hidden = !isRecording && (hasText || hasSelectedFile);
-      audioRecordButton.disabled = Boolean(composeSendButton?.disabled);
+      audioRecordButton.disabled = isSubmittingChatMessage;
     }
     if (composeSendButton) composeSendButton.hidden = isRecording || (!hasText && !hasSelectedFile);
     if (attachmentSendButton) attachmentSendButton.hidden = true;
@@ -1580,6 +1581,7 @@
     }
     let button = event.submitter instanceof HTMLButtonElement ? event.submitter : null;
     if (!button || button.hidden) button = composeSendButton;
+    isSubmittingChatMessage = true;
     const buttonText = button?.textContent || "إرسال";
     const buttonLabel = button?.getAttribute("aria-label");
     const iconOnlyButton = button?.hasAttribute("data-compose-send");
@@ -1630,6 +1632,7 @@
           button.textContent = buttonText;
         }
       }
+      isSubmittingChatMessage = false;
       syncComposerActions();
     }
   });
