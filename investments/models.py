@@ -31,6 +31,14 @@ def default_chat_reactions():
     return ["like", "heart", "fire", "clap", "dislike"]
 
 
+def make_demo_customer_number():
+    return f"DEMO-{uuid.uuid4().hex[:12].upper()}"
+
+
+def make_demo_country_code():
+    return secrets.choice(COUNTRY_CHOICES)[0]
+
+
 def join_application_photo_path(instance, filename):
     extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else "jpg"
     return f"join-applications/{instance.user_id}/{uuid.uuid4().hex}.{extension}"
@@ -863,6 +871,19 @@ class ChatDemoAccount(models.Model):
 
     group = models.ForeignKey(ChatGroup, on_delete=models.CASCADE, related_name="demo_accounts")
     display_name = models.CharField("الاسم والكنية", max_length=120)
+    demo_customer_number = models.CharField(
+        "رقم العميل التجريبي",
+        max_length=17,
+        unique=True,
+        default=make_demo_customer_number,
+        editable=False,
+    )
+    demo_country_code = models.CharField(
+        "الدولة التجريبية",
+        max_length=2,
+        default=make_demo_country_code,
+        editable=False,
+    )
     created_at = models.DateTimeField("تاريخ الإنشاء", auto_now_add=True)
     updated_at = models.DateTimeField("آخر تعديل", auto_now=True)
 
@@ -876,6 +897,44 @@ class ChatDemoAccount(models.Model):
 
     def __str__(self):
         return f"{self.display_name} — {self.group} (تجريبي)"
+
+    @property
+    def demo_country_name(self):
+        return COUNTRY_NAMES.get(self.demo_country_code, "")
+
+    @property
+    def demo_country_flag(self):
+        return country_flag(self.demo_country_code)
+
+
+class DemoWithdrawalReceipt(models.Model):
+    """A clearly simulated withdrawal calculation with no real account effects."""
+
+    account = models.ForeignKey(
+        ChatDemoAccount,
+        on_delete=models.CASCADE,
+        related_name="withdrawal_receipts",
+        verbose_name="حساب المحادثة التجريبي",
+    )
+    amount = models.DecimalField(
+        "المبلغ قبل الضريبة",
+        max_digits=14,
+        decimal_places=2,
+        validators=[MinValueValidator(0.01)],
+    )
+    tax_percent = models.DecimalField("نسبة الضريبة وقت الإنشاء (%)", max_digits=5, decimal_places=2, default=0)
+    tax_amount = models.DecimalField("قيمة الضريبة", max_digits=14, decimal_places=2, default=0)
+    net_amount = models.DecimalField("الصافي المحسوب", max_digits=14, decimal_places=2, default=0)
+    created_at = models.DateTimeField("تاريخ إنشاء الإيصال التجريبي", auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at", "-pk")
+        verbose_name = "إيصال سحب تجريبي"
+        verbose_name_plural = "إيصالات السحب التجريبية"
+
+    @property
+    def display_number(self):
+        return f"DEMO-WD-{self.pk:08d}" if self.pk else "DEMO-WD-PENDING"
 
 
 class ChatMessage(models.Model):

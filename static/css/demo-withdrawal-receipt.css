@@ -1,0 +1,13 @@
+.demo-receipt-banner{display:flex;flex-direction:column;gap:4px;margin-bottom:20px;padding:15px;border:2px solid #bd3b31;border-radius:12px;background:#fff2f0;color:#81241e}
+.demo-receipt-banner strong{font-size:17px}
+.demo-receipt-banner span{font-size:12px}
+.demo-receipt-status{display:inline-flex;padding:5px 9px;border:1px solid #e3ac55;border-radius:999px;background:#fff8e8;color:#80520a;font-size:12px}
+.demo-withdrawal-receipt-page .withdrawal-receipt-net{border-color:#efdbb3;background:#fffaf0}
+.demo-withdrawal-receipt-page .withdrawal-receipt-net strong{color:#80520a}
+@media print{
+  .management-topbar,.management-footer,.messages,.withdrawal-receipt-actions{display:none!important}
+  .management-main{max-width:none!important;margin:0!important;padding:0!important}
+  .demo-withdrawal-receipt-page{max-width:none;margin:0!important}
+  .demo-withdrawal-receipt-page .withdrawal-receipt-card{border:0;box-shadow:none}
+  .demo-receipt-banner{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}

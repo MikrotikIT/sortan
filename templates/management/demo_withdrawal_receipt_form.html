@@ -1,0 +1,17 @@
+{% extends 'management/base.html' %}
+{% block title %}إنشاء إيصال سحب تجريبي — الإدارة{% endblock %}
+{% block content %}
+<section class="management-heading">
+  <div><span class="eyebrow">محاكاة للمراجعة والتصميم</span><h1>إنشاء إيصال سحب تجريبي</h1><p>{{ account.display_name }} · {{ account.group.title }}</p></div>
+  <a class="btn btn-quiet" href="{% url 'management_demo_chat_accounts' %}?group={{ account.group_id }}">العودة إلى الحسابات التجريبية</a>
+</section>
+<section class="management-panel form-panel">
+  <div class="notice notice-info"><strong>إيصال تجريبي فقط.</strong> لا ينشئ طلب سحب حقيقياً ولا يخصم من أي رصيد أو يسجل عملية دفع.</div>
+  <div class="management-panel-head"><div><h2>بيانات الحساب التجريبي</h2><p>رقم العميل ثابت لهذا الحساب: <bdi dir="ltr">{{ account.demo_customer_number }}</bdi> · {{ account.demo_country_flag }} {{ account.demo_country_name }}</p></div></div>
+  <form method="post" class="management-form">
+    {% csrf_token %}
+    {% for field in form %}<div class="admin-field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}
+    <div class="form-actions"><button class="btn btn-primary" type="submit">إنشاء الإيصال وفتحه</button><a class="btn btn-quiet" href="{% url 'management_demo_chat_accounts' %}?group={{ account.group_id }}">إلغاء</a></div>
+  </form>
+</section>
+{% endblock %}

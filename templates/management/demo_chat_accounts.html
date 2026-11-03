@@ -34,6 +34,7 @@
       <div class="demo-account-meta"><span class="demo-account-label">حساب تجريبي</span><small>{{ account.message_count }} رسالة محفوظة</small></div>
       <div class="demo-account-actions">
         <a class="btn btn-primary btn-small" href="{% url 'management_demo_chat_account_room' account.pk %}" target="_blank" rel="noopener" data-demo-account-url>فتح المحادثة</a>
+        <a class="btn btn-quiet btn-small" href="{% url 'management_demo_withdrawal_receipt_create' account.pk %}">إنشاء إيصال سحب تجريبي</a>
         <form method="post" action="{% url 'management_demo_chat_account_regenerate_name' account.pk %}" onsubmit="return confirm('توليد اسم جديد؟ ستبقى الرسائل السابقة باسمها الحالي.')">{% csrf_token %}<button class="btn btn-quiet btn-small" type="submit">توليد اسم جديد</button></form>
         <form method="post" action="{% url 'management_demo_chat_account_delete' account.pk %}" onsubmit="return confirm('حذف هذه الهوية؟ ستبقى رسائلها السابقة محفوظة في المجموعة.')">{% csrf_token %}<button class="btn btn-quiet btn-small demo-account-delete" type="submit">حذف الحساب</button></form>
       </div>

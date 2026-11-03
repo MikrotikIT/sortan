@@ -1,5 +1,6 @@
 import warnings
 from datetime import timedelta
+from decimal import Decimal
 from io import BytesIO
 from pathlib import PurePath
 from random import randint
@@ -323,3 +324,14 @@ class ChatDemoAccountEditForm(forms.ModelForm):
         if not name:
             raise ValidationError("أدخل اسماً وكنية للحساب التجريبي.")
         return name
+
+
+class DemoWithdrawalReceiptForm(forms.Form):
+    amount = forms.DecimalField(
+        label="مبلغ السحب التجريبي (USDT)",
+        min_value=Decimal("0.01"),
+        max_value=Decimal("999999999999.99"),
+        max_digits=14,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={"min": "0.01", "max": "999999999999.99", "step": "0.01", "inputmode": "decimal"}),
+    )

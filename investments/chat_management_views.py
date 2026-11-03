@@ -1,4 +1,5 @@
 import logging
+from decimal import Decimal, ROUND_HALF_UP
 from random import choice
 
 from asgiref.sync import async_to_sync
@@ -14,6 +15,7 @@ from django.views.decorators.http import require_GET, require_POST
 from .chat_forms import (
     ChatDemoAccountBatchForm,
     ChatDemoAccountEditForm,
+    DemoWithdrawalReceiptForm,
     ChatUploadForm,
     ChatGroupForm,
     GroupBanForm,
@@ -28,7 +30,7 @@ from .chat_services import (
     set_demo_message_reaction,
 )
 from .management_views import staff_required
-from .models import ChatDemoAccount, ChatGroup, ChatGroupBan, ChatMembership, ChatMessage
+from .models import ChatDemoAccount, ChatGroup, ChatGroupBan, ChatMembership, ChatMessage, DemoWithdrawalReceipt, PlatformSettings
 
 
 logger = logging.getLogger(__name__)
@@ -366,6 +368,40 @@ def demo_chat_account_edit(request, pk):
         errors = [str(error) for field_errors in form.errors.values() for error in field_errors]
         messages.error(request, errors[0] if errors else "تعذر حفظ اسم الحساب.")
     return redirect(_demo_accounts_page_url(account.group_id))
+
+
+@staff_required
+def demo_withdrawal_receipt_create(request, account_pk):
+    account = get_object_or_404(ChatDemoAccount.objects.select_related("group"), pk=account_pk)
+    form = DemoWithdrawalReceiptForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        platform_settings, _ = PlatformSettings.objects.get_or_create(pk=1)
+        amount = form.cleaned_data["amount"]
+        tax_percent = platform_settings.withdrawal_tax_percent if platform_settings.withdrawal_tax_enabled else Decimal("0.00")
+        tax_amount = (amount * tax_percent / Decimal("100")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        receipt = DemoWithdrawalReceipt.objects.create(
+            account=account,
+            amount=amount,
+            tax_percent=tax_percent,
+            tax_amount=tax_amount,
+            net_amount=amount - tax_amount,
+        )
+        messages.success(request, "تم إنشاء إيصال محاكاة السحب. لم يتم إنشاء طلب سحب حقيقي أو تغيير أي رصيد.")
+        return redirect("management_demo_withdrawal_receipt", pk=receipt.pk)
+    return render(
+        request,
+        "management/demo_withdrawal_receipt_form.html",
+        {"account": account, "form": form},
+    )
+
+
+@staff_required
+def demo_withdrawal_receipt(request, pk):
+    receipt = get_object_or_404(
+        DemoWithdrawalReceipt.objects.select_related("account", "account__group"),
+        pk=pk,
+    )
+    return render(request, "management/demo_withdrawal_receipt.html", {"receipt": receipt})
 
 
 @staff_required
