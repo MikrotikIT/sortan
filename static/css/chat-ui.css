@@ -920,6 +920,68 @@
   text-align: center;
 }
 
+.chat-inline-link-copy {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  margin: 1px 2px;
+  direction: ltr;
+  vertical-align: middle;
+}
+
+.chat-message-link {
+  min-width: 0;
+  max-width: min(100%, 480px);
+  color: #087f98;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.chat-link-copy-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 1px solid #9bcbd4;
+  border-radius: 8px;
+  background: #eaf7f9;
+  color: #176e7c;
+  font: 700 10px "Tajawal", sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+
+.chat-link-copy-button:hover,
+.chat-link-copy-button:focus-visible {
+  border-color: #65adbb;
+  background: #d9f0f3;
+  color: #105967;
+}
+
+.chat-link-copy-button.is-copied {
+  border-color: #9bcfb5;
+  background: #e9f7ef;
+  color: #26734f;
+}
+
+.chat-link-copy-icon {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .chat-message-actions-menu > summary {
   width: 25px;
   height: 27px;

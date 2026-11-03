@@ -1,9 +1,9 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block body_class %}{% if is_demo_receipt %}demo-withdrawal-receipt-body{% endif %}{% endblock %}
-{% block title %}{% if is_demo_receipt %}إيصال السحب التجريبي رقم #{{ withdrawal.display_number }} — Kodi TV{% else %}تفاصيل السحب #{{ withdrawal.display_number }} — Kodi TV{% endif %}{% endblock %}
+{% block title %}{% if is_demo_receipt %}إيصال السحب رقم #{{ withdrawal.display_number }} — Kodi TV{% else %}تفاصيل السحب #{{ withdrawal.display_number }} — Kodi TV{% endif %}{% endblock %}
 {% block breadcrumb %}تفاصيل السحب{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/withdrawal-receipt.css' %}?v=country-1">{% if is_demo_receipt %}<link rel="stylesheet" href="{% static 'css/demo-withdrawal-receipt.css' %}?v=3">{% endif %}{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/withdrawal-receipt.css' %}?v=country-1">{% endblock %}
 {% block content %}
 <section class="withdrawal-receipt-page{% if is_demo_receipt %} demo-withdrawal-receipt-page{% endif %}">
   <div class="withdrawal-receipt-card">

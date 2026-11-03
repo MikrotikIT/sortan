@@ -2,7 +2,7 @@
 {% load static %}
 {% block body_class %}chat-room-page demo-chat-account-room-page{% endblock %}
 {% block title %}{{ account.display_name }} — {{ group.title }}{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/group-chat.css' %}?v=8"><link rel="stylesheet" href="{% static 'css/chat-fullscreen.css' %}?v=2"><link rel="stylesheet" href="{% static 'css/chat-ui.css' %}?v=14"><link rel="stylesheet" href="{% static 'css/demo-chat-room.css' %}?v=3">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/group-chat.css' %}?v=8"><link rel="stylesheet" href="{% static 'css/chat-fullscreen.css' %}?v=2"><link rel="stylesheet" href="{% static 'css/chat-ui.css' %}?v=15"><link rel="stylesheet" href="{% static 'css/demo-chat-room.css' %}?v=3">{% endblock %}
 {% block content %}
 <section class="chat-room demo-chat-account-room" data-chat-room data-demo-account-room data-demo-account-id="{{ account.pk }}" data-demo-reaction-url-template="{{ demo_reaction_url_template }}" data-ws-path="{{ ws_path }}" data-history-url="{{ history_url }}" data-read-url="{{ read_url }}" data-has-older-messages="{{ has_older_messages|yesno:'true,false' }}" data-chat-live-stats-url="{{ chat_live_stats_url }}" data-group-id="{{ group.pk }}" data-current-user="{{ request.user.pk }}" data-can-moderate="true" data-can-post="true" data-is-admin="true" data-demo-growth-url-template="{{ demo_growth_url_template }}" data-can-react="{{ group.reactions_enabled|yesno:'true,false' }}" data-allowed-reactions="{{ group.allowed_reactions|join:',' }}" data-member-count="{{ actual_member_count }}" data-demo-member-offset="{{ group.demo_member_offset }}">
   <span hidden>{% csrf_token %}</span>
@@ -40,4 +40,4 @@
 </section>
 {{ messages_data|json_script:"chat-initial-messages" }}
 {% endblock %}
-{% block extra_js %}<script src="{% static 'js/group-chat.js' %}?v=26" defer></script>{% endblock %}
+{% block extra_js %}<script src="{% static 'js/group-chat.js' %}?v=27" defer></script>{% endblock %}

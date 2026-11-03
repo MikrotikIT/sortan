@@ -214,6 +214,89 @@
     feedback.dismissTimer = window.setTimeout(() => feedback.remove(), 1800);
   };
 
+  const appendMessageTextWithLinks = (container, value) => {
+    const text = String(value ?? "");
+    const urlPattern = /(?:https?:\/\/|www\.)[^\s<>"']+/gi;
+    const trailingPunctuation = /[.,!?;:،؛؟"'»”’]$/u;
+    const pairs = [[")", "("], ["]", "["], ["}", "{"]];
+    let cursor = 0;
+    let match;
+
+    while ((match = urlPattern.exec(text))) {
+      let visibleUrl = match[0];
+      while (visibleUrl && trailingPunctuation.test(visibleUrl)) visibleUrl = visibleUrl.slice(0, -1);
+      pairs.forEach(([closing, opening]) => {
+        while (visibleUrl.endsWith(closing)
+          && [...visibleUrl].filter((character) => character === closing).length
+            > [...visibleUrl].filter((character) => character === opening).length) {
+          visibleUrl = visibleUrl.slice(0, -1);
+        }
+      });
+
+      if (!visibleUrl) continue;
+      const start = match.index;
+      const end = start + visibleUrl.length;
+      container.append(document.createTextNode(text.slice(cursor, start)));
+
+      const destination = visibleUrl.toLowerCase().startsWith("www.") ? `https://${visibleUrl}` : visibleUrl;
+      let parsedUrl;
+      try {
+        parsedUrl = new URL(destination);
+      } catch {
+        container.append(document.createTextNode(visibleUrl));
+        cursor = end;
+        continue;
+      }
+      if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+        container.append(document.createTextNode(visibleUrl));
+        cursor = end;
+        continue;
+      }
+
+      const linkGroup = document.createElement("span");
+      linkGroup.className = "chat-inline-link-copy";
+      linkGroup.dir = "ltr";
+      const link = document.createElement("a");
+      link.className = "chat-message-link";
+      link.href = parsedUrl.href;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = visibleUrl;
+      link.dir = "ltr";
+
+      const copyButton = document.createElement("button");
+      copyButton.type = "button";
+      copyButton.className = "chat-link-copy-button";
+      copyButton.setAttribute("aria-label", "نسخ الرابط");
+      copyButton.title = "نسخ الرابط";
+      copyButton.append(createSvgIcon("chat-link-copy-icon", ["M8 8V4h12v12h-4", "M4 8h12v12H4z"]));
+      const copyLabel = document.createElement("span");
+      copyLabel.className = "chat-link-copy-label";
+      copyLabel.textContent = "نسخ";
+      copyButton.append(copyLabel);
+      copyButton.addEventListener("click", async () => {
+        try {
+          await copyTextToClipboard(parsedUrl.href);
+          copyButton.classList.add("is-copied");
+          copyLabel.textContent = "تم النسخ";
+          window.clearTimeout(copyButton.resetLabelTimer);
+          copyButton.resetLabelTimer = window.setTimeout(() => {
+            copyButton.classList.remove("is-copied");
+            copyLabel.textContent = "نسخ";
+          }, 1800);
+        } catch (error) {
+          showError(error.message || "تعذر نسخ الرابط.");
+        }
+      });
+
+      linkGroup.append(link, copyButton);
+      container.append(linkGroup);
+      cursor = end;
+    }
+
+    container.append(document.createTextNode(text.slice(cursor)));
+  };
+
   const createReactionPicker = (messageId) => {
     const picker = document.createElement("details");
     picker.className = "chat-reaction-picker";
@@ -572,7 +655,7 @@
     if (message.text) {
       const body = document.createElement("p");
       body.className = "chat-message-text";
-      body.textContent = escapeText(message.text);
+      appendMessageTextWithLinks(body, message.text);
       card.append(body);
     }
     if (message.image && message.media_url) {
@@ -657,7 +740,7 @@
     if (message.text) {
       const body = document.createElement("p");
       body.className = "chat-message-text";
-      body.textContent = String(message.text);
+      appendMessageTextWithLinks(body, message.text);
       card.appendChild(body);
     }
     if (message.media_url) {
