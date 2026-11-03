@@ -982,6 +982,108 @@
   stroke-linejoin: round;
 }
 
+.chat-audio-record-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 44px;
+  min-height: 38px;
+  padding: 4px 7px;
+  border: 1px solid transparent;
+  border-radius: 20px;
+  background: transparent;
+  color: #527984;
+  font: 700 10px "Tajawal", sans-serif;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+
+.chat-audio-record-button:hover,
+.chat-audio-record-button.has-recording {
+  border-color: #c8e3e8;
+  background: #eaf7f9;
+  color: #176e7c;
+}
+
+.chat-audio-record-button.is-recording {
+  border-color: #edc7c3;
+  background: #fff0ee;
+  color: #b34e47;
+}
+
+.chat-audio-record-button.is-recording .chat-audio-record-icon {
+  animation: chat-record-pulse 1s ease-in-out infinite;
+}
+
+.chat-audio-record-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+@keyframes chat-record-pulse {
+  50% { opacity: .45; transform: scale(.86); }
+}
+
+.chat-audio-preview {
+  width: min(100%, 250px);
+  height: 38px;
+}
+
+.chat-video-preview {
+  width: 64px;
+  height: 48px;
+  flex: 0 0 64px;
+  border: 1px solid #dce7e9;
+  border-radius: 8px;
+  background: #14242b;
+  object-fit: cover;
+}
+
+.chat-voice-message-player,
+.chat-video-message-player {
+  display: grid;
+  justify-items: start;
+  gap: 5px;
+  max-width: min(100%, 520px);
+  margin-top: 9px;
+}
+
+.chat-voice-message-player audio {
+  display: block;
+  width: min(100%, 370px);
+  height: 42px;
+}
+
+.chat-video-message-element {
+  display: block;
+  width: min(100%, 520px);
+  max-height: min(64vh, 560px);
+  border: 1px solid #dce7e9;
+  border-radius: 12px;
+  background: #102129;
+  object-fit: contain;
+}
+
+.chat-video-quality-label {
+  color: #72868b;
+  font-size: 9px;
+}
+
+.chat-video-processing-status {
+  display: flex;
+  align-items: center;
+  min-height: 58px;
+  padding: 10px 12px;
+  border: 1px solid #d9e9ec;
+  border-radius: 10px;
+  background: #f3fafb;
+  color: #527984;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
 .chat-message-actions-menu > summary {
   width: 25px;
   height: 27px;

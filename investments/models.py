@@ -1023,6 +1023,33 @@ class ChatMessage(models.Model):
         blank=True,
         validators=[FileExtensionValidator(("pdf", "txt", "csv", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "zip"))],
     )
+    voice_message = models.FileField(
+        "رسالة صوتية",
+        upload_to=chat_message_upload_path,
+        storage=PrivateApplicationStorage(),
+        blank=True,
+        validators=[FileExtensionValidator(("webm", "ogg", "m4a", "mp3", "wav", "aac"))],
+    )
+    video = models.FileField(
+        "فيديو المحادثة",
+        upload_to=chat_message_upload_path,
+        storage=PrivateApplicationStorage(),
+        blank=True,
+        validators=[FileExtensionValidator(("mp4", "m4v", "mov", "webm", "mkv", "3gp"))],
+    )
+    video_status = models.CharField(
+        "حالة تجهيز الفيديو",
+        max_length=12,
+        blank=True,
+        default="",
+        choices=(
+            ("queued", "بانتظار التجهيز"),
+            ("processing", "جارٍ التجهيز"),
+            ("ready", "جاهز"),
+            ("failed", "تعذر التجهيز"),
+        ),
+    )
+    video_hls_dir = models.CharField(max_length=255, blank=True, editable=False)
     attachment_name = models.CharField("اسم الملف الأصلي", max_length=255, blank=True)
     created_at = models.DateTimeField("وقت الإرسال", auto_now_add=True)
     edited_at = models.DateTimeField("وقت التعديل", null=True, blank=True)

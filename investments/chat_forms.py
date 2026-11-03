@@ -221,9 +221,13 @@ class ChatUploadForm(forms.Form):
     text = forms.CharField(max_length=2000, required=False, widget=forms.Textarea(attrs={"rows": 2, "maxlength": 2000}))
     image = forms.ImageField(required=False, widget=forms.ClearableFileInput(attrs={"accept": "image/jpeg,image/png,image/webp"}))
     attachment = forms.FileField(required=False)
+    voice_message = forms.FileField(required=False)
+    video = forms.FileField(required=False)
     reply_to = forms.IntegerField(required=False, min_value=1, widget=forms.HiddenInput())
 
     ALLOWED_ATTACHMENTS = {"pdf", "txt", "csv", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "zip"}
+    ALLOWED_VOICE_EXTENSIONS = {"webm", "ogg", "m4a", "mp3", "wav", "aac"}
+    ALLOWED_VIDEO_EXTENSIONS = {"mp4", "m4v", "mov", "webm", "mkv", "3gp"}
 
     def __init__(self, *args, group=None, **kwargs):
         self.group = group
@@ -247,20 +251,44 @@ class ChatUploadForm(forms.Form):
             raise ValidationError("الأنواع المسموحة: PDF وملفات النص والجداول والعروض وZIP.")
         return attachment
 
+    def clean_voice_message(self):
+        voice_message = self.cleaned_data.get("voice_message")
+        if not voice_message:
+            return voice_message
+        if voice_message.size > 20 * 1024 * 1024:
+            raise ValidationError("يجب ألا يتجاوز حجم الرسالة الصوتية 20 ميغابايت.")
+        extension = PurePath(voice_message.name).suffix.lstrip(".").lower()
+        if extension not in self.ALLOWED_VOICE_EXTENSIONS:
+            raise ValidationError("صيغة الرسالة الصوتية غير مدعومة.")
+        return voice_message
+
+    def clean_video(self):
+        video = self.cleaned_data.get("video")
+        if not video:
+            return video
+        if video.size > 200 * 1024 * 1024:
+            raise ValidationError("يجب ألا يتجاوز حجم الفيديو 200 ميغابايت.")
+        extension = PurePath(video.name).suffix.lstrip(".").lower()
+        if extension not in self.ALLOWED_VIDEO_EXTENSIONS:
+            raise ValidationError("صيغ الفيديو المسموحة: MP4 أو MOV أو WebM أو MKV أو 3GP.")
+        return video
+
     def clean(self):
         cleaned = super().clean()
         image = cleaned.get("image")
         attachment = cleaned.get("attachment")
+        voice_message = cleaned.get("voice_message")
+        video = cleaned.get("video")
         text = cleaned.get("text", "")
-        if image and attachment:
-            raise ValidationError("أرسل صورة أو ملفاً واحداً في الرسالة.")
-        if not text and not image and not attachment:
-            raise ValidationError("اكتب رسالة أو أرفق صورة أو ملفاً.")
+        if sum(bool(item) for item in (image, attachment, voice_message, video)) > 1:
+            raise ValidationError("أرسل مرفقاً واحداً فقط في الرسالة.")
+        if not text and not any((image, attachment, voice_message, video)):
+            raise ValidationError("اكتب رسالة أو أرفق صورة أو ملفاً أو صوتاً أو فيديو.")
         if self.group:
             if image and not self.group.allow_images:
                 raise ValidationError("إرسال الصور متوقف في هذه المجموعة.")
-            if attachment and not self.group.allow_files:
-                raise ValidationError("إرفاق الملفات متوقف في هذه المجموعة.")
+            if any((attachment, voice_message, video)) and not self.group.allow_files:
+                raise ValidationError("إرفاق الملفات والصوت والفيديو متوقف في هذه المجموعة.")
         return cleaned
 
 class GroupMemberForm(forms.Form):

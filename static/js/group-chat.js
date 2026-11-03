@@ -3,6 +3,8 @@
   const list = root?.querySelector("[data-chat-messages]");
   const listViewport = root?.querySelector(".chat-message-list-wrap");
   if (!root || !list || !listViewport) return;
+  const hlsScriptUrl = new URL("../vendor/hls.min.js", document.currentScript?.src || `${window.location.origin}/static/js/group-chat.js`).href;
+  let hlsLoaderPromise = null;
 
   const status = root.querySelector("[data-chat-status]");
   const historyStatus = root.querySelector("[data-chat-history-status]");
@@ -18,7 +20,7 @@
   const readUrl = root.dataset.readUrl || "";
   const compose = root.querySelector("[data-chat-compose]");
   const messageInput = compose?.querySelector('textarea[name="text"]');
-  const attachmentInputs = [...(compose?.querySelectorAll('.chat-attachment-options input[type="file"]') || [])];
+  let attachmentInputs = [...(compose?.querySelectorAll('.chat-attachment-options input[type="file"]') || [])];
   const attachmentPreview = compose?.querySelector("[data-attachment-preview]");
   const attachmentPreviewItems = compose?.querySelector("[data-attachment-preview-items]");
   const composeSendButton = compose?.querySelector("[data-compose-send]");
@@ -27,6 +29,44 @@
   const replyPreview = compose?.querySelector("[data-reply-preview]");
   const replySender = compose?.querySelector("[data-reply-sender]");
   const replyText = compose?.querySelector("[data-reply-text]");
+  let recordedAudioFile = null;
+  let audioRecorder = null;
+  let audioStream = null;
+  let audioChunks = [];
+  let recordTimer = null;
+  let recordingStartedAt = 0;
+  let audioRecordButton = null;
+  let audioRecordLabel = null;
+  const attachmentOptions = compose?.querySelector(".chat-attachment-options");
+  if (!demoAccountId && attachmentOptions?.querySelector('input[name="attachment"]')) {
+    const videoLabel = document.createElement("label");
+    const videoLabelText = document.createElement("span");
+    videoLabelText.textContent = "فيديو";
+    const videoInput = document.createElement("input");
+    videoInput.type = "file";
+    videoInput.name = "video";
+    videoInput.accept = "video/mp4,video/quicktime,video/webm,video/x-matroska,.mp4,.m4v,.mov,.webm,.mkv,.3gp";
+    videoLabel.append(videoLabelText, videoInput);
+    attachmentOptions.append(videoLabel);
+    attachmentInputs = [...(compose?.querySelectorAll('.chat-attachment-options input[type="file"]') || [])];
+
+    const composer = compose?.querySelector(".chat-composer");
+    if (composer && composeSendButton) {
+      audioRecordButton = document.createElement("button");
+      audioRecordButton.type = "button";
+      audioRecordButton.className = "chat-audio-record-button";
+      audioRecordButton.title = "تسجيل رسالة صوتية";
+      audioRecordButton.setAttribute("aria-label", "تسجيل رسالة صوتية");
+      const microphoneIcon = document.createElement("span");
+      microphoneIcon.className = "chat-audio-record-icon";
+      microphoneIcon.setAttribute("aria-hidden", "true");
+      microphoneIcon.textContent = "🎙";
+      audioRecordLabel = document.createElement("span");
+      audioRecordLabel.textContent = "صوت";
+      audioRecordButton.append(microphoneIcon, audioRecordLabel);
+      composer.insertBefore(audioRecordButton, composeSendButton);
+    }
+  }
   const glyphs = { like: "👍", heart: "❤️", fire: "🔥", clap: "👏", dislike: "👎" };
   const labels = { like: "إعجاب", heart: "قلب", fire: "نار", clap: "تصفيق", dislike: "عدم إعجاب" };
   const allowedReactions = new Set((root.dataset.allowedReactions || "").split(",").filter((kind) => glyphs[kind]));
@@ -351,6 +391,7 @@
     if (!attachmentPreview || !attachmentPreviewItems) return;
     clearChildren(attachmentPreviewItems);
     const selectedFiles = attachmentInputs.flatMap((input) => [...(input.files || [])]);
+    if (recordedAudioFile) selectedFiles.push(recordedAudioFile);
     attachmentPreview.hidden = selectedFiles.length === 0;
     if (composeSendButton) composeSendButton.hidden = selectedFiles.length > 0;
     selectedFiles.forEach((file) => {
@@ -363,6 +404,25 @@
         image.src = objectUrl;
         image.alt = `معاينة ${file.name}`;
         item.append(image);
+      } else if (file.type.startsWith("audio/")) {
+        const audio = document.createElement("audio");
+        const objectUrl = URL.createObjectURL(file);
+        previewObjectUrls.push(objectUrl);
+        audio.src = objectUrl;
+        audio.controls = true;
+        audio.preload = "metadata";
+        audio.className = "chat-audio-preview";
+        item.append(audio);
+      } else if (file.type.startsWith("video/")) {
+        const video = document.createElement("video");
+        const objectUrl = URL.createObjectURL(file);
+        previewObjectUrls.push(objectUrl);
+        video.src = objectUrl;
+        video.muted = true;
+        video.playsInline = true;
+        video.preload = "metadata";
+        video.className = "chat-video-preview";
+        item.append(video);
       } else {
         const icon = document.createElement("span");
         icon.className = "chat-attachment-preview-icon";
@@ -385,8 +445,84 @@
   };
 
   const clearSelectedAttachments = () => {
+    if (audioRecorder?.state === "recording") {
+      audioRecorder.onstop = null;
+      audioRecorder.stop();
+    }
+    audioStream?.getTracks().forEach((track) => track.stop());
+    audioStream = null;
+    audioRecorder = null;
+    audioChunks = [];
+    window.clearInterval(recordTimer);
+    recordedAudioFile = null;
+    audioRecordButton?.classList.remove("is-recording", "has-recording");
+    if (audioRecordLabel) audioRecordLabel.textContent = "صوت";
     attachmentInputs.forEach((input) => { input.value = ""; });
     refreshAttachmentPreview();
+  };
+
+  const startAudioRecording = async () => {
+    if (!audioRecordButton || !audioRecordLabel) return;
+    if (audioRecorder?.state === "recording") {
+      audioRecorder.stop();
+      return;
+    }
+    if (recordedAudioFile) {
+      compose?.requestSubmit(attachmentSendButton || composeSendButton);
+      return;
+    }
+    if (attachmentInputs.some((input) => input.files?.length)) {
+      showError("أرسل مرفقاً واحداً في كل رسالة. أزل الملف المحدد قبل التسجيل الصوتي.");
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      showError("تسجيل الصوت غير مدعوم في هذا المتصفح.");
+      return;
+    }
+    try {
+      const supportedTypes = ["audio/webm;codecs=opus", "audio/mp4", "audio/ogg;codecs=opus"];
+      const mimeType = supportedTypes.find((type) => MediaRecorder.isTypeSupported?.(type));
+      audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunks = [];
+      audioRecorder = new MediaRecorder(audioStream, mimeType ? { mimeType } : undefined);
+      audioRecorder.addEventListener("dataavailable", (event) => {
+        if (event.data?.size) audioChunks.push(event.data);
+      });
+      audioRecorder.addEventListener("stop", () => {
+        audioStream?.getTracks().forEach((track) => track.stop());
+        audioStream = null;
+        audioRecorder = null;
+        window.clearInterval(recordTimer);
+        audioRecordButton.classList.remove("is-recording");
+        if (!audioChunks.length) {
+          audioRecordLabel.textContent = "صوت";
+          return;
+        }
+        const blob = new Blob(audioChunks, { type: mimeType || audioChunks[0].type || "audio/webm" });
+        const extension = blob.type.includes("ogg") ? "ogg" : blob.type.includes("mp4") ? "m4a" : "webm";
+        recordedAudioFile = new File([blob], `voice-message.${extension}`, { type: blob.type });
+        audioRecordButton.classList.add("has-recording");
+        audioRecordLabel.textContent = "إرسال الصوت";
+        refreshAttachmentPreview();
+        audioChunks = [];
+      });
+      audioRecorder.start(1000);
+      recordingStartedAt = Date.now();
+      audioRecordButton.classList.add("is-recording");
+      audioRecordLabel.textContent = "إيقاف 00:00";
+      recordTimer = window.setInterval(() => {
+        const elapsed = Math.floor((Date.now() - recordingStartedAt) / 1000);
+        const minutes = String(Math.floor(elapsed / 60)).padStart(2, "0");
+        const seconds = String(elapsed % 60).padStart(2, "0");
+        audioRecordLabel.textContent = `إيقاف ${minutes}:${seconds}`;
+      }, 500);
+    } catch {
+      audioStream?.getTracks().forEach((track) => track.stop());
+      audioStream = null;
+      audioRecorder = null;
+      audioRecordLabel.textContent = "صوت";
+      showError("لم نتمكن من تشغيل الميكروفون. اسمح للموقع باستخدامه ثم أعد المحاولة.");
+    }
   };
 
   const clearReplySelection = () => {
@@ -538,12 +674,101 @@
     container.append(createReactionPicker(message.id));
   };
 
+  const loadHlsLibrary = () => {
+    if (window.Hls) return Promise.resolve(window.Hls);
+    if (hlsLoaderPromise) return hlsLoaderPromise;
+    hlsLoaderPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = hlsScriptUrl;
+      script.async = true;
+      script.onload = () => window.Hls ? resolve(window.Hls) : reject(new Error("HLS player did not load."));
+      script.onerror = () => reject(new Error("HLS player did not load."));
+      document.head.append(script);
+    });
+    return hlsLoaderPromise;
+  };
+
+  const createVideoMessagePlayer = (message) => {
+    const player = document.createElement("div");
+    player.className = "chat-video-message-player";
+    const video = document.createElement("video");
+    video.className = "chat-video-message-element";
+    video.controls = true;
+    video.playsInline = true;
+    video.preload = "metadata";
+    const quality = document.createElement("small");
+    quality.className = "chat-video-quality-label";
+    quality.textContent = "جودة تلقائية";
+
+    const useOriginal = () => {
+      if (!message.video_fallback_url) {
+        quality.textContent = "تعذر تشغيل هذا الفيديو.";
+        return;
+      }
+      if (player._hls) {
+        player._hls.destroy();
+        player._hls = null;
+      }
+      video.src = message.video_fallback_url;
+      quality.textContent = "تشغيل الملف الأصلي";
+    };
+
+    if (message.video_status === "queued" || message.video_status === "processing") {
+      const status = document.createElement("div");
+      status.className = "chat-video-processing-status";
+      status.setAttribute("role", "status");
+      status.textContent = "يجري تجهيز الفيديو لجودات مختلفة، سيظهر هنا تلقائياً عند اكتماله.";
+      player.append(status);
+      return player;
+    }
+
+    player.append(video, quality);
+    if (message.video_status === "failed") {
+      useOriginal();
+      return player;
+    }
+    if (!message.video_stream_url) {
+      useOriginal();
+      return player;
+    }
+    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = message.video_stream_url;
+      return player;
+    }
+
+    loadHlsLibrary().then((Hls) => {
+      if (!player.isConnected) return;
+      if (!Hls.isSupported()) {
+        useOriginal();
+        return;
+      }
+      const hls = new Hls({ startLevel: -1, capLevelToPlayerSize: true, maxBufferLength: 20 });
+      player._hls = hls;
+      hls.loadSource(message.video_stream_url);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.LEVEL_SWITCHED, (_event, data) => {
+        const level = hls.levels[data.level];
+        quality.textContent = level?.height ? `تلقائي · ${level.height}p` : "جودة تلقائية";
+      });
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (data.fatal) useOriginal();
+      });
+    }).catch(useOriginal);
+    return player;
+  };
+
   const renderMessage = (message, { prepend = false } = {}) => {
     if (!message || !message.id) return;
     const previous = list.querySelector(`[data-message-id="${Number(message.id)}"]`);
+    const videoStatusRank = { queued: 1, processing: 2, ready: 3, failed: 3 };
+    if (
+      previous?.dataset.videoStatus &&
+      videoStatusRank[message.video_status] < videoStatusRank[previous.dataset.videoStatus]
+    ) return previous;
     const item = document.createElement("li");
     item.className = `chat-message${Number(message.sender_id) === userId ? " is-mine" : ""}`;
     item.dataset.messageId = String(message.id);
+    item.dataset.videoStatus = message.video_status || "";
     const dateInfo = messageDateInfo(message);
     item.dataset.messageDay = dateInfo.day;
     const card = document.createElement("article");
@@ -610,7 +835,8 @@
       });
     }
     addMessageAction("نسخ", "", async () => {
-      const value = message.text || (message.media_url ? new URL(message.media_url, window.location.origin).href : "");
+      const mediaUrl = message.media_url || message.video_fallback_url || message.video_stream_url;
+      const value = message.text || (mediaUrl ? new URL(mediaUrl, window.location.origin).href : "");
       if (!value) {
         actionMenu.open = false;
         showError("لا يوجد محتوى لنسخه.");
@@ -658,6 +884,17 @@
       appendMessageTextWithLinks(body, message.text);
       card.append(body);
     }
+    if (message.voice_message && message.media_url) {
+      const voicePlayer = document.createElement("div");
+      voicePlayer.className = "chat-voice-message-player";
+      const audio = document.createElement("audio");
+      audio.controls = true;
+      audio.preload = "metadata";
+      audio.src = message.media_url;
+      voicePlayer.append(audio);
+      card.append(voicePlayer);
+    }
+    if (message.video) card.append(createVideoMessagePlayer(message));
     if (message.image && message.media_url) {
       const imageLink = document.createElement("a");
       imageLink.className = "chat-message-image-link";
@@ -699,7 +936,10 @@
     if (reactions.childElementCount) footer.append(reactions);
     if (footer.childElementCount) card.append(footer);
     item.append(card);
-    if (previous) previous.replaceWith(item);
+    if (previous) {
+      previous.querySelectorAll(".chat-video-message-player").forEach((player) => player._hls?.destroy());
+      previous.replaceWith(item);
+    }
     else if (prepend) list.prepend(item);
     else list.append(item);
     return item;
@@ -743,7 +983,18 @@
       appendMessageTextWithLinks(body, message.text);
       card.appendChild(body);
     }
-    if (message.media_url) {
+    if (message.voice_message && message.media_url) {
+      const voicePlayer = document.createElement("div");
+      voicePlayer.className = "chat-voice-message-player";
+      const audio = document.createElement("audio");
+      audio.controls = true;
+      audio.preload = "metadata";
+      audio.src = message.media_url;
+      voicePlayer.append(audio);
+      card.appendChild(voicePlayer);
+    }
+    if (message.video) card.appendChild(createVideoMessagePlayer(message));
+    if (message.media_url && !message.voice_message && !message.video) {
       const media = document.createElement("a");
       media.className = message.image ? "chat-message-image-link" : "chat-message-attachment";
       media.href = String(message.media_url);
@@ -759,7 +1010,10 @@
     }
 
     item.appendChild(card);
-    if (previous && previous.parentNode) previous.parentNode.replaceChild(item, previous);
+    if (previous && previous.parentNode) {
+      previous.querySelectorAll(".chat-video-message-player").forEach((player) => player._hls?.destroy());
+      previous.parentNode.replaceChild(item, previous);
+    }
     else if (prepend) list.insertBefore(item, list.firstChild);
     else list.appendChild(item);
     return item;
@@ -1098,10 +1352,21 @@
   });
   attachmentInputs.forEach((input) => {
     input.addEventListener("change", () => {
+      if (input.files?.length && audioRecorder?.state === "recording") {
+        input.value = "";
+        showError("أوقف التسجيل الصوتي قبل اختيار ملف.");
+        return;
+      }
+      if (input.files?.length && recordedAudioFile) {
+        recordedAudioFile = null;
+        audioRecordButton?.classList.remove("has-recording");
+        if (audioRecordLabel) audioRecordLabel.textContent = "صوت";
+      }
       if (input.files?.length) input.closest("details")?.removeAttribute("open");
       refreshAttachmentPreview();
     });
   });
+  audioRecordButton?.addEventListener("click", startAudioRecording);
   compose?.querySelector("[data-attachment-cancel]")?.addEventListener("click", clearSelectedAttachments);
   root.addEventListener("click", (event) => {
     root.querySelectorAll("details[open]").forEach((details) => {
@@ -1129,6 +1394,7 @@
     if (errorBox) errorBox.hidden = true;
     try {
       const formData = new FormData(compose);
+      if (recordedAudioFile) formData.set("voice_message", recordedAudioFile, recordedAudioFile.name);
       const response = await fetch(compose.action, {
         method: "POST",
         body: formData,
@@ -1140,7 +1406,7 @@
       renderMessageSafely(result.message);
       syncLastDayDivider();
       compose.reset();
-      refreshAttachmentPreview();
+      clearSelectedAttachments();
       clearReplySelection();
       resizeMessageInput();
       scrollToLatest("smooth");

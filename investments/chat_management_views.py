@@ -121,14 +121,16 @@ def chat_group_messages_delete_all(request, pk):
         group = get_object_or_404(ChatGroup.objects.select_for_update(), pk=pk)
         message_queryset = ChatMessage.objects.filter(group=group)
         message_count = message_queryset.count()
-        image_storage = ChatMessage._meta.get_field("image").storage
-        attachment_storage = ChatMessage._meta.get_field("attachment").storage
         file_refs = []
-        for image_name, attachment_name in message_queryset.values_list("image", "attachment").iterator():
-            if image_name:
-                file_refs.append((image_storage, image_name))
-            if attachment_name:
-                file_refs.append((attachment_storage, attachment_name))
+        attachment_fields = ("image", "attachment", "voice_message", "video")
+        file_storages = {
+            field_name: ChatMessage._meta.get_field(field_name).storage
+            for field_name in attachment_fields
+        }
+        for names in message_queryset.values_list(*attachment_fields).iterator():
+            for field_name, file_name in zip(attachment_fields, names):
+                if file_name:
+                    file_refs.append((file_storages[field_name], file_name))
         message_queryset.delete()
         transaction.on_commit(lambda refs=file_refs: _delete_chat_message_files(refs))
 

@@ -1,11 +1,17 @@
 import logging
+import json
+import shutil
+import subprocess
+import uuid
 from collections import Counter
 from datetime import timedelta
+from pathlib import Path
 from random import choices, randint
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from celery import shared_task
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Count, F, Q
 from django.urls import reverse
@@ -110,7 +116,13 @@ def send_group_message_push(self, message_id):
 
     preview = message.text.strip()
     if not preview:
-        preview = "أرسل صورة" if message.image else "أرسل ملفاً" if message.attachment else "رسالة جديدة"
+        preview = (
+            "أرسل صورة" if message.image
+            else "رسالة صوتية" if message.voice_message
+            else "أرسل فيديو" if message.video
+            else "أرسل ملفاً" if message.attachment
+            else "رسالة جديدة"
+        )
     sender_name = message.sender.get_full_name().strip() or "عضو"
     return send_push_to_users(
         recipient_ids,
@@ -135,6 +147,108 @@ def _broadcast_chat(group_id, payload):
             )
         except Exception:
             logger.exception("Could not broadcast demo chat metrics for group %s", group_id)
+
+
+@shared_task
+def process_chat_video(message_id):
+    message = ChatMessage.objects.select_related("group", "sender").filter(pk=message_id).first()
+    if not message or not message.video:
+        return {"status": "missing"}
+
+    private_root = Path(settings.PRIVATE_MEDIA_ROOT).resolve()
+    if not message.video_hls_dir:
+        message.video_hls_dir = f"group-chat/streams/{uuid.uuid4().hex}"
+    output_root = (private_root / message.video_hls_dir).resolve()
+    try:
+        output_root.relative_to(private_root)
+    except ValueError:
+        logger.error("Unsafe HLS output path for chat message %s", message_id)
+        message.video_hls_dir = f"group-chat/streams/{uuid.uuid4().hex}"
+        output_root = (private_root / message.video_hls_dir).resolve()
+
+    message.video_status = "processing"
+    message.save(update_fields=("video_status", "video_hls_dir"))
+    _broadcast_chat(message.group_id, {"type": "message_updated", "message": serialize_chat_message(message)})
+
+    try:
+        ffmpeg = shutil.which("ffmpeg")
+        ffprobe = shutil.which("ffprobe")
+        if not ffmpeg or not ffprobe:
+            raise RuntimeError("FFmpeg and ffprobe must be installed to prepare chat videos.")
+
+        probe = subprocess.run(
+            [
+                ffprobe, "-v", "error", "-select_streams", "v:0",
+                "-show_entries", "stream=width,height", "-of", "json", message.video.path,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        streams = json.loads(probe.stdout).get("streams", [])
+        if not streams:
+            raise ValueError("The uploaded file does not contain a video stream.")
+        source_width = int(streams[0]["width"])
+        source_height = int(streams[0]["height"])
+        if source_width < 2 or source_height < 2:
+            raise ValueError("The uploaded video has invalid dimensions.")
+
+        output_root.mkdir(parents=True, exist_ok=True)
+        target_heights = [height for height in (240, 360, 480, 720) if height < source_height]
+        target_heights.append(min(source_height, 240) if not target_heights else min(source_height, 720))
+        target_heights = sorted(set(target_heights))
+        variants = []
+
+        for height in target_heights:
+            width_cap = max(2, int(1280 * height / 720) // 2 * 2)
+            scale_ratio = min(1, height / source_height, width_cap / source_width)
+            width = max(2, int(source_width * scale_ratio) // 2 * 2)
+            output_height = max(2, int(source_height * scale_ratio) // 2 * 2)
+            bitrate = 300_000 if height <= 240 else 550_000 if height <= 360 else 950_000 if height <= 480 else 1_600_000
+            rendition_dir = output_root / f"{height}p"
+            rendition_dir.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                [
+                    ffmpeg, "-hide_banner", "-loglevel", "error", "-y", "-i", message.video.path,
+                    "-map", "0:v:0", "-map", "0:a:0?", "-vf", f"scale={width}:{output_height}",
+                    "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
+                    "-b:v", str(bitrate), "-maxrate", str(int(bitrate * 1.15)),
+                    "-bufsize", str(bitrate * 2), "-g", "120", "-sc_threshold", "0",
+                    "-c:a", "aac", "-b:a", "64k", "-ac", "2", "-ar", "44100",
+                    "-f", "hls", "-hls_time", "4", "-hls_playlist_type", "vod",
+                    "-hls_flags", "independent_segments",
+                    "-hls_segment_filename", str(rendition_dir / "segment_%05d.ts"),
+                    str(rendition_dir / "index.m3u8"),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=3600,
+            )
+            if not (rendition_dir / "index.m3u8").is_file():
+                raise RuntimeError("FFmpeg did not produce a video playlist.")
+            variants.append((height, width, output_height, bitrate + 64_000))
+
+        master_lines = ["#EXTM3U", "#EXT-X-VERSION:3", "#EXT-X-INDEPENDENT-SEGMENTS"]
+        for height, width, output_height, bandwidth in variants:
+            master_lines.extend((
+                f"#EXT-X-STREAM-INF:BANDWIDTH={bandwidth},AVERAGE-BANDWIDTH={bandwidth},RESOLUTION={width}x{output_height}",
+                f"{height}p/index.m3u8",
+            ))
+        (output_root / "master.m3u8").write_text("\n".join(master_lines) + "\n", encoding="utf-8")
+        message.video_status = "ready"
+        message.save(update_fields=("video_status",))
+        result = {"status": "ready", "variants": len(variants)}
+    except Exception:
+        logger.exception("Could not process chat video %s", message_id)
+        shutil.rmtree(output_root, ignore_errors=True)
+        message.video_status = "failed"
+        message.save(update_fields=("video_status",))
+        result = {"status": "failed"}
+
+    _broadcast_chat(message.group_id, {"type": "message_updated", "message": serialize_chat_message(message)})
+    return result
 
 
 @shared_task

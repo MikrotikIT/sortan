@@ -200,6 +200,10 @@ def _reply_preview(message):
         return message.text.strip()[:300]
     if message.image:
         return "صورة مرفقة"
+    if message.voice_message:
+        return "رسالة صوتية"
+    if message.video:
+        return "فيديو"
     if message.attachment:
         return f"ملف مرفق: {message.attachment_name or 'تنزيل الملف'}"[:300]
     return "رسالة"
@@ -230,7 +234,12 @@ def serialize_chat_message(message, viewer_id=None, demo_account_id=None):
             demo_viewer_reaction = reaction.kind
     if demo_account_id is not None:
         viewer_reaction = demo_viewer_reaction
-    media_url = reverse("chat_message_attachment", args=(message.pk,)) if message.image or message.attachment else ""
+    media_url = reverse("chat_message_attachment", args=(message.pk,)) if message.image or message.attachment or message.voice_message else ""
+    video_stream_url = (
+        reverse("chat_message_video_stream", args=(message.pk, "master.m3u8"))
+        if message.video and message.video_status == "ready"
+        else ""
+    )
     growth_active = bool(
         message.demo_growth_enabled
         and message.demo_growth_ends_at
@@ -279,6 +288,11 @@ def serialize_chat_message(message, viewer_id=None, demo_account_id=None):
         "attachment": bool(message.attachment),
         "attachment_name": message.attachment_name,
         "media_url": media_url,
+        "voice_message": bool(message.voice_message),
+        "video": bool(message.video),
+        "video_status": message.video_status,
+        "video_stream_url": video_stream_url,
+        "video_fallback_url": reverse("chat_message_attachment", args=(message.pk,)) if message.video else "",
         "reactions_enabled": message.group.reactions_enabled,
         "allowed_reactions": list(allowed_reactions),
         "demo_growth_active": growth_active,
@@ -450,11 +464,15 @@ def create_demo_uploaded_message(group_id, demo_account_id, user_id, form):
     text = _check_text_rules(group, user, data.get("text", ""), demo_account=demo_account)
     image = data.get("image")
     attachment = data.get("attachment")
+    voice_message = data.get("voice_message")
+    video = data.get("video")
+    if voice_message or video:
+        raise ChatRuleError("الرسائل الصوتية والفيديو متاحة لحسابات المستخدمين الفعلية فقط.")
     if image and not group.allow_images:
         raise ChatRuleError("إرسال الصور متوقف في هذه المجموعة.")
-    if attachment and not group.allow_files:
+    if any((attachment, voice_message, video)) and not group.allow_files:
         raise ChatRuleError("إرفاق الملفات متوقف في هذه المجموعة.")
-    if not text and not image and not attachment:
+    if not text and not any((image, attachment, voice_message, video)):
         raise ChatRuleError("اكتب رسالة أو أرفق صورة أو ملفاً.")
     reply_snapshot = _reply_snapshot(_get_reply_target(group, data.get("reply_to")))
     original_name = ""
@@ -468,9 +486,16 @@ def create_demo_uploaded_message(group_id, demo_account_id, user_id, form):
         text=text,
         image=image,
         attachment=attachment,
+        voice_message=voice_message,
+        video=video,
+        video_status="queued" if video else "",
         attachment_name=original_name,
         **reply_snapshot,
     )
+    if video:
+        from .tasks import process_chat_video
+
+        transaction.on_commit(lambda message_id=message.pk: process_chat_video.delay(message_id))
     return serialize_chat_message(message, viewer_id=user.pk)
 
 
@@ -481,11 +506,13 @@ def create_uploaded_message(group_id, user_id, form):
     text = _check_text_rules(group, user, data.get("text", ""))
     image = data.get("image")
     attachment = data.get("attachment")
+    voice_message = data.get("voice_message")
+    video = data.get("video")
     if image and not group.allow_images:
         raise ChatRuleError("إرسال الصور متوقف في هذه المجموعة.")
-    if attachment and not group.allow_files:
+    if any((attachment, voice_message, video)) and not group.allow_files:
         raise ChatRuleError("إرفاق الملفات متوقف في هذه المجموعة.")
-    if not text and not image and not attachment:
+    if not text and not any((image, attachment, voice_message, video)):
         raise ChatRuleError("اكتب رسالة أو أرفق صورة أو ملفاً.")
     reply_snapshot = _reply_snapshot(_get_reply_target(group, data.get("reply_to")))
     original_name = ""
@@ -497,9 +524,16 @@ def create_uploaded_message(group_id, user_id, form):
         text=text,
         image=image,
         attachment=attachment,
+        voice_message=voice_message,
+        video=video,
+        video_status="queued" if video else "",
         attachment_name=original_name,
         **reply_snapshot,
     )
+    if video:
+        from .tasks import process_chat_video
+
+        transaction.on_commit(lambda message_id=message.pk: process_chat_video.delay(message_id))
     message.sender = user
     from .push_services import queue_group_message_push
 

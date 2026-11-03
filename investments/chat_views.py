@@ -1,14 +1,17 @@
 import logging
 import mimetypes
+from pathlib import Path
+import re
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.db.models import Count, Q
-from django.http import FileResponse, Http404, JsonResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -457,15 +460,66 @@ def chat_message_demo_growth(request, pk):
     return JsonResponse({"ok": True, "message": message_data})
 
 
-def _private_file_response(request, file_field, *, as_attachment, filename=""):
+def _stream_file_range(file_obj, remaining):
+    while remaining > 0:
+        chunk = file_obj.read(min(64 * 1024, remaining))
+        if not chunk:
+            break
+        remaining -= len(chunk)
+        yield chunk
+
+
+def _private_file_response(request, file_field, *, as_attachment, filename="", content_type=None, enable_ranges=False):
     try:
         file_field.open("rb")
-        response = FileResponse(
-            file_field,
-            as_attachment=as_attachment,
-            filename=filename or file_field.name.rsplit("/", 1)[-1],
-            content_type=("application/octet-stream" if as_attachment else mimetypes.guess_type(file_field.name)[0] or "image/webp"),
+        response_type = content_type or (
+            "application/octet-stream" if as_attachment else mimetypes.guess_type(file_field.name)[0] or "image/webp"
         )
+        if enable_ranges:
+            size = file_field.size
+            range_header = request.headers.get("Range", "")
+            if range_header:
+                match = re.fullmatch(r"bytes=(\d*)-(\d*)", range_header.strip())
+                if not match or size == 0:
+                    file_field.close()
+                    response = HttpResponse(status=416)
+                    response["Content-Range"] = f"bytes */{size}"
+                    response["Cache-Control"] = "private, no-store"
+                    return response
+                start_text, end_text = match.groups()
+                if not start_text:
+                    suffix_length = int(end_text or 0)
+                    start = max(0, size - suffix_length)
+                    end = size - 1
+                else:
+                    start = int(start_text)
+                    end = min(int(end_text) if end_text else size - 1, size - 1)
+                if start >= size or end < start:
+                    file_field.close()
+                    response = HttpResponse(status=416)
+                    response["Content-Range"] = f"bytes */{size}"
+                    response["Cache-Control"] = "private, no-store"
+                    return response
+                length = end - start + 1
+                file_field.seek(start)
+                response = StreamingHttpResponse(
+                    _stream_file_range(file_field, length),
+                    status=206,
+                    content_type=response_type,
+                )
+                response["Content-Range"] = f"bytes {start}-{end}/{size}"
+                response["Content-Length"] = str(length)
+                response._resource_closers.append(file_field.close)
+            else:
+                response = FileResponse(file_field, as_attachment=as_attachment, filename=filename or file_field.name.rsplit("/", 1)[-1], content_type=response_type)
+            response["Accept-Ranges"] = "bytes"
+        else:
+            response = FileResponse(
+                file_field,
+                as_attachment=as_attachment,
+                filename=filename or file_field.name.rsplit("/", 1)[-1],
+                content_type=response_type,
+            )
     except (FileNotFoundError, OSError, ValueError, ObjectDoesNotExist):
         raise Http404
     response["Cache-Control"] = "private, no-store"
@@ -488,6 +542,30 @@ def chat_message_attachment(request, pk):
         raise Http404
     if message.image:
         return _private_file_response(request, message.image, as_attachment=False)
+    if message.voice_message:
+        voice_types = {
+            "webm": "audio/webm", "ogg": "audio/ogg", "m4a": "audio/mp4",
+            "mp3": "audio/mpeg", "wav": "audio/wav", "aac": "audio/aac",
+        }
+        extension = Path(message.voice_message.name).suffix.lower().lstrip(".")
+        return _private_file_response(
+            request,
+            message.voice_message,
+            as_attachment=False,
+            content_type=voice_types.get(extension, "application/octet-stream"),
+            enable_ranges=True,
+        )
+    if message.video:
+        extension = Path(message.video.name).suffix.lower().lstrip(".")
+        video_types = {"mov": "video/quicktime", "mkv": "video/x-matroska", "3gp": "video/3gpp"}
+        content_type = video_types.get(extension, mimetypes.guess_type(message.video.name)[0] or "video/mp4")
+        return _private_file_response(
+            request,
+            message.video,
+            as_attachment=False,
+            content_type=content_type,
+            enable_ranges=True,
+        )
     if message.attachment:
         return _private_file_response(
             request,
@@ -496,3 +574,40 @@ def chat_message_attachment(request, pk):
             filename=message.attachment_name,
         )
     raise Http404
+
+
+@login_required
+@require_GET
+def chat_message_video_stream(request, pk, resource):
+    message = get_object_or_404(ChatMessage.objects.select_related("group"), pk=pk)
+    if (
+        not message.group.is_active
+        or not group_member_access(request.user, message.group)
+        or not message.video
+        or message.video_status != "ready"
+        or not message.video_hls_dir
+    ):
+        raise Http404
+
+    private_root = Path(settings.PRIVATE_MEDIA_ROOT).resolve()
+    stream_root = (private_root / message.video_hls_dir).resolve()
+    stream_path = (stream_root / resource).resolve()
+    try:
+        stream_root.relative_to(private_root)
+        stream_path.relative_to(stream_root)
+    except ValueError:
+        raise Http404
+    if not stream_path.is_file():
+        raise Http404
+
+    content_type = {
+        ".m3u8": "application/vnd.apple.mpegurl",
+        ".ts": "video/mp2t",
+    }.get(stream_path.suffix.lower(), "application/octet-stream")
+    try:
+        response = FileResponse(stream_path.open("rb"), content_type=content_type)
+    except OSError:
+        raise Http404
+    response["Cache-Control"] = "private, no-store"
+    response["X-Content-Type-Options"] = "nosniff"
+    return response

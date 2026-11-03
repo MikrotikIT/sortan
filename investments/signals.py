@@ -1,4 +1,9 @@
+import shutil
+from pathlib import Path
+
 from django.contrib.auth import get_user_model
+from django.conf import settings
+from django.db import transaction
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
@@ -33,7 +38,15 @@ def delete_chat_group_image(sender, instance, **kwargs):
 
 @receiver(post_delete, sender=ChatMessage)
 def delete_chat_message_files(sender, instance, **kwargs):
-    for field_name in ("image", "attachment"):
+    for field_name in ("image", "attachment", "voice_message", "video"):
         uploaded_file = getattr(instance, field_name)
         if uploaded_file:
             uploaded_file.delete(save=False)
+    if instance.video_hls_dir:
+        private_root = Path(settings.PRIVATE_MEDIA_ROOT).resolve()
+        stream_dir = (private_root / instance.video_hls_dir).resolve()
+        try:
+            stream_dir.relative_to(private_root)
+        except ValueError:
+            return
+        transaction.on_commit(lambda path=stream_dir: shutil.rmtree(path, ignore_errors=True))
