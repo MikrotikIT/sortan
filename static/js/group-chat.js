@@ -14,6 +14,7 @@
   const canPost = root.dataset.canPost === "true";
   const canReact = root.dataset.canReact === "true";
   const isAdmin = root.dataset.isAdmin === "true";
+  const allowVoiceMessages = root.dataset.allowVoiceMessages === "true";
   const demoGrowthUrlTemplate = root.dataset.demoGrowthUrlTemplate || "";
   const demoAccountId = Number(root.dataset.demoAccountId || 0);
   const demoReactionUrlTemplate = root.dataset.demoReactionUrlTemplate || "";
@@ -37,19 +38,7 @@
   let recordingStartedAt = 0;
   let audioRecordButton = null;
   let audioRecordLabel = null;
-  const attachmentOptions = compose?.querySelector(".chat-attachment-options");
-  if (!demoAccountId && attachmentOptions?.querySelector('input[name="attachment"]')) {
-    const videoLabel = document.createElement("label");
-    const videoLabelText = document.createElement("span");
-    videoLabelText.textContent = "فيديو";
-    const videoInput = document.createElement("input");
-    videoInput.type = "file";
-    videoInput.name = "video";
-    videoInput.accept = "video/mp4,video/quicktime,video/webm,video/x-matroska,.mp4,.m4v,.mov,.webm,.mkv,.3gp";
-    videoLabel.append(videoLabelText, videoInput);
-    attachmentOptions.append(videoLabel);
-    attachmentInputs = [...(compose?.querySelectorAll('.chat-attachment-options input[type="file"]') || [])];
-
+  if (!demoAccountId && allowVoiceMessages) {
     const composer = compose?.querySelector(".chat-composer");
     if (composer && composeSendButton) {
       audioRecordButton = document.createElement("button");

@@ -470,7 +470,7 @@ def create_demo_uploaded_message(group_id, demo_account_id, user_id, form):
         raise ChatRuleError("الرسائل الصوتية والفيديو متاحة لحسابات المستخدمين الفعلية فقط.")
     if image and not group.allow_images:
         raise ChatRuleError("إرسال الصور متوقف في هذه المجموعة.")
-    if any((attachment, voice_message, video)) and not group.allow_files:
+    if attachment and not group.allow_files:
         raise ChatRuleError("إرفاق الملفات متوقف في هذه المجموعة.")
     if not text and not any((image, attachment, voice_message, video)):
         raise ChatRuleError("اكتب رسالة أو أرفق صورة أو ملفاً.")
@@ -510,8 +510,12 @@ def create_uploaded_message(group_id, user_id, form):
     video = data.get("video")
     if image and not group.allow_images:
         raise ChatRuleError("إرسال الصور متوقف في هذه المجموعة.")
-    if any((attachment, voice_message, video)) and not group.allow_files:
+    if attachment and not group.allow_files:
         raise ChatRuleError("إرفاق الملفات متوقف في هذه المجموعة.")
+    if voice_message and not group.allow_voice_messages:
+        raise ChatRuleError("الرسائل الصوتية متوقفة في هذه المجموعة.")
+    if video and not group.allow_videos:
+        raise ChatRuleError("إرسال الفيديو متوقف في هذه المجموعة.")
     if not text and not any((image, attachment, voice_message, video)):
         raise ChatRuleError("اكتب رسالة أو أرفق صورة أو ملفاً.")
     reply_snapshot = _reply_snapshot(_get_reply_target(group, data.get("reply_to")))

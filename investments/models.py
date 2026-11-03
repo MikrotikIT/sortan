@@ -779,6 +779,8 @@ class ChatGroup(models.Model):
     )
     allow_images = models.BooleanField("السماح بإرسال الصور", default=True)
     allow_files = models.BooleanField("السماح بإرفاق الملفات", default=False)
+    allow_voice_messages = models.BooleanField("السماح بالرسائل الصوتية", default=True)
+    allow_videos = models.BooleanField("السماح بإرسال الفيديو", default=True)
     allow_links = models.BooleanField("السماح بالروابط", default=True)
     reactions_enabled = models.BooleanField("السماح بالتفاعلات", default=True)
     allowed_reactions = models.JSONField("التفاعلات المتاحة", default=default_chat_reactions)

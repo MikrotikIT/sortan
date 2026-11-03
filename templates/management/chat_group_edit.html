@@ -5,7 +5,7 @@
 {% block content %}
 <section class="management-heading"><div><span class="eyebrow">إدارة المجموعة</span><h1>{{ group.title }}</h1><p>الأعضاء الحقيقيون: {{ actual_member_count }}{% if group.demo_member_offset %} · يظهر {{ display_member_count }} مع العدد التجريبي الإضافي{% endif %}</p></div><a class="btn btn-quiet" href="{% url 'management_chat_groups' %}">قائمة المجموعات</a></section>
 <section class="management-panel form-panel">
-  <div class="management-panel-head"><div><h2>إعدادات المجموعة</h2><p>فعّل التفاعلات، ثم اختر الأنواع التي تريد إتاحتها للأعضاء.</p></div></div>
+  <div class="management-panel-head"><div><h2>إعدادات المجموعة</h2><p>تحكم في النشر والوسائط والتفاعلات المتاحة للأعضاء.</p></div></div>
   <form method="post" enctype="multipart/form-data" class="management-form chat-admin-form">{% csrf_token %}
     {% for field in form %}<div class="admin-field {% if field.field.widget.input_type == 'checkbox' %}admin-check-field{% endif %}{% if field.name == 'allowed_reactions' %} admin-reaction-field{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}
     <div class="form-actions"><button class="btn btn-primary" type="submit">حفظ الإعدادات</button><a class="btn btn-quiet" href="{% url 'chat_group_room' group.pk %}">فتح المجموعة</a></div>

@@ -100,7 +100,7 @@ class ChatGroupForm(forms.ModelForm):
             "title", "display_order", "description", "image", "is_active", "is_public", "max_members",
             "demo_member_offset", "demo_member_growth_enabled", "demo_member_interval_min_seconds",
             "demo_member_interval_max_seconds", "demo_member_increment_min", "demo_member_increment_max",
-            "message_mode", "notifications_muted_by_default", "allow_images", "allow_files", "allow_links", "reactions_enabled", "allowed_reactions",
+            "message_mode", "notifications_muted_by_default", "allow_images", "allow_files", "allow_voice_messages", "allow_videos", "allow_links", "reactions_enabled", "allowed_reactions",
             "slow_mode_seconds", "blocked_terms",
         )
         widgets = {
@@ -124,6 +124,8 @@ class ChatGroupForm(forms.ModelForm):
             "demo_member_increment_min": "اختيار عشوائي للزيادة في كل مرة، من 1 إلى 5.",
             "message_mode": "يمكن ضبط الأعضاء المسموح لهم من قائمة أعضاء المجموعة.",
             "notifications_muted_by_default": "يضبط إشعارات الأعضاء الذين ينضمون لاحقاً؛ ويمكن لكل عضو إلغاء الكتم من صفحة المجموعة.",
+            "allow_voice_messages": "أوقفه لإخفاء زر تسجيل وإرسال الرسائل الصوتية ومنع رفعها في هذه المجموعة.",
+            "allow_videos": "أوقفه لإخفاء خيار الفيديو ومنع رفعه في هذه المجموعة.",
             "reactions_enabled": "أوقف هذا الخيار لتعطيل كل التفاعلات في المجموعة.",
             "slow_mode_seconds": "الفاصل الأدنى بين رسائل العضو. الحد الأقصى 300 ثانية.",
             "blocked_terms": "كل عبارة في سطر مستقل؛ الرسائل التي تحتويها تُرفض.",
@@ -287,8 +289,12 @@ class ChatUploadForm(forms.Form):
         if self.group:
             if image and not self.group.allow_images:
                 raise ValidationError("إرسال الصور متوقف في هذه المجموعة.")
-            if any((attachment, voice_message, video)) and not self.group.allow_files:
-                raise ValidationError("إرفاق الملفات والصوت والفيديو متوقف في هذه المجموعة.")
+            if attachment and not self.group.allow_files:
+                raise ValidationError("إرفاق الملفات متوقف في هذه المجموعة.")
+            if voice_message and not self.group.allow_voice_messages:
+                raise ValidationError("الرسائل الصوتية متوقفة في هذه المجموعة.")
+            if video and not self.group.allow_videos:
+                raise ValidationError("إرسال الفيديو متوقف في هذه المجموعة.")
         return cleaned
 
 class GroupMemberForm(forms.Form):
