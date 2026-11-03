@@ -2,7 +2,7 @@
 {% load static %}
 {% block body_class %}chat-room-page{% endblock %}
 {% block title %}{{ group.title }} — KODI{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/group-chat.css' %}?v=8"><link rel="stylesheet" href="{% static 'css/chat-fullscreen.css' %}?v=2"><link rel="stylesheet" href="{% static 'css/chat-ui.css' %}?v=17">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/group-chat.css' %}?v=8"><link rel="stylesheet" href="{% static 'css/chat-fullscreen.css' %}?v=2"><link rel="stylesheet" href="{% static 'css/chat-ui.css' %}?v=18">{% endblock %}
 {% block content %}
 <section class="chat-room" data-chat-room data-ws-path="{{ ws_path }}" data-history-url="{{ history_url }}" data-read-url="{{ read_url }}" data-has-older-messages="{{ has_older_messages|yesno:'true,false' }}" data-chat-live-stats-url="{% url 'chat_live_stats' %}" data-group-id="{{ group.pk }}" data-current-user="{{ request.user.pk }}" data-can-moderate="{{ can_moderate|yesno:'true,false' }}" data-can-post="{{ can_post|yesno:'true,false' }}" data-is-admin="{{ request.user.is_staff|yesno:'true,false' }}" data-demo-growth-url-template="{{ demo_growth_url_template }}" data-can-react="{{ group.reactions_enabled|yesno:'true,false' }}" data-allowed-reactions="{{ group.allowed_reactions|join:',' }}" data-allow-voice-messages="{{ group.allow_voice_messages|yesno:'true,false' }}" data-allow-videos="{{ group.allow_videos|yesno:'true,false' }}" data-member-count="{{ actual_member_count }}" data-demo-member-offset="{{ group.demo_member_offset }}">
   <span hidden>{% csrf_token %}</span>
@@ -23,16 +23,16 @@
       <div class="chat-reply-compose" data-reply-preview hidden><div><strong data-reply-sender></strong><small data-reply-text></small></div><button type="button" data-reply-cancel aria-label="إلغاء الرد">إلغاء</button></div>
       <div class="chat-compose-main">
         <div class="chat-composer">
-          {% if group.allow_images or group.allow_files %}
+          {% if group.allow_images or group.allow_files or group.allow_videos %}
           <details class="chat-attachment-menu">
-            <summary aria-label="إرفاق صورة أو ملف" title="إرفاق صورة أو ملف"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></summary>
+            <summary aria-label="إرفاق صورة أو ملف أو فيديو" title="إرفاق وسائط"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></summary>
             <div class="chat-attachment-options">
               {% if group.allow_images %}<label><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg><span>صورة</span><input type="file" name="image" accept="image/jpeg,image/png,image/webp"></label>{% endif %}
               {% if group.allow_files %}<label><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8"/></svg><span>ملف</span><input type="file" name="attachment" accept=".pdf,.txt,.csv,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip"></label>{% endif %}
+              {% if group.allow_videos %}<label><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="13" height="14" rx="2"/><path d="m16 10 5-3v10l-5-3z"/></svg><span>فيديو</span><input type="file" name="video" accept="video/mp4,video/quicktime,video/webm,video/x-matroska,.mp4,.m4v,.mov,.webm,.mkv,.3gp" aria-label="إرفاق فيديو"></label>{% endif %}
             </div>
           </details>
           {% endif %}
-          {% if group.allow_videos %}<label class="chat-video-upload-button" title="إرسال فيديو"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="13" height="14" rx="2"/><path d="m16 10 5-3v10l-5-3z"/></svg><input type="file" name="video" accept="video/mp4,video/quicktime,video/webm,video/x-matroska,.mp4,.m4v,.mov,.webm,.mkv,.3gp" aria-label="إرسال فيديو" title="إرسال فيديو"></label>{% endif %}
           <textarea name="text" maxlength="2000" rows="1" placeholder="اكتب رسالتك…" aria-label="نص الرسالة"></textarea>
           <button class="btn btn-primary chat-send-button chat-send-icon-button" data-compose-send type="submit" aria-label="إرسال الرسالة" title="إرسال الرسالة"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg></button>
         </div>
@@ -51,4 +51,4 @@
 </section>
 {{ messages_data|json_script:"chat-initial-messages" }}
 {% endblock %}
-{% block extra_js %}<script src="{% static 'js/group-chat.js' %}?v=30" defer></script>{% endblock %}
+{% block extra_js %}<script src="{% static 'js/group-chat.js' %}?v=31" defer></script>{% endblock %}

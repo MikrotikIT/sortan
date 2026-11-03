@@ -1031,59 +1031,7 @@
   white-space: nowrap;
 }
 
-.chat-audio-record-button.is-recording {
-  display: inline-flex;
-  width: auto;
-  min-width: 78px;
-  padding-inline: 9px;
-  gap: 5px;
-}
-
-.chat-audio-record-button.is-recording .chat-audio-record-label {
-  display: inline;
-}
-
-.chat-video-upload-button {
-  position: relative;
-  display: grid;
-  flex: 0 0 38px;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  margin-bottom: 1px;
-  border-radius: 50%;
-  color: #71858a;
-  cursor: pointer;
-  transition: background .15s ease, color .15s ease;
-}
-
-.chat-video-upload-button:hover {
-  background: #e9eff0;
-  color: #176e7c;
-}
-
-.chat-video-upload-button svg {
-  width: 20px;
-  height: 20px;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.8;
-}
-
-.chat-video-upload-button input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  clip-path: inset(50%);
-}
-
 .chat-composer .chat-audio-record-button[hidden],
-.chat-composer .chat-video-upload-button[hidden],
 .chat-attachment-preview-actions [hidden] {
   display: none !important;
 }
@@ -1133,9 +1081,45 @@
 }
 
 .chat-audio-preview-waveform {
+  display: block;
   min-width: 0;
   height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.chat-audio-wave-bars {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+  width: 100%;
+  height: 36px;
   overflow: hidden;
+}
+
+.chat-audio-wave-bars i {
+  display: block;
+  flex: 1 1 2px;
+  min-width: 2px;
+  max-width: 4px;
+  height: var(--bar-height, 12px);
+  border-radius: 3px;
+  background: #b4cdd0;
+  transition: background .12s ease;
+}
+
+.chat-audio-wave-bars i.is-played {
+  background: #19a777;
+}
+
+.chat-audio-preview-waveform:focus-visible {
+  outline: 2px solid #19a777;
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .chat-audio-preview-time {
@@ -1167,12 +1151,6 @@
   gap: 5px;
   max-width: min(100%, 520px);
   margin-top: 9px;
-}
-
-.chat-voice-message-player audio {
-  display: block;
-  width: min(100%, 370px);
-  height: 42px;
 }
 
 .chat-video-message-element {

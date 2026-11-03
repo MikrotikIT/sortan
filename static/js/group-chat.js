@@ -4,9 +4,7 @@
   const listViewport = root?.querySelector(".chat-message-list-wrap");
   if (!root || !list || !listViewport) return;
   const hlsScriptUrl = new URL("../vendor/hls.min.js", document.currentScript?.src || `${window.location.origin}/static/js/group-chat.js`).href;
-  const waveScriptUrl = new URL("../vendor/wavesurfer.min.js", document.currentScript?.src || `${window.location.origin}/static/js/group-chat.js`).href;
   let hlsLoaderPromise = null;
-  let waveLoaderPromise = null;
 
   const status = root.querySelector("[data-chat-status]");
   const historyStatus = root.querySelector("[data-chat-history-status]");
@@ -382,7 +380,6 @@
   };
 
   let previewObjectUrls = [];
-  let previewWaveSurfers = [];
   const formatAudioTime = (seconds) => {
     const safeSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
     return `${Math.floor(safeSeconds / 60)}:${String(safeSeconds % 60).padStart(2, "0")}`;
@@ -400,8 +397,7 @@
   };
 
   const refreshAttachmentPreview = () => {
-    previewWaveSurfers.forEach((waveSurfer) => waveSurfer.destroy());
-    previewWaveSurfers = [];
+    if (attachmentPreviewItems) destroyChatMessageMedia(attachmentPreviewItems);
     previewObjectUrls.forEach((url) => URL.revokeObjectURL(url));
     previewObjectUrls = [];
     if (!attachmentPreview || !attachmentPreviewItems) {
@@ -714,91 +710,104 @@
     return hlsLoaderPromise;
   };
 
-  const loadWaveSurferLibrary = () => {
-    if (window.WaveSurfer?.create) return Promise.resolve(window.WaveSurfer);
-    if (waveLoaderPromise) return waveLoaderPromise;
-    waveLoaderPromise = new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = waveScriptUrl;
-      script.async = true;
-      script.onload = () => window.WaveSurfer?.create
-        ? resolve(window.WaveSurfer)
-        : reject(new Error("WaveSurfer did not load."));
-      script.onerror = () => reject(new Error("WaveSurfer did not load."));
-      document.head.append(script);
-    });
-    return waveLoaderPromise;
-  };
-
-  const mountWaveSurferPreview = (item, objectUrl) => {
+  const createStyledAudioPlayer = (audioUrl, { preview = false } = {}) => {
     const player = document.createElement("div");
-    player.className = "chat-wave-audio-preview";
+    player.className = preview
+      ? "chat-wave-audio-preview"
+      : "chat-voice-message-player chat-wave-audio-preview";
     const playButton = document.createElement("button");
     playButton.type = "button";
     playButton.className = "chat-audio-preview-play";
-    playButton.disabled = true;
-    playButton.setAttribute("aria-label", "جارٍ تجهيز معاينة الصوت");
-    const waveform = document.createElement("div");
+    playButton.setAttribute("aria-label", preview ? "تشغيل معاينة الصوت" : "تشغيل الرسالة الصوتية");
+    const waveform = document.createElement("button");
+    waveform.type = "button";
     waveform.className = "chat-audio-preview-waveform";
+    waveform.setAttribute("aria-label", "تقديم أو إرجاع الصوت");
+    waveform.title = "اضغط للانتقال إلى موضع في التسجيل";
     const time = document.createElement("small");
     time.className = "chat-audio-preview-time";
-    time.textContent = "0:00";
+    time.textContent = "0:00 / 0:00";
+    const bars = document.createElement("span");
+    bars.className = "chat-audio-wave-bars";
+    for (let index = 0; index < 30; index += 1) {
+      const bar = document.createElement("i");
+      const wave = Math.abs(Math.sin((index + 3) * 1.71) * Math.cos((index + 2) * 0.43));
+      bar.style.setProperty("--bar-height", `${Math.round(6 + wave * 21)}px`);
+      bars.append(bar);
+    }
+    waveform.append(bars);
     player.append(playButton, waveform, time);
-    item.append(player);
-
-    let waveSurfer = null;
-    let duration = 0;
+    const audio = new Audio(audioUrl);
+    audio.preload = "metadata";
+    player._audio = audio;
+    const barsList = [...bars.children];
     const setPlaying = (playing) => {
       clearChildren(playButton);
       playButton.append(createSvgIcon("", playing ? ["M9 5v14", "M15 5v14"] : ["M9 5v14l10-7z"]));
-      playButton.setAttribute("aria-label", playing ? "إيقاف معاينة الصوت" : "تشغيل معاينة الصوت");
+      playButton.setAttribute("aria-label", playing
+        ? (preview ? "إيقاف معاينة الصوت" : "إيقاف الرسالة الصوتية")
+        : (preview ? "تشغيل معاينة الصوت" : "تشغيل الرسالة الصوتية"));
     };
-    const showNativeAudioFallback = () => {
-      if (!player.isConnected) return;
-      if (waveSurfer) {
-        waveSurfer.destroy();
-        previewWaveSurfers = previewWaveSurfers.filter((instance) => instance !== waveSurfer);
-        waveSurfer = null;
-      }
-      const audio = document.createElement("audio");
-      audio.className = "chat-audio-preview";
-      audio.src = objectUrl;
-      audio.controls = true;
-      audio.preload = "metadata";
-      player.replaceChildren(audio);
+    const updateProgress = () => {
+      const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+      const current = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+      const progress = duration > 0 ? Math.min(1, current / duration) : 0;
+      barsList.forEach((bar, index) => bar.classList.toggle("is-played", index / barsList.length <= progress));
+      time.textContent = `${formatAudioTime(current)} / ${formatAudioTime(duration)}`;
     };
-
     setPlaying(false);
-    playButton.addEventListener("click", () => waveSurfer?.playPause());
-    loadWaveSurferLibrary().then((WaveSurfer) => {
-      if (!item.isConnected) return;
-      waveSurfer = WaveSurfer.create({
-        container: waveform,
-        url: objectUrl,
-        waveColor: "#b5cbd0",
-        progressColor: "#19a777",
-        cursorColor: "#168e68",
-        height: 36,
-        barWidth: 2,
-        barGap: 2,
-        barRadius: 2,
-        normalize: true,
-      });
-      previewWaveSurfers.push(waveSurfer);
-      waveSurfer.on("ready", (audioDuration) => {
-        duration = audioDuration;
-        playButton.disabled = false;
-        playButton.setAttribute("aria-label", "تشغيل معاينة الصوت");
-        time.textContent = `0:00 / ${formatAudioTime(duration)}`;
-      });
-      waveSurfer.on("timeupdate", (currentTime) => {
-        time.textContent = `${formatAudioTime(currentTime)} / ${formatAudioTime(duration)}`;
-      });
-      waveSurfer.on("play", () => setPlaying(true));
-      waveSurfer.on("pause", () => setPlaying(false));
-      waveSurfer.on("finish", () => setPlaying(false));
-      waveSurfer.on("error", showNativeAudioFallback);
-    }).catch(showNativeAudioFallback);
+    audio.addEventListener("loadedmetadata", updateProgress);
+    audio.addEventListener("durationchange", updateProgress);
+    audio.addEventListener("timeupdate", updateProgress);
+    audio.addEventListener("play", () => setPlaying(true));
+    audio.addEventListener("pause", () => setPlaying(false));
+    audio.addEventListener("ended", () => {
+      setPlaying(false);
+      updateProgress();
+    });
+    audio.addEventListener("error", () => {
+      time.textContent = "تعذر تشغيل الصوت";
+      playButton.disabled = true;
+    });
+    playButton.addEventListener("click", () => {
+      if (audio.paused) audio.play().catch(() => { time.textContent = "تعذر تشغيل الصوت"; });
+      else audio.pause();
+    });
+    const seek = (event) => {
+      if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
+      const bounds = waveform.getBoundingClientRect();
+      if (!bounds.width) return;
+      const ratio = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width));
+      audio.currentTime = ratio * audio.duration;
+      updateProgress();
+    };
+    waveform.addEventListener("click", seek);
+    waveform.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      event.preventDefault();
+      const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+      if (!duration) return;
+      audio.currentTime = Math.max(0, Math.min(duration, audio.currentTime + (event.key === "ArrowRight" ? 5 : -5)));
+      updateProgress();
+    });
+    return player;
+  };
+
+  const mountWaveSurferPreview = (item, objectUrl) => {
+    item.append(createStyledAudioPlayer(objectUrl, { preview: true }));
+  };
+
+  const createVoiceMessagePlayer = (audioUrl) => createStyledAudioPlayer(audioUrl);
+
+  const destroyChatMessageMedia = (container) => {
+    container.querySelectorAll(".chat-video-message-player").forEach((player) => player._hls?.destroy());
+    container.querySelectorAll(".chat-wave-audio-preview").forEach((player) => {
+      player._audio?.pause();
+      if (player._audio) {
+        player._audio.removeAttribute("src");
+        player._audio.load();
+      }
+    });
   };
 
   const createVideoMessagePlayer = (message) => {
@@ -998,14 +1007,7 @@
       card.append(body);
     }
     if (message.voice_message && message.media_url) {
-      const voicePlayer = document.createElement("div");
-      voicePlayer.className = "chat-voice-message-player";
-      const audio = document.createElement("audio");
-      audio.controls = true;
-      audio.preload = "metadata";
-      audio.src = message.media_url;
-      voicePlayer.append(audio);
-      card.append(voicePlayer);
+      card.append(createVoiceMessagePlayer(message.media_url));
     }
     if (message.video) card.append(createVideoMessagePlayer(message));
     if (message.image && message.media_url) {
@@ -1050,7 +1052,7 @@
     if (footer.childElementCount) card.append(footer);
     item.append(card);
     if (previous) {
-      previous.querySelectorAll(".chat-video-message-player").forEach((player) => player._hls?.destroy());
+      destroyChatMessageMedia(previous);
       previous.replaceWith(item);
     }
     else if (prepend) list.prepend(item);
@@ -1097,14 +1099,7 @@
       card.appendChild(body);
     }
     if (message.voice_message && message.media_url) {
-      const voicePlayer = document.createElement("div");
-      voicePlayer.className = "chat-voice-message-player";
-      const audio = document.createElement("audio");
-      audio.controls = true;
-      audio.preload = "metadata";
-      audio.src = message.media_url;
-      voicePlayer.append(audio);
-      card.appendChild(voicePlayer);
+      card.appendChild(createVoiceMessagePlayer(message.media_url));
     }
     if (message.video) card.appendChild(createVideoMessagePlayer(message));
     if (message.media_url && !message.voice_message && !message.video) {
@@ -1124,7 +1119,7 @@
 
     item.appendChild(card);
     if (previous && previous.parentNode) {
-      previous.querySelectorAll(".chat-video-message-player").forEach((player) => player._hls?.destroy());
+      destroyChatMessageMedia(previous);
       previous.parentNode.replaceChild(item, previous);
     }
     else if (prepend) list.insertBefore(item, list.firstChild);
@@ -1393,12 +1388,17 @@
           quote.textContent += " · الرسالة الأصلية محذوفة";
           if (quote instanceof HTMLButtonElement) quote.disabled = true;
         });
-        list.querySelector(`[data-message-id="${deletedId}"]`)?.remove();
+        const deletedMessage = list.querySelector(`[data-message-id="${deletedId}"]`);
+        if (deletedMessage) {
+          destroyChatMessageMedia(deletedMessage);
+          deletedMessage.remove();
+        }
         syncDayDividers();
       } else if (payload.type === "group_messages_cleared") {
         historyRequestGeneration += 1;
         loadingOlderMessages = false;
         hasOlderMessages = false;
+        list.querySelectorAll(":scope > li").forEach(destroyChatMessageMedia);
         list.replaceChildren();
         clearReplySelection();
         if (historyStatus) historyStatus.hidden = true;
