@@ -1352,6 +1352,51 @@
   font-size: 10px;
 }
 
+.chat-video-upload-progress {
+  display: grid;
+  gap: 4px;
+  width: min(100%, 240px);
+  margin-top: 2px;
+}
+
+.chat-video-upload-progress[hidden] {
+  display: none !important;
+}
+
+.chat-video-upload-progress small {
+  color: #668187;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.chat-video-upload-progress-track {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #dce9eb;
+}
+
+.chat-video-upload-progress-track > span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #15996b, #42c99a);
+  transition: width .15s ease;
+}
+
+.chat-video-upload-progress.has-error small {
+  color: #b34e47;
+}
+
+.chat-video-upload-progress.has-error .chat-video-upload-progress-track > span {
+  background: #d65d54;
+}
+
+.chat-video-upload-progress.is-complete small {
+  color: #13855f;
+}
+
 .chat-attachment-preview-actions {
   display: flex;
   flex: 0 0 auto;

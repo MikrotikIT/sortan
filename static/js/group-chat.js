@@ -411,6 +411,7 @@
     selectedFiles.forEach((file) => {
       const item = document.createElement("div");
       item.className = "chat-attachment-preview-item";
+      const isVideoFile = file.type.startsWith("video/") || /\.(mp4|m4v|mov|webm|mkv|3gp)$/i.test(file.name);
       if (file.type.startsWith("image/")) {
         const image = document.createElement("img");
         const objectUrl = URL.createObjectURL(file);
@@ -422,7 +423,7 @@
         const objectUrl = URL.createObjectURL(file);
         previewObjectUrls.push(objectUrl);
         mountWaveSurferPreview(item, objectUrl);
-      } else if (file.type.startsWith("video/")) {
+      } else if (isVideoFile) {
         const video = document.createElement("video");
         const objectUrl = URL.createObjectURL(file);
         previewObjectUrls.push(objectUrl);
@@ -432,6 +433,23 @@
         video.preload = "metadata";
         video.className = "chat-video-preview";
         item.append(video);
+        const uploadProgress = document.createElement("div");
+        uploadProgress.className = "chat-video-upload-progress";
+        uploadProgress.hidden = true;
+        const uploadStatus = document.createElement("small");
+        uploadStatus.dataset.videoUploadStatus = "";
+        const progressTrack = document.createElement("div");
+        progressTrack.className = "chat-video-upload-progress-track";
+        progressTrack.setAttribute("role", "progressbar");
+        progressTrack.setAttribute("aria-label", "تقدم رفع الفيديو");
+        progressTrack.setAttribute("aria-valuemin", "0");
+        progressTrack.setAttribute("aria-valuemax", "100");
+        progressTrack.setAttribute("aria-valuenow", "0");
+        const progressFill = document.createElement("span");
+        progressFill.dataset.videoUploadFill = "";
+        progressTrack.append(progressFill);
+        uploadProgress.append(uploadStatus, progressTrack);
+        item.append(uploadProgress);
       } else {
         const icon = document.createElement("span");
         icon.className = "chat-attachment-preview-icon";
@@ -448,11 +466,71 @@
         ? `${Math.max(1, Math.round(bytes / 1024))} كيلوبايت`
         : `${(bytes / (1024 * 1024)).toFixed(1)} ميغابايت`;
       details.append(name, size);
+      const videoProgress = item.querySelector("[data-video-upload-progress]");
+      if (videoProgress) details.append(videoProgress);
       item.append(details);
       attachmentPreviewItems.append(item);
     });
     syncComposerActions();
   };
+
+  const updateVideoUploadProgress = (percent, label, state = "uploading") => {
+    attachmentPreviewItems?.querySelectorAll("[data-video-upload-progress]").forEach((progress) => {
+      progress.hidden = false;
+      const track = progress.querySelector('[role="progressbar"]');
+      const fill = progress.querySelector("[data-video-upload-fill]");
+      const status = progress.querySelector("[data-video-upload-status]");
+      if (Number.isFinite(percent)) {
+        const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
+        track?.setAttribute("aria-valuenow", String(safePercent));
+        if (fill) fill.style.width = `${safePercent}%`;
+      }
+      status.textContent = label;
+      progress.classList.toggle("has-error", state === "error");
+      progress.classList.toggle("is-complete", state === "complete");
+    });
+  };
+
+  const sendVideoFormWithProgress = (formData) => new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", compose.action, true);
+    xhr.setRequestHeader("Accept", "application/json");
+    xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+    xhr.upload.addEventListener("progress", (event) => {
+      if (!event.lengthComputable) return;
+      const percent = Math.round((event.loaded / event.total) * 100);
+      updateVideoUploadProgress(percent, `جارٍ رفع الفيديو… ${percent}%`);
+    });
+    xhr.upload.addEventListener("load", () => {
+      updateVideoUploadProgress(100, "اكتمل الرفع، جارٍ تجهيز الفيديو…");
+    });
+    xhr.addEventListener("load", () => {
+      let result;
+      try {
+        result = JSON.parse(xhr.responseText);
+      } catch {
+        updateVideoUploadProgress(null, "تعذّر استلام تأكيد الرفع.", "error");
+        reject(new Error("تعذر قراءة استجابة الخادم."));
+        return;
+      }
+      if (xhr.status < 200 || xhr.status >= 300 || !result.ok) {
+        updateVideoUploadProgress(null, "تعذّر رفع الفيديو.", "error");
+        reject(new Error(result.error || "تعذر إرسال الفيديو."));
+        return;
+      }
+      updateVideoUploadProgress(100, "اكتمل رفع الفيديو.", "complete");
+      resolve(result);
+    });
+    xhr.addEventListener("error", () => {
+      updateVideoUploadProgress(null, "انقطع الاتصال أثناء رفع الفيديو.", "error");
+      reject(new Error("انقطع الاتصال أثناء رفع الفيديو."));
+    });
+    xhr.addEventListener("abort", () => {
+      updateVideoUploadProgress(null, "تم إيقاف رفع الفيديو.", "error");
+      reject(new Error("تم إيقاف رفع الفيديو."));
+    });
+    xhr.send(formData);
+  });
 
   const clearSelectedAttachments = () => {
     if (audioRecorder?.state === "recording") {
@@ -1515,14 +1593,21 @@
     try {
       const formData = new FormData(compose);
       if (recordedAudioFile) formData.set("voice_message", recordedAudioFile, recordedAudioFile.name);
-      const response = await fetch(compose.action, {
-        method: "POST",
-        body: formData,
-        headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        credentials: "same-origin",
-      });
-      const result = await response.json();
-      if (!response.ok || !result.ok) throw new Error(result.error || "تعذر إرسال الرسالة.");
+      const hasVideoFile = attachmentInputs.some((input) => input.name === "video" && input.files?.length);
+      let result;
+      if (hasVideoFile) {
+        updateVideoUploadProgress(0, "جارٍ تجهيز رفع الفيديو…");
+        result = await sendVideoFormWithProgress(formData);
+      } else {
+        const response = await fetch(compose.action, {
+          method: "POST",
+          body: formData,
+          headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" },
+          credentials: "same-origin",
+        });
+        result = await response.json();
+        if (!response.ok || !result.ok) throw new Error(result.error || "تعذر إرسال الرسالة.");
+      }
       renderMessageSafely(result.message);
       syncLastDayDivider();
       compose.reset();
