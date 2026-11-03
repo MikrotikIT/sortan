@@ -420,6 +420,8 @@ def _new_ai_bot_account(group, template, pool, reserved_names, *, display_name=N
         ai_system_prompt=template.system_prompt,
         ai_wait_min_seconds=template.wait_min_seconds,
         ai_wait_max_seconds=template.wait_max_seconds,
+        ai_reading_words_per_second=template.reading_words_per_second,
+        ai_writing_words_per_second=template.writing_words_per_second,
         ai_lifetime_seconds=template.lifetime_minutes * 60,
         ai_next_action_at=timezone.now() + timedelta(
             seconds=randint(template.wait_min_seconds, template.wait_max_seconds)
@@ -507,7 +509,12 @@ def ai_bot_pool_save(request):
                     account.ai_next_action_at = None
                     account.ai_last_active_at = None
                     account.ai_partner = None
-                    account.save(update_fields=("ai_state", "ai_dead_at", "ai_next_action_at", "ai_last_active_at", "ai_partner"))
+                    account.ai_pending_text = ""
+                    account.ai_pending_reply_to = None
+                    account.save(update_fields=(
+                        "ai_state", "ai_dead_at", "ai_next_action_at", "ai_last_active_at", "ai_partner",
+                        "ai_pending_text", "ai_pending_reply_to",
+                    ))
             elif len(current_accounts) < desired_count:
                 reserved_names = _reserved_demo_chat_names()
                 for _ in range(desired_count - len(current_accounts)):

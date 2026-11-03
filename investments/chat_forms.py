@@ -419,6 +419,16 @@ class AIBotTemplateForm(forms.ModelForm):
         label="أعلى انتظار قبل الإرسال (ثانية)", min_value=1, max_value=3600,
         widget=forms.NumberInput(attrs={"min": 1, "max": 3600}),
     )
+    reading_words_per_second = forms.DecimalField(
+        label="سرعة القراءة (كلمة/ثانية)", min_value=Decimal("0.2"), max_value=Decimal("30.0"),
+        max_digits=4, decimal_places=1,
+        widget=forms.NumberInput(attrs={"min": "0.2", "max": "30", "step": "0.1"}),
+    )
+    writing_words_per_second = forms.DecimalField(
+        label="سرعة الكتابة (كلمة/ثانية)", min_value=Decimal("0.2"), max_value=Decimal("30.0"),
+        max_digits=4, decimal_places=1,
+        widget=forms.NumberInput(attrs={"min": "0.2", "max": "30", "step": "0.1"}),
+    )
     lifetime_minutes = forms.IntegerField(
         label="عمر البوت (دقيقة)", min_value=1, max_value=10080,
         widget=forms.NumberInput(attrs={"min": 1, "max": 10080}),
@@ -428,7 +438,7 @@ class AIBotTemplateForm(forms.ModelForm):
         model = AIBotTemplate
         fields = (
             "name", "role", "model_id", "system_prompt", "wait_min_seconds", "wait_max_seconds",
-            "lifetime_minutes", "is_active",
+            "reading_words_per_second", "writing_words_per_second", "lifetime_minutes", "is_active",
         )
         widgets = {
             "model_id": forms.TextInput(attrs={"dir": "ltr", "list": "openrouter-model-options", "autocomplete": "off"}),
@@ -444,6 +454,8 @@ class AIBotTemplateForm(forms.ModelForm):
             "system_prompt": "تعليمات الشخصية",
             "wait_min_seconds": "أقل انتظار قبل الإرسال (ثانية)",
             "wait_max_seconds": "أعلى انتظار قبل الإرسال (ثانية)",
+            "reading_words_per_second": "سرعة القراءة (كلمة/ثانية)",
+            "writing_words_per_second": "سرعة الكتابة (كلمة/ثانية)",
             "lifetime_minutes": "عمر البوت (دقيقة)",
             "is_active": "السماح بإنشاء بوتات من هذا القالب",
         }

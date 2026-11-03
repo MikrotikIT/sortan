@@ -1264,12 +1264,7 @@
       role.textContent = "مشرف";
       header.append(role);
     }
-    if (message.is_ai) {
-      const role = document.createElement("span");
-      role.className = "chat-admin-badge chat-ai-badge";
-      role.textContent = "ذكاء اصطناعي";
-      header.append(role);
-    }
+
     const time = document.createElement("time");
     time.textContent = escapeText(dateInfo.time);
     if (dateInfo.day && dateInfo.time) time.dateTime = `${dateInfo.day}T${dateInfo.time}`;
@@ -1443,12 +1438,7 @@
       badge.textContent = "مشرف";
       header.appendChild(badge);
     }
-    if (message.is_ai) {
-      const badge = document.createElement("span");
-      badge.className = "chat-admin-badge chat-ai-badge";
-      badge.textContent = "ذكاء اصطناعي";
-      header.appendChild(badge);
-    }
+
     const time = document.createElement("time");
     time.textContent = String(message.created_time || "");
     header.appendChild(time);

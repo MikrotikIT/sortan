@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import secrets
 from datetime import timedelta
 from random import randint
@@ -40,6 +41,20 @@ def _random_wait(bot):
     return randint(minimum, maximum)
 
 
+def _words_delay(text, words_per_second):
+    word_count = len((text or "").split())
+    if not word_count:
+        return 0
+    speed = max(0.2, float(words_per_second or 1.0))
+    return math.ceil(word_count / speed)
+
+
+def _reading_and_writing_delay(bot, target, response_text):
+    read_seconds = _words_delay(getattr(target, "text", ""), bot.ai_reading_words_per_second)
+    write_seconds = _words_delay(response_text, bot.ai_writing_words_per_second)
+    return max(1, read_seconds + write_seconds)
+
+
 def _mark_dead(bot, now):
     partner_id = bot.ai_partner_id
     bot.ai_state = "DEAD"
@@ -48,9 +63,11 @@ def _mark_dead(bot, now):
     bot.ai_next_action_at = None
     bot.ai_wait_remaining_seconds = None
     bot.ai_partner = None
+    bot.ai_pending_text = ""
+    bot.ai_pending_reply_to = None
     bot.save(update_fields=(
         "ai_state", "ai_dead_at", "ai_elapsed_active_seconds", "ai_last_active_at", "ai_next_action_at",
-        "ai_wait_remaining_seconds", "ai_partner",
+        "ai_wait_remaining_seconds", "ai_partner", "ai_pending_text", "ai_pending_reply_to",
     ))
     if partner_id:
         partner = ChatDemoAccount.objects.select_for_update().filter(pk=partner_id, is_ai=True).first()
@@ -105,12 +122,15 @@ def _spawn_pool_account(pool, now):
     account.ai_system_prompt = template.system_prompt
     account.ai_wait_min_seconds = template.wait_min_seconds
     account.ai_wait_max_seconds = template.wait_max_seconds
+    account.ai_reading_words_per_second = template.reading_words_per_second
+    account.ai_writing_words_per_second = template.writing_words_per_second
     account.ai_lifetime_seconds = template.lifetime_minutes * 60
     account.ai_state = "ACTIVE"
     account.ai_next_action_at = now + timedelta(seconds=_random_wait(account))
     account.save(update_fields=(
         "ai_role", "ai_model_id", "ai_system_prompt", "ai_wait_min_seconds",
-        "ai_wait_max_seconds", "ai_lifetime_seconds", "ai_state", "ai_next_action_at", "updated_at",
+        "ai_wait_max_seconds", "ai_reading_words_per_second", "ai_writing_words_per_second",
+        "ai_lifetime_seconds", "ai_state", "ai_next_action_at", "updated_at",
     ))
     return account
 
@@ -327,6 +347,10 @@ def _reserve_due_bot(now):
             ).first()
             if not bot:
                 continue
+            if bot.ai_pending_text:
+                bot.ai_next_action_at = now + timedelta(seconds=45)
+                bot.save(update_fields=("ai_next_action_at",))
+                return bot.pk, None, bot.ai_pending_reply_to_id, bot.ai_pending_text
             target = None
             reply_to_id = None
             if bot.ai_role in {"asker", "bot_responder"}:
@@ -353,7 +377,7 @@ def _reserve_due_bot(now):
                     continue
             bot.ai_next_action_at = now + timedelta(seconds=45)
             bot.save(update_fields=("ai_next_action_at",))
-            return bot.pk, target, reply_to_id
+            return bot.pk, target, reply_to_id, None
     return None
 
 
@@ -379,28 +403,63 @@ def advance_ai_chat_bots():
     reserved = _reserve_due_bot(now)
     if not reserved:
         return {"sent": 0, "running": True}
-    bot_id, target, reply_to_id = reserved
+    bot_id, target, reply_to_id, pending_text = reserved
     bot = ChatDemoAccount.objects.select_related("bot_pool__created_by").get(pk=bot_id)
     try:
-        text = _generate_response(bot, target, settings_row)
+        is_pending = pending_text is not None
+        text = pending_text if is_pending else _generate_response(bot, target, settings_row)
+        if not text:
+            raise ValueError("The AI model returned an empty chat message")
         latest_settings = AIChatSettings.objects.filter(pk=1).first()
         latest_bot = ChatDemoAccount.objects.select_related("group").filter(pk=bot.pk).first()
-        if not latest_bot or not _should_run(latest_settings, latest_bot.group, timezone.now()):
+        if (
+            not latest_bot
+            or latest_bot.ai_state != "ACTIVE"
+            or not _should_run(latest_settings, latest_bot.group, timezone.now())
+        ):
             if latest_bot and latest_bot.ai_state == "ACTIVE":
                 ChatDemoAccount.objects.filter(pk=latest_bot.pk, ai_state="ACTIVE").update(
                     ai_next_action_at=timezone.now() + timedelta(seconds=_random_wait(latest_bot))
                 )
             return {"sent": 0, "running": False}
-        message = create_ai_chat_message(bot.pk, text, reply_to_id)
+        if not is_pending:
+            delay_seconds = _reading_and_writing_delay(latest_bot, target, text)
+            send_at = timezone.now() + timedelta(seconds=delay_seconds)
+            with transaction.atomic():
+                scheduled_bot = ChatDemoAccount.objects.select_for_update().select_related("group").filter(
+                    pk=latest_bot.pk, ai_state="ACTIVE"
+                ).first()
+                current_settings = AIChatSettings.objects.filter(pk=1).first()
+                if (
+                    not scheduled_bot
+                    or not _should_run(current_settings, scheduled_bot.group, timezone.now())
+                ):
+                    if scheduled_bot:
+                        scheduled_bot.ai_next_action_at = timezone.now() + timedelta(
+                            seconds=_random_wait(scheduled_bot)
+                        )
+                        scheduled_bot.save(update_fields=("ai_next_action_at",))
+                    return {"sent": 0, "running": bool(scheduled_bot)}
+                scheduled_bot.ai_pending_text = text
+                scheduled_bot.ai_pending_reply_to_id = reply_to_id
+                scheduled_bot.ai_next_action_at = send_at
+                scheduled_bot.save(update_fields=(
+                    "ai_pending_text", "ai_pending_reply_to", "ai_next_action_at", "updated_at",
+                ))
+            return {"sent": 0, "running": True, "scheduled": True, "delay_seconds": delay_seconds}
+        with transaction.atomic():
+            message = create_ai_chat_message(bot.pk, text, reply_to_id)
+            ChatDemoAccount.objects.filter(pk=bot.pk, ai_state="ACTIVE").update(
+                ai_next_action_at=timezone.now() + timedelta(seconds=_random_wait(bot)),
+                ai_pending_text="",
+                ai_pending_reply_to=None,
+            )
     except Exception as exc:
         logger.warning("AI chat bot %s could not generate a reply: %s", bot.pk, exc)
         ChatDemoAccount.objects.filter(pk=bot.pk, ai_state="ACTIVE").update(
             ai_next_action_at=now + timedelta(seconds=30)
         )
         return {"sent": 0, "running": True}
-    ChatDemoAccount.objects.filter(pk=bot.pk, ai_state="ACTIVE").update(
-        ai_next_action_at=timezone.now() + timedelta(seconds=_random_wait(bot))
-    )
     try:
         _broadcast(bot.group_id, message)
     except Exception:

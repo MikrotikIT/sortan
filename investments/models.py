@@ -874,6 +874,8 @@ class AIBotTemplate(models.Model):
     system_prompt = models.TextField("تعليمات الشخصية", max_length=4000)
     wait_min_seconds = models.PositiveSmallIntegerField("أقل انتظار بين الرسائل (ثانية)", default=1)
     wait_max_seconds = models.PositiveSmallIntegerField("أعلى انتظار بين الرسائل (ثانية)", default=5)
+    reading_words_per_second = models.DecimalField("سرعة القراءة (كلمة/ثانية)", max_digits=4, decimal_places=1, default=4.0)
+    writing_words_per_second = models.DecimalField("سرعة الكتابة (كلمة/ثانية)", max_digits=4, decimal_places=1, default=1.5)
     lifetime_minutes = models.PositiveSmallIntegerField("عمر البوت (دقيقة)", default=10)
     is_active = models.BooleanField("متاح للاستخدام", default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -990,6 +992,8 @@ class ChatDemoAccount(models.Model):
     ai_system_prompt = models.TextField("تعليمات البوت", max_length=4000, blank=True)
     ai_wait_min_seconds = models.PositiveSmallIntegerField(default=1)
     ai_wait_max_seconds = models.PositiveSmallIntegerField(default=5)
+    ai_reading_words_per_second = models.DecimalField(max_digits=4, decimal_places=1, default=4.0)
+    ai_writing_words_per_second = models.DecimalField(max_digits=4, decimal_places=1, default=1.5)
     ai_lifetime_seconds = models.PositiveIntegerField(default=600)
     ai_elapsed_active_seconds = models.PositiveIntegerField(default=0)
     ai_state = models.CharField(
@@ -1002,6 +1006,10 @@ class ChatDemoAccount(models.Model):
     ai_last_active_at = models.DateTimeField(null=True, blank=True)
     ai_next_action_at = models.DateTimeField(null=True, blank=True)
     ai_wait_remaining_seconds = models.PositiveSmallIntegerField(null=True, blank=True)
+    ai_pending_text = models.TextField(blank=True, default="")
+    ai_pending_reply_to = models.ForeignKey(
+        "ChatMessage", null=True, blank=True, on_delete=models.SET_NULL, related_name="pending_ai_bot_replies"
+    )
     ai_dead_at = models.DateTimeField(null=True, blank=True)
     demo_customer_number = models.CharField(
         "رقم العميل",
