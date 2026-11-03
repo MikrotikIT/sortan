@@ -7,7 +7,7 @@
 </section>
 <section class="management-panel form-panel">
   <div class="notice notice-info"><strong>إيصال تجريبي فقط.</strong> لا ينشئ طلب سحب حقيقياً ولا يخصم من أي رصيد أو يسجل عملية دفع.</div>
-  <div class="management-panel-head"><div><h2>بيانات الحساب التجريبي</h2><p>رقم العميل ثابت لهذا الحساب: <bdi dir="ltr">{{ account.demo_customer_number }}</bdi> · {{ account.demo_country_flag }} {{ account.demo_country_name }}</p></div></div>
+  <div class="management-panel-head"><div><h2>بيانات الحساب التجريبي</h2><p>رقم العميل الثابت: <bdi dir="ltr">{{ account.masked_demo_customer_number }}</bdi> {{ account.demo_country_flag }} {{ account.demo_country_name }}</p></div></div>
   <form method="post" class="management-form">
     {% csrf_token %}
     {% for field in form %}<div class="admin-field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}

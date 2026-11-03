@@ -1,13 +1,15 @@
-{% extends 'management/base.html' %}
+{% extends 'base.html' %}
 {% load static %}
-{% block title %}إيصال سحب تجريبي {{ receipt.display_number }} — الإدارة{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/withdrawal-receipt.css' %}?v=country-1"><link rel="stylesheet" href="{% static 'css/demo-withdrawal-receipt.css' %}?v=1">{% endblock %}
+{% block body_class %}demo-withdrawal-receipt-body{% endblock %}
+{% block title %}إيصال سحب تجريبي {{ receipt.display_number }} — Kodi TV{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/withdrawal-receipt.css' %}?v=country-1"><link rel="stylesheet" href="{% static 'css/demo-withdrawal-receipt.css' %}?v=2">{% endblock %}
 {% block content %}
 <section class="withdrawal-receipt-page demo-withdrawal-receipt-page">
   <div class="withdrawal-receipt-card">
     <div class="demo-receipt-banner"><strong>إيصال تجريبي — محاكاة فقط</strong><span>ليس إثبات سحب أو دفع حقيقياً ولا يغيّر أي رصيد.</span></div>
+    <div class="withdrawal-complete-mark demo-receipt-mark" aria-label="إيصال تجريبي"><span>TEST</span></div>
     <span class="eyebrow">{{ receipt.display_number }}</span>
-    <h1>ملخص سحب تجريبي</h1>
+    <h1>إيصال سحب تجريبي</h1>
     <p class="withdrawal-receipt-intro">هذه صفحة اختبار مرتبطة بحساب محادثة تجريبي. الأرقام معروضة للحساب فقط ولا تمثل حركة مالية.</p>
 
     <div class="withdrawal-receipt-net">
@@ -17,14 +19,16 @@
 
     <dl class="withdrawal-receipt-details">
       <div><dt>اسم الحساب التجريبي</dt><dd>{{ receipt.account.display_name }}</dd></div>
-      <div><dt>رقم العميل والدولة</dt><dd class="receipt-customer-country"><span aria-hidden="true">{{ receipt.account.demo_country_flag }}</span><bdi dir="ltr">{{ receipt.account.demo_customer_number }}</bdi><span>{{ receipt.account.demo_country_name }}</span></dd></div>
+      <div><dt>رقم العميل والدولة</dt><dd class="receipt-customer-country"><bdi dir="ltr">{{ receipt.account.masked_demo_customer_number }}</bdi><span aria-hidden="true">{{ receipt.account.demo_country_flag }}</span><span>{{ receipt.account.demo_country_name }}</span></dd></div>
       <div><dt>حالة الإيصال</dt><dd><span class="demo-receipt-status">تجريبي — غير مدفوع</span></dd></div>
       <div><dt>المجموعة</dt><dd>{{ receipt.account.group.title }}</dd></div>
       <div><dt>المبلغ قبل الضريبة</dt><dd>{{ receipt.amount|floatformat:2 }} USDT</dd></div>
       <div><dt>نسبة الضريبة</dt><dd>{{ receipt.tax_percent|floatformat:2 }}%</dd></div>
       <div><dt>قيمة الضريبة</dt><dd>{{ receipt.tax_amount|floatformat:2 }} USDT</dd></div>
       <div><dt>الصافي المحسوب</dt><dd>{{ receipt.net_amount|floatformat:2 }} USDT</dd></div>
-      <div><dt>تاريخ إنشاء المحاكاة</dt><dd>{{ receipt.created_at|date:"Y-m-d H:i:s" }}</dd></div>
+      <div class="receipt-address-row"><dt>محفظة الاستلام · TRC20</dt><dd>غير مطبّق — إيصال تجريبي فقط</dd></div>
+      <div><dt>تاريخ طلب السحب التجريبي</dt><dd>{{ receipt.created_at|date:"Y-m-d H:i:s" }}</dd></div>
+      <div><dt>تاريخ إتمام الدفع</dt><dd>غير مطبّق — لا يوجد دفع</dd></div>
     </dl>
 
     <div class="withdrawal-receipt-actions">

@@ -9,7 +9,7 @@ from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
 
-from .countries import COUNTRY_CHOICES, COUNTRY_NAMES, country_flag, infer_country_code_from_number, masked_phone_number
+from .countries import COUNTRY_CHOICES, COUNTRY_DIAL_CODES, COUNTRY_NAMES, country_flag, infer_country_code_from_number, masked_phone_number
 from .storage import PrivateApplicationStorage
 
 
@@ -31,8 +31,15 @@ def default_chat_reactions():
     return ["like", "heart", "fire", "clap", "dislike"]
 
 
-def make_demo_customer_number():
-    return f"DEMO-{uuid.uuid4().hex[:12].upper()}"
+def make_demo_customer_number(country_code=None):
+    country_code = country_code or make_demo_country_code()
+    dial_code = COUNTRY_DIAL_CODES.get(country_code)
+    if not dial_code:
+        country_code = make_demo_country_code()
+        dial_code = COUNTRY_DIAL_CODES[country_code]
+    national_prefix = "9" if country_code == "SY" else str(secrets.randbelow(9) + 1)
+    national_number = national_prefix + f"{secrets.randbelow(100_000_000):08d}"
+    return f"+{dial_code}{national_number}"
 
 
 def make_demo_country_code():
@@ -872,10 +879,11 @@ class ChatDemoAccount(models.Model):
     group = models.ForeignKey(ChatGroup, on_delete=models.CASCADE, related_name="demo_accounts")
     display_name = models.CharField("الاسم والكنية", max_length=120)
     demo_customer_number = models.CharField(
-        "رقم العميل التجريبي",
-        max_length=17,
+        "رقم العميل",
+        max_length=20,
         unique=True,
-        default=make_demo_customer_number,
+        default="",
+        blank=True,
         editable=False,
     )
     demo_country_code = models.CharField(
@@ -898,6 +906,18 @@ class ChatDemoAccount(models.Model):
     def __str__(self):
         return f"{self.display_name} — {self.group} (تجريبي)"
 
+    def save(self, *args, **kwargs):
+        generated_fields = []
+        if not self.demo_country_code:
+            self.demo_country_code = make_demo_country_code()
+            generated_fields.append("demo_country_code")
+        if not self.demo_customer_number:
+            self.demo_customer_number = make_demo_customer_number(self.demo_country_code)
+            generated_fields.append("demo_customer_number")
+        if generated_fields and kwargs.get("update_fields") is not None:
+            kwargs["update_fields"] = tuple(dict.fromkeys((*kwargs["update_fields"], *generated_fields)))
+        super().save(*args, **kwargs)
+
     @property
     def demo_country_name(self):
         return COUNTRY_NAMES.get(self.demo_country_code, "")
@@ -905,6 +925,10 @@ class ChatDemoAccount(models.Model):
     @property
     def demo_country_flag(self):
         return country_flag(self.demo_country_code)
+
+    @property
+    def masked_demo_customer_number(self):
+        return masked_phone_number(self.demo_customer_number, self.demo_country_code, hidden_digits=5)
 
 
 class DemoWithdrawalReceipt(models.Model):
