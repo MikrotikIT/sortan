@@ -3,13 +3,14 @@ import logging
 import math
 import secrets
 from datetime import timedelta
+from decimal import Decimal, InvalidOperation
 from random import randint
 from urllib.request import Request, urlopen
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.conf import settings
-from django.db import transaction
+from django.db import F, transaction
 from django.utils import timezone
 from django.utils.html import strip_tags
 
@@ -315,6 +316,7 @@ def _generate_response(bot, target, settings_row):
         "messages": [{"role": "system", "content": system_prompt}, *_prompt_messages(bot, target)],
         "temperature": 0.8,
         "max_tokens": 240,
+        "usage": {"include": True},
     }
     request = Request(
         "https://openrouter.ai/api/v1/chat/completions",
@@ -329,10 +331,52 @@ def _generate_response(bot, target, settings_row):
     )
     with urlopen(request, timeout=18) as response:
         payload = json.loads(response.read().decode("utf-8"))
+    _record_ai_generation_usage(bot, payload.get("usage"))
     content = payload.get("choices", [{}])[0].get("message", {}).get("content", "")
     if isinstance(content, list):
         content = "".join(part.get("text", "") for part in content if isinstance(part, dict))
     return strip_tags(str(content or "")).strip()[:2000]
+
+
+def _usage_token_count(usage, primary_key, fallback_key):
+    try:
+        return max(0, int(usage.get(primary_key, usage.get(fallback_key, 0)) or 0))
+    except (TypeError, ValueError, OverflowError):
+        return 0
+
+
+def _record_ai_generation_usage(bot, usage):
+    usage = usage if isinstance(usage, dict) else {}
+    prompt_tokens = _usage_token_count(usage, "prompt_tokens", "input_tokens")
+    completion_tokens = _usage_token_count(usage, "completion_tokens", "output_tokens")
+    try:
+        cost_usd = Decimal(str(usage["cost"]))
+        if not cost_usd.is_finite() or cost_usd < 0:
+            cost_usd = None
+    except (KeyError, InvalidOperation, TypeError, ValueError):
+        cost_usd = None
+
+    account_updates = {
+        "ai_text_generation_count": F("ai_text_generation_count") + 1,
+        "ai_prompt_token_count": F("ai_prompt_token_count") + prompt_tokens,
+        "ai_completion_token_count": F("ai_completion_token_count") + completion_tokens,
+    }
+    pool_updates = {
+        "text_generation_count": F("text_generation_count") + 1,
+        "prompt_token_count": F("prompt_token_count") + prompt_tokens,
+        "completion_token_count": F("completion_token_count") + completion_tokens,
+    }
+    if cost_usd is None:
+        account_updates["ai_unpriced_generation_count"] = F("ai_unpriced_generation_count") + 1
+        pool_updates["unpriced_generation_count"] = F("unpriced_generation_count") + 1
+    else:
+        account_updates["ai_total_cost_usd"] = F("ai_total_cost_usd") + cost_usd
+        pool_updates["total_cost_usd"] = F("total_cost_usd") + cost_usd
+
+    with transaction.atomic():
+        ChatDemoAccount.objects.filter(pk=bot.pk).update(**account_updates)
+        if bot.bot_pool_id:
+            AIBotPool.objects.filter(pk=bot.bot_pool_id).update(**pool_updates)
 
 
 def _reserve_due_bot(now):

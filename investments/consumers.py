@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from channels.db import database_sync_to_async
@@ -16,6 +17,9 @@ from .chat_services import (
     user_can_post,
 )
 from .models import ChatGroup, ChatGroupPresence
+
+
+logger = logging.getLogger(__name__)
 
 
 @database_sync_to_async
@@ -122,6 +126,10 @@ class GroupChatConsumer(AsyncJsonWebsocketConsumer):
                 )
                 await self._broadcast({"type": "reaction_updated", **result})
             else:
+                logger.warning(
+                    "Unknown group chat websocket action %r for user %s in group %s",
+                    str(action)[:64], user_id, self.chat_context["group_id"],
+                )
                 await self.send_json({"type": "error", "message": "الإجراء غير معروف."})
         except (ChatRuleError, ValueError, TypeError, ObjectDoesNotExist) as exc:
             message = str(exc) if isinstance(exc, ChatRuleError) else "تعذّر تنفيذ الإجراء. حدّث الصفحة وحاول مجدداً."

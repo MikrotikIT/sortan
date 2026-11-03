@@ -896,6 +896,11 @@ class AIBotPool(models.Model):
     desired_count = models.PositiveSmallIntegerField("عدد البوتات المطلوبة", default=1)
     replacement_min_seconds = models.PositiveSmallIntegerField("أقل انتظار قبل البديل (ثانية)", default=5)
     replacement_max_seconds = models.PositiveSmallIntegerField("أعلى انتظار قبل البديل (ثانية)", default=60)
+    text_generation_count = models.PositiveBigIntegerField("عدد توليدات النص", default=0)
+    prompt_token_count = models.PositiveBigIntegerField("رموز الإدخال", default=0)
+    completion_token_count = models.PositiveBigIntegerField("رموز الإخراج", default=0)
+    total_cost_usd = models.DecimalField("التكلفة بالدولار", max_digits=24, decimal_places=12, default=0)
+    unpriced_generation_count = models.PositiveBigIntegerField("توليدات بلا تكلفة موثقة", default=0)
     next_replacement_at = models.DateTimeField(null=True, blank=True, editable=False)
     created_by = models.ForeignKey(
         User, null=True, blank=True, on_delete=models.SET_NULL, related_name="created_ai_bot_pools"
@@ -994,6 +999,11 @@ class ChatDemoAccount(models.Model):
     ai_wait_max_seconds = models.PositiveSmallIntegerField(default=5)
     ai_reading_words_per_second = models.DecimalField(max_digits=4, decimal_places=1, default=4.0)
     ai_writing_words_per_second = models.DecimalField(max_digits=4, decimal_places=1, default=1.5)
+    ai_text_generation_count = models.PositiveBigIntegerField(default=0)
+    ai_prompt_token_count = models.PositiveBigIntegerField(default=0)
+    ai_completion_token_count = models.PositiveBigIntegerField(default=0)
+    ai_total_cost_usd = models.DecimalField(max_digits=24, decimal_places=12, default=0)
+    ai_unpriced_generation_count = models.PositiveBigIntegerField(default=0)
     ai_lifetime_seconds = models.PositiveIntegerField(default=600)
     ai_elapsed_active_seconds = models.PositiveIntegerField(default=0)
     ai_state = models.CharField(
