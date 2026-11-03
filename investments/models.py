@@ -870,7 +870,7 @@ class AIBotTemplate(models.Model):
 
     name = models.CharField("اسم الشخصية", max_length=80)
     role = models.CharField("وظيفة البوت", max_length=20, choices=Role.choices)
-    model_id = models.CharField("موديل OpenRouter", max_length=200)
+    model_id = models.CharField("موديل OpenRouter", max_length=200, blank=True)
     system_prompt = models.TextField("تعليمات الشخصية", max_length=4000)
     wait_min_seconds = models.PositiveSmallIntegerField("أقل انتظار بين الرسائل (ثانية)", default=1)
     wait_max_seconds = models.PositiveSmallIntegerField("أعلى انتظار بين الرسائل (ثانية)", default=5)

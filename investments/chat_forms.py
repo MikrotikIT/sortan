@@ -447,6 +447,9 @@ class AIBotTemplateForm(forms.ModelForm):
             "lifetime_minutes": "عمر البوت (دقيقة)",
             "is_active": "السماح بإنشاء بوتات من هذا القالب",
         }
+        help_texts = {
+            "model_id": "اتركه فارغاً لاستخدام الموديل الافتراضي المحدد في إعدادات OpenRouter.",
+        }
 
     def clean_name(self):
         from django.utils.html import strip_tags

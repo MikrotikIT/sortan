@@ -382,7 +382,7 @@ def ai_chat_accounts(request):
             "ai_settings_form": AIChatSettingsForm(instance=ai_settings),
             "templates": templates,
             "template_rows": template_rows,
-            "template_form": AIBotTemplateForm(),
+            "template_form": AIBotTemplateForm(initial={"model_id": ai_settings.selected_model}),
             "pool_form": AIBotPoolForm(initial={"group": selected_group.pk} if selected_group else None),
             "ai_accounts": ai_accounts,
             "bot_pools": bot_pools,
