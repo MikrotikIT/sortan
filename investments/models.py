@@ -930,6 +930,18 @@ class ChatDemoAccount(models.Model):
     def masked_demo_customer_number(self):
         return masked_phone_number(self.demo_customer_number, self.demo_country_code, hidden_digits=5)
 
+    @property
+    def masked_phone(self):
+        return self.masked_demo_customer_number
+
+    @property
+    def country_flag(self):
+        return self.demo_country_flag
+
+    @property
+    def country_name(self):
+        return self.demo_country_name
+
 
 class DemoWithdrawalReceipt(models.Model):
     """A clearly simulated withdrawal calculation with no real account effects."""
@@ -959,6 +971,18 @@ class DemoWithdrawalReceipt(models.Model):
     @property
     def display_number(self):
         return f"DEMO-WD-{self.pk:08d}" if self.pk else "DEMO-WD-PENDING"
+
+    @property
+    def user(self):
+        return self.account
+
+    @property
+    def requested_at(self):
+        return self.created_at
+
+    @property
+    def processed_at(self):
+        return None
 
 
 class ChatMessage(models.Model):

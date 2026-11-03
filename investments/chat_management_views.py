@@ -386,7 +386,6 @@ def demo_withdrawal_receipt_create(request, account_pk):
             tax_amount=tax_amount,
             net_amount=amount - tax_amount,
         )
-        messages.success(request, "تم إنشاء إيصال محاكاة السحب. لم يتم إنشاء طلب سحب حقيقي أو تغيير أي رصيد.")
         return redirect("management_demo_withdrawal_receipt", pk=receipt.pk)
     return render(
         request,
@@ -401,7 +400,11 @@ def demo_withdrawal_receipt(request, pk):
         DemoWithdrawalReceipt.objects.select_related("account", "account__group"),
         pk=pk,
     )
-    return render(request, "management/demo_withdrawal_receipt.html", {"receipt": receipt})
+    return render(
+        request,
+        "investments/withdrawal_receipt.html",
+        {"withdrawal": receipt, "is_demo_receipt": True},
+    )
 
 
 @staff_required

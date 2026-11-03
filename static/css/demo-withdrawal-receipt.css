@@ -1,6 +1,3 @@
-.demo-receipt-banner{display:flex;flex-direction:column;gap:4px;margin-bottom:20px;padding:15px;border:2px solid #bd3b31;border-radius:12px;background:#fff2f0;color:#81241e}
-.demo-receipt-banner strong{font-size:17px}
-.demo-receipt-banner span{font-size:12px}
 .demo-receipt-mark{border:2px solid #e1aaa5;background:#fff2f0;color:#9b2e27;font-size:11px;font-weight:800;letter-spacing:.08em}
 .demo-receipt-mark span{display:grid;place-items:center;width:42px;height:42px;border:1px dashed currentColor;border-radius:50%}
 .receipt-customer-country>span[aria-hidden="true"]{font-size:17px;line-height:1}
@@ -8,10 +5,9 @@
 .demo-withdrawal-receipt-page .withdrawal-receipt-net{border-color:#efdbb3;background:#fffaf0}
 .demo-withdrawal-receipt-page .withdrawal-receipt-net strong{color:#80520a}
 @media print{
-  .demo-withdrawal-receipt-body .topbar,.demo-withdrawal-receipt-body .bottom-nav,.demo-withdrawal-receipt-body .site-footer,.withdrawal-receipt-actions{display:none!important}
-  .demo-withdrawal-receipt-body .app-shell,.demo-withdrawal-receipt-body .main-area{display:block!important;max-width:none!important;margin:0!important;padding:0!important}
-  .demo-withdrawal-receipt-body .page-content{max-width:none!important;margin:0!important;padding:0!important}
-  .demo-withdrawal-receipt-page{max-width:none;margin:0!important}
-  .demo-withdrawal-receipt-page .withdrawal-receipt-card{border:0;box-shadow:none}
-  .demo-receipt-banner{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body.demo-withdrawal-receipt-body .topbar,body.demo-withdrawal-receipt-body .bottom-nav,body.demo-withdrawal-receipt-body .site-footer,body.demo-withdrawal-receipt-body .withdrawal-receipt-actions{display:none!important}
+  body.demo-withdrawal-receipt-body .app-shell,body.demo-withdrawal-receipt-body .main-area{display:block!important;max-width:none!important;margin:0!important;padding:0!important}
+  body.demo-withdrawal-receipt-body .page-content{max-width:none!important;margin:0!important;padding:0!important}
+  body.demo-withdrawal-receipt-body .withdrawal-receipt-page{max-width:none;margin:0!important}
+  body.demo-withdrawal-receipt-body .withdrawal-receipt-card{border:0;box-shadow:none}
 }

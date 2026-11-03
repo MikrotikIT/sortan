@@ -229,7 +229,11 @@ def withdrawal_receipt(request, pk):
         ).select_related("user"),
         pk=pk,
     )
-    return render(request, "investments/withdrawal_receipt.html", {"withdrawal": withdrawal})
+    return render(
+        request,
+        "investments/withdrawal_receipt.html",
+        {"withdrawal": withdrawal, "is_demo_receipt": False},
+    )
 
 
 @login_required
