@@ -1,11 +1,11 @@
 # Group chat audio and video
 
-Audio notes are recorded in the browser and uploaded as private chat media. Videos are kept privately and transcoded by the Celery worker into HLS renditions; the player uses automatic HLS quality selection and falls back to the original video if transcoding fails.
+Audio notes are recorded in the browser and uploaded as private chat media. Video messages are uploaded as resumable 8 MiB chunks (two at a time), with automatic retries for failed chunks. Videos remain private and are transcoded by the Celery worker into HLS renditions. Playback uses the self-hosted Video.js player with automatic HLS quality selection and falls back to the original video if transcoding fails.
 
 ## Production requirements
 
 - Install FFmpeg, including `ffprobe` and the `libx264` encoder, on the machine running the Celery worker. The worker looks for `ffmpeg` and `ffprobe` on `PATH`.
-- Increase the site's Nginx upload limit to at least `210M` (`client_max_body_size 210M;`) to accept the 200 MB video limit.
+- Video uploads use 8 MiB chunks, so Nginx no longer needs to accept one 200 MB request. The existing `client_max_body_size 210M;` setting remains compatible; ensure the request limit exceeds 10 MiB for multipart overhead.
 - Apply the Django migration and collect static files. Restart the web and Celery services so both load the new model fields and video task.
 - Keep enough free space in `PRIVATE_MEDIA_ROOT`: each uploaded original is retained, along with up to four HLS renditions.
 

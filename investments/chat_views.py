@@ -1,7 +1,11 @@
 import logging
+import json
 import mimetypes
+import os
 from pathlib import Path
 import re
+import shutil
+import uuid
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -9,11 +13,14 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
 from django.db.models import Count, Q
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
+from django.utils.text import get_valid_filename
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET, require_POST
 
@@ -37,6 +44,40 @@ logger = logging.getLogger(__name__)
 
 def _eligible_user(user):
     return user.is_authenticated and user.is_active and (user.is_staff or user.approval_status == "approved")
+
+
+CHAT_VIDEO_UPLOAD_CHUNK_SIZE = 8 * 1024 * 1024
+CHAT_VIDEO_UPLOAD_MAX_SIZE = 200 * 1024 * 1024
+
+
+def _chat_video_upload_paths(upload_id):
+    root = (Path(settings.PRIVATE_MEDIA_ROOT) / "group-chat" / "uploads").resolve()
+    upload_dir = (root / str(upload_id)).resolve()
+    upload_dir.relative_to(root)
+    return root, upload_dir
+
+
+def _load_chat_video_upload(upload_id, group, user):
+    _root, upload_dir = _chat_video_upload_paths(upload_id)
+    metadata_path = upload_dir / "metadata.json"
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None, None
+    if metadata.get("group_id") != group.pk or metadata.get("user_id") != user.pk:
+        return None, None
+    return metadata, upload_dir
+
+
+def _video_upload_permission_error(request, group_id):
+    if not _eligible_user(request.user):
+        return JsonResponse({"ok": False, "error": "يلزم اعتماد الحساب لاستخدام المحادثة."}, status=403)
+    group = ChatGroup.objects.filter(pk=group_id, is_active=True).first()
+    if group is None or not group_member_access(request.user, group) or not user_can_post(request.user, group):
+        return JsonResponse({"ok": False, "error": "لا تملك صلاحية الإرسال في هذه المجموعة."}, status=403)
+    if not group.allow_videos:
+        return JsonResponse({"ok": False, "error": "إرسال الفيديو متوقف في هذه المجموعة."}, status=403)
+    return group
 
 
 def _message_json(message, user_id):
@@ -244,6 +285,216 @@ def chat_group_leave(request, pk):
     _broadcast_group_message(group.pk, {"type": "member_removed", "target_user_id": request.user.pk})
     messages.success(request, f"غادرت مجموعة {group.title}.")
     return redirect("chat_groups")
+
+
+@login_required
+@require_POST
+def chat_video_upload_start(request, pk):
+    group = _video_upload_permission_error(request, pk)
+    if isinstance(group, JsonResponse):
+        return group
+
+    try:
+        file_size = int(request.POST.get("size", ""))
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "error": "تعذر قراءة حجم الفيديو."}, status=400)
+    original_name = get_valid_filename(Path(request.POST.get("name", "").replace("\\", "/")).name)[:255]
+    extension = Path(original_name).suffix.lstrip(".").lower()
+    if not original_name or extension not in ChatUploadForm.ALLOWED_VIDEO_EXTENSIONS:
+        return JsonResponse({"ok": False, "error": "صيغة الفيديو غير مدعومة."}, status=400)
+    if file_size <= 0 or file_size > CHAT_VIDEO_UPLOAD_MAX_SIZE:
+        return JsonResponse({"ok": False, "error": "يجب ألا يتجاوز حجم الفيديو 200 ميغابايت."}, status=400)
+
+    root, _upload_dir = _chat_video_upload_paths(uuid.uuid4())
+    root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    cutoff = timezone.now().timestamp() - 24 * 60 * 60
+    for stale_dir in root.iterdir():
+        if not stale_dir.is_dir():
+            continue
+        try:
+            uuid.UUID(stale_dir.name)
+            if stale_dir.stat().st_mtime < cutoff:
+                shutil.rmtree(stale_dir, ignore_errors=True)
+        except (ValueError, OSError):
+            continue
+
+    requested_upload_id = request.POST.get("upload_id", "").strip()
+    if requested_upload_id:
+        try:
+            requested_upload_id = uuid.UUID(requested_upload_id)
+        except ValueError:
+            return JsonResponse({"ok": False, "error": "جلسة رفع الفيديو غير صالحة."}, status=400)
+        existing_metadata, _existing_dir = _load_chat_video_upload(requested_upload_id, group, request.user)
+        if (
+            existing_metadata
+            and existing_metadata.get("name") == original_name
+            and existing_metadata.get("size") == file_size
+            and existing_metadata.get("last_modified") == request.POST.get("last_modified", "")
+        ):
+            received_chunks = []
+            _root, existing_dir = _chat_video_upload_paths(requested_upload_id)
+            for index in range(existing_metadata["chunk_count"]):
+                chunk_path = existing_dir / f"chunk-{index:06d}.part"
+                expected_size = min(
+                    existing_metadata["chunk_size"],
+                    existing_metadata["size"] - index * existing_metadata["chunk_size"],
+                )
+                if chunk_path.is_file() and chunk_path.stat().st_size == expected_size:
+                    received_chunks.append(index)
+            return JsonResponse({
+                "ok": True,
+                "upload_id": str(requested_upload_id),
+                "chunk_size": existing_metadata["chunk_size"],
+                "chunk_count": existing_metadata["chunk_count"],
+                "received_chunks": received_chunks,
+                "chunk_url": reverse("chat_video_upload_chunk", args=(group.pk, requested_upload_id, 0)),
+                "complete_url": reverse("chat_video_upload_complete", args=(group.pk, requested_upload_id)),
+                "cancel_url": reverse("chat_video_upload_cancel", args=(group.pk, requested_upload_id)),
+            })
+
+    upload_id = uuid.uuid4()
+    root, upload_dir = _chat_video_upload_paths(upload_id)
+    upload_dir.mkdir(mode=0o700, parents=True, exist_ok=False)
+    chunk_count = (file_size + CHAT_VIDEO_UPLOAD_CHUNK_SIZE - 1) // CHAT_VIDEO_UPLOAD_CHUNK_SIZE
+    metadata = {
+        "group_id": group.pk,
+        "user_id": request.user.pk,
+        "name": original_name,
+        "size": file_size,
+        "chunk_size": CHAT_VIDEO_UPLOAD_CHUNK_SIZE,
+        "chunk_count": chunk_count,
+        "content_type": mimetypes.guess_type(original_name)[0] or "application/octet-stream",
+        "last_modified": request.POST.get("last_modified", ""),
+    }
+    (upload_dir / "metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
+    return JsonResponse({
+        "ok": True,
+        "upload_id": str(upload_id),
+        "chunk_size": CHAT_VIDEO_UPLOAD_CHUNK_SIZE,
+        "chunk_count": chunk_count,
+        "received_chunks": [],
+        "chunk_url": reverse("chat_video_upload_chunk", args=(group.pk, upload_id, 0)),
+        "complete_url": reverse("chat_video_upload_complete", args=(group.pk, upload_id)),
+        "cancel_url": reverse("chat_video_upload_cancel", args=(group.pk, upload_id)),
+    })
+
+
+@login_required
+@require_POST
+def chat_video_upload_chunk(request, pk, upload_id, chunk_index):
+    group = _video_upload_permission_error(request, pk)
+    if isinstance(group, JsonResponse):
+        return group
+    metadata, upload_dir = _load_chat_video_upload(upload_id, group, request.user)
+    if metadata is None:
+        return JsonResponse({"ok": False, "error": "جلسة رفع الفيديو غير موجودة أو انتهت صلاحيتها."}, status=404)
+    if chunk_index < 0 or chunk_index >= metadata["chunk_count"]:
+        return JsonResponse({"ok": False, "error": "رقم جزء الفيديو غير صالح."}, status=400)
+    uploaded_chunk = request.FILES.get("chunk")
+    if uploaded_chunk is None:
+        return JsonResponse({"ok": False, "error": "لم يصل جزء الفيديو."}, status=400)
+    expected_size = min(
+        metadata["chunk_size"],
+        metadata["size"] - chunk_index * metadata["chunk_size"],
+    )
+    if uploaded_chunk.size != expected_size:
+        return JsonResponse({"ok": False, "error": "حجم جزء الفيديو غير مكتمل؛ أعد المحاولة."}, status=400)
+
+    chunk_path = upload_dir / f"chunk-{chunk_index:06d}.part"
+    temporary_path = upload_dir / f".chunk-{chunk_index:06d}-{uuid.uuid4().hex}.tmp"
+    written = 0
+    try:
+        with temporary_path.open("xb") as destination:
+            for chunk in uploaded_chunk.chunks():
+                destination.write(chunk)
+                written += len(chunk)
+        if written != expected_size:
+            temporary_path.unlink(missing_ok=True)
+            return JsonResponse({"ok": False, "error": "لم يكتمل حفظ جزء الفيديو؛ أعد المحاولة."}, status=400)
+        os.replace(temporary_path, chunk_path)
+    except OSError:
+        temporary_path.unlink(missing_ok=True)
+        logger.exception("Could not save video upload chunk %s for upload %s", chunk_index, upload_id)
+        return JsonResponse({"ok": False, "error": "تعذر حفظ جزء الفيديو على الخادم."}, status=500)
+    return JsonResponse({"ok": True, "chunk_index": chunk_index})
+
+
+@login_required
+@require_POST
+def chat_video_upload_cancel(request, pk, upload_id):
+    if not _eligible_user(request.user):
+        return JsonResponse({"ok": False, "error": "يلزم اعتماد الحساب لاستخدام المحادثة."}, status=403)
+    group = ChatGroup.objects.filter(pk=pk).first()
+    if group is None:
+        return JsonResponse({"ok": False, "error": "مجموعة المحادثة غير موجودة."}, status=404)
+    _metadata, upload_dir = _load_chat_video_upload(upload_id, group, request.user)
+    if upload_dir is None:
+        return JsonResponse({"ok": True})
+    shutil.rmtree(upload_dir, ignore_errors=True)
+    return JsonResponse({"ok": True})
+
+
+@login_required
+@require_POST
+def chat_video_upload_complete(request, pk, upload_id):
+    group = _video_upload_permission_error(request, pk)
+    if isinstance(group, JsonResponse):
+        return group
+    metadata, upload_dir = _load_chat_video_upload(upload_id, group, request.user)
+    if metadata is None:
+        return JsonResponse({"ok": False, "error": "جلسة رفع الفيديو غير موجودة أو انتهت صلاحيتها."}, status=404)
+
+    assembled_path = upload_dir / "assembled.upload"
+    written = 0
+    try:
+        with assembled_path.open("wb") as destination:
+            for index in range(metadata["chunk_count"]):
+                chunk_path = upload_dir / f"chunk-{index:06d}.part"
+                expected_size = min(
+                    metadata["chunk_size"],
+                    metadata["size"] - index * metadata["chunk_size"],
+                )
+                if not chunk_path.is_file() or chunk_path.stat().st_size != expected_size:
+                    assembled_path.unlink(missing_ok=True)
+                    return JsonResponse({"ok": False, "error": "بعض أجزاء الفيديو لم تصل بعد؛ أعد إرسالها."}, status=400)
+                with chunk_path.open("rb") as source:
+                    shutil.copyfileobj(source, destination, length=1024 * 1024)
+                    written += expected_size
+        if written != metadata["size"]:
+            assembled_path.unlink(missing_ok=True)
+            return JsonResponse({"ok": False, "error": "حجم الفيديو المرفوع غير مكتمل."}, status=400)
+    except OSError:
+        assembled_path.unlink(missing_ok=True)
+        logger.exception("Could not assemble chat video upload %s", upload_id)
+        return JsonResponse({"ok": False, "error": "تعذر تجميع أجزاء الفيديو على الخادم."}, status=500)
+
+    uploaded_video = UploadedFile(
+        assembled_path.open("rb"),
+        name=metadata["name"],
+        content_type=metadata["content_type"],
+        size=metadata["size"],
+    )
+    form = ChatUploadForm(request.POST, {"video": uploaded_video}, group=group)
+    if not form.is_valid():
+        errors = [str(error) for field_errors in form.errors.values() for error in field_errors]
+        uploaded_video.close()
+        assembled_path.unlink(missing_ok=True)
+        return JsonResponse({"ok": False, "error": errors[0] if errors else "راجع بيانات الفيديو."}, status=400)
+    try:
+        message_data = create_uploaded_message(group.pk, request.user.pk, form)
+    except ChatRuleError as exc:
+        uploaded_video.close()
+        assembled_path.unlink(missing_ok=True)
+        return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+    finally:
+        uploaded_video.close()
+
+    shutil.rmtree(upload_dir, ignore_errors=True)
+    try:
+        _broadcast_group_message(group.pk, {"type": "message_created", "message": message_data})
+    except Exception:
+        logger.exception("Could not broadcast chat message %s", message_data["id"])
+    return JsonResponse({"ok": True, "message": message_data})
 
 
 @login_required

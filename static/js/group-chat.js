@@ -3,8 +3,9 @@
   const list = root?.querySelector("[data-chat-messages]");
   const listViewport = root?.querySelector(".chat-message-list-wrap");
   if (!root || !list || !listViewport) return;
-  const hlsScriptUrl = new URL("../vendor/hls.min.js", document.currentScript?.src || `${window.location.origin}/static/js/group-chat.js`).href;
-  let hlsLoaderPromise = null;
+  const videoJsEntryUrl = new URL("../vendor/videojs/video.js", document.currentScript?.src || `${window.location.origin}/static/js/group-chat.js`).href;
+  const videoJsHlsUrl = new URL("../vendor/videojs/media/hlsjs-video.js", document.currentScript?.src || `${window.location.origin}/static/js/group-chat.js`).href;
+  let videoJsLoaderPromise = null;
 
   const status = root.querySelector("[data-chat-status]");
   const historyStatus = root.querySelector("[data-chat-history-status]");
@@ -15,6 +16,7 @@
   const canReact = root.dataset.canReact === "true";
   const isAdmin = root.dataset.isAdmin === "true";
   const allowVoiceMessages = root.dataset.allowVoiceMessages === "true";
+  const videoUploadStartUrl = root.dataset.videoUploadStartUrl || "";
   const demoGrowthUrlTemplate = root.dataset.demoGrowthUrlTemplate || "";
   const demoAccountId = Number(root.dataset.demoAccountId || 0);
   const demoReactionUrlTemplate = root.dataset.demoReactionUrlTemplate || "";
@@ -32,7 +34,9 @@
   const replyText = compose?.querySelector("[data-reply-text]");
   let recordedAudioFile = null;
   let isSubmittingChatMessage = false;
-  let activeVideoUploadRequest = null;
+  const activeVideoUploadRequests = new Set();
+  let videoUploadAbortController = null;
+  let videoUploadSession = null;
   let audioRecorder = null;
   let audioStream = null;
   let audioChunks = [];
@@ -496,56 +500,167 @@
     });
   };
 
-  const sendVideoFormWithProgress = (formData) => new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
+  const sendVideoFormWithProgress = async (videoFile, text, replyTo) => {
     const cancelButton = compose?.querySelector("[data-attachment-cancel]");
-    const finishUpload = () => {
-      if (activeVideoUploadRequest === xhr) activeVideoUploadRequest = null;
-      if (cancelButton) cancelButton.textContent = "إلغاء";
-    };
-    xhr.open("POST", compose.action, true);
-    xhr.setRequestHeader("Accept", "application/json");
-    xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
-    activeVideoUploadRequest = xhr;
+    const csrfToken = compose?.querySelector('[name="csrfmiddlewaretoken"]')?.value;
+    const abortController = new AbortController();
+    videoUploadAbortController = abortController;
     if (cancelButton) cancelButton.textContent = "إلغاء الرفع";
-    xhr.upload.addEventListener("progress", (event) => {
-      if (!event.lengthComputable) return;
-      const percent = Math.round((event.loaded / event.total) * 100);
-      updateVideoUploadProgress(percent, `جارٍ رفع الفيديو… ${percent}%`);
+    const postData = (fields) => {
+      const data = new FormData();
+      if (csrfToken) data.append("csrfmiddlewaretoken", csrfToken);
+      Object.entries(fields).forEach(([name, value]) => data.append(name, String(value)));
+      return data;
+    };
+    const postJson = async (url, data) => {
+      const response = await fetch(url, {
+        method: "POST",
+        body: data,
+        headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" },
+        credentials: "same-origin",
+        signal: abortController.signal,
+      });
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || "تعذر إرسال الفيديو.");
+      return result;
+    };
+    const uploadChunk = (url, chunk, onProgress) => new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const data = postData({});
+      data.append("chunk", chunk, `${videoFile.name}.part`);
+      activeVideoUploadRequests.add(xhr);
+      xhr.open("POST", url, true);
+      xhr.setRequestHeader("Accept", "application/json");
+      xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+      xhr.upload.addEventListener("progress", (event) => {
+        if (!event.lengthComputable) return;
+        onProgress(Math.min(chunk.size, (event.loaded / event.total) * chunk.size));
+      });
+      const clearRequest = () => {
+        activeVideoUploadRequests.delete(xhr);
+      };
+      xhr.addEventListener("load", () => {
+        clearRequest();
+        let result;
+        try {
+          result = JSON.parse(xhr.responseText);
+        } catch {
+          const error = new Error("تعذر قراءة استجابة الخادم.");
+          error.retryable = xhr.status === 0 || xhr.status >= 500;
+          reject(error);
+          return;
+        }
+        if (xhr.status < 200 || xhr.status >= 300 || !result.ok) {
+          const error = new Error(result.error || "تعذر رفع جزء من الفيديو.");
+          error.retryable = xhr.status === 0 || xhr.status === 429 || xhr.status >= 500;
+          reject(error);
+          return;
+        }
+        resolve(result);
+      });
+      xhr.addEventListener("error", () => {
+        clearRequest();
+        const error = new Error("انقطع الاتصال أثناء رفع جزء من الفيديو.");
+        error.retryable = true;
+        reject(error);
+      });
+      xhr.addEventListener("abort", () => {
+        clearRequest();
+        reject(new DOMException("تم إيقاف رفع الفيديو.", "AbortError"));
+      });
+      xhr.send(data);
     });
-    xhr.upload.addEventListener("load", () => {
-      updateVideoUploadProgress(100, "اكتمل الرفع، جارٍ تجهيز الفيديو…");
-    });
-    xhr.addEventListener("load", () => {
-      finishUpload();
-      let result;
+
+    try {
+      const startFields = {
+        name: videoFile.name,
+        size: videoFile.size,
+        last_modified: videoFile.lastModified || "",
+      };
+      if (
+        videoUploadSession &&
+        videoUploadSession.name === videoFile.name &&
+        videoUploadSession.size === videoFile.size &&
+        videoUploadSession.lastModified === (videoFile.lastModified || "")
+      ) startFields.upload_id = videoUploadSession.uploadId;
+      const startResult = await postJson(videoUploadStartUrl, postData(startFields));
+      const chunkCount = Number(startResult.chunk_count);
+      const chunkSize = Number(startResult.chunk_size);
+      if (!startResult.upload_id || !startResult.chunk_url || !startResult.complete_url || !startResult.cancel_url || !chunkCount || !chunkSize) {
+        throw new Error("لم يرسل الخادم بيانات جلسة رفع الفيديو كاملة.");
+      }
+      const sentBytesByChunk = new Array(chunkCount).fill(0);
+      (startResult.received_chunks || []).forEach((rawIndex) => {
+        const index = Number(rawIndex);
+        if (!Number.isInteger(index) || index < 0 || index >= chunkCount) return;
+        const start = index * chunkSize;
+        sentBytesByChunk[index] = Math.min(videoFile.size, start + chunkSize) - start;
+      });
+      videoUploadSession = {
+        uploadId: startResult.upload_id,
+        cancelUrl: startResult.cancel_url,
+        name: videoFile.name,
+        size: videoFile.size,
+        lastModified: videoFile.lastModified || "",
+      };
+      let nextChunkIndex = 0;
+      const refreshProgress = (label = "") => {
+        const sentBytes = Math.min(videoFile.size, sentBytesByChunk.reduce((total, value) => total + value, 0));
+        const percent = Math.min(99, Math.round((sentBytes / videoFile.size) * 100));
+        updateVideoUploadProgress(percent, label || `جارٍ رفع الفيديو… ${percent}%`);
+      };
+      const uploadWorker = async () => {
+        while (nextChunkIndex < chunkCount) {
+          const index = nextChunkIndex;
+          nextChunkIndex += 1;
+          const start = index * chunkSize;
+          const end = Math.min(videoFile.size, start + chunkSize);
+          const chunk = videoFile.slice(start, end);
+          const chunkUrl = startResult.chunk_url.replace(/\/0\/?$/, `/${index}/`);
+          if (sentBytesByChunk[index] >= chunk.size) continue;
+          let lastError;
+          for (let attempt = 1; attempt <= 3; attempt += 1) {
+            try {
+              await uploadChunk(chunkUrl, chunk, (loaded) => {
+                sentBytesByChunk[index] = loaded;
+                refreshProgress();
+              });
+              sentBytesByChunk[index] = chunk.size;
+              refreshProgress();
+              lastError = null;
+              break;
+            } catch (error) {
+              lastError = error;
+              sentBytesByChunk[index] = 0;
+              if (error.name === "AbortError" || !error.retryable || attempt === 3) break;
+              refreshProgress(`انقطع الاتصال؛ إعادة الجزء ${index + 1} (${attempt}/3)…`);
+              await new Promise((resolve) => window.setTimeout(resolve, attempt * 600));
+            }
+          }
+          if (lastError) throw lastError;
+        }
+      };
+      const uploadWorkers = Array.from({ length: Math.min(2, chunkCount) }, () => uploadWorker());
       try {
-        result = JSON.parse(xhr.responseText);
-      } catch {
-        updateVideoUploadProgress(null, "تعذّر استلام تأكيد الرفع.", "error");
-        reject(new Error("تعذر قراءة استجابة الخادم."));
-        return;
+        await Promise.all(uploadWorkers);
+      } catch (error) {
+        activeVideoUploadRequests.forEach((request) => request.abort());
+        await Promise.allSettled(uploadWorkers);
+        throw error;
       }
-      if (xhr.status < 200 || xhr.status >= 300 || !result.ok) {
-        updateVideoUploadProgress(null, "تعذّر رفع الفيديو.", "error");
-        reject(new Error(result.error || "تعذر إرسال الفيديو."));
-        return;
-      }
-      updateVideoUploadProgress(100, "اكتمل رفع الفيديو.", "complete");
-      resolve(result);
-    });
-    xhr.addEventListener("error", () => {
-      finishUpload();
-      updateVideoUploadProgress(null, "انقطع الاتصال أثناء رفع الفيديو.", "error");
-      reject(new Error("انقطع الاتصال أثناء رفع الفيديو."));
-    });
-    xhr.addEventListener("abort", () => {
-      finishUpload();
-      updateVideoUploadProgress(null, "تم إيقاف رفع الفيديو.", "error");
-      reject(new DOMException("تم إيقاف رفع الفيديو.", "AbortError"));
-    });
-    xhr.send(formData);
-  });
+      updateVideoUploadProgress(100, "اكتمل الرفع، جارٍ حفظ الرسالة وتجهيز الفيديو…");
+      const result = await postJson(
+        startResult.complete_url,
+        postData({ text, reply_to: replyTo || "" }),
+      );
+      videoUploadSession = null;
+      return result;
+    } finally {
+      activeVideoUploadRequests.clear();
+      if (videoUploadAbortController === abortController) videoUploadAbortController = null;
+      if (cancelButton) cancelButton.textContent = "إلغاء";
+    }
+  };
 
   const clearSelectedAttachments = () => {
     if (audioRecorder?.state === "recording") {
@@ -789,18 +904,21 @@
     container.append(createReactionPicker(message.id));
   };
 
-  const loadHlsLibrary = () => {
-    if (window.Hls) return Promise.resolve(window.Hls);
-    if (hlsLoaderPromise) return hlsLoaderPromise;
-    hlsLoaderPromise = new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = hlsScriptUrl;
-      script.async = true;
-      script.onload = () => window.Hls ? resolve(window.Hls) : reject(new Error("HLS player did not load."));
-      script.onerror = () => reject(new Error("HLS player did not load."));
-      document.head.append(script);
-    });
-    return hlsLoaderPromise;
+  const loadVideoJsPlayer = () => {
+    if (
+      customElements.get("video-player") &&
+      customElements.get("video-skin") &&
+      customElements.get("hlsjs-video")
+    ) return Promise.resolve();
+    if (videoJsLoaderPromise) return videoJsLoaderPromise;
+    videoJsLoaderPromise = import(videoJsEntryUrl)
+      .then(() => import(videoJsHlsUrl))
+      .then(() => {
+        if (!customElements.get("video-player") || !customElements.get("video-skin") || !customElements.get("hlsjs-video")) {
+          throw new Error("Video.js did not register the required player components.");
+        }
+      });
+    return videoJsLoaderPromise;
   };
 
   const createStyledAudioPlayer = (audioUrl, { preview = false } = {}) => {
@@ -893,7 +1011,7 @@
   const createVoiceMessagePlayer = (audioUrl) => createStyledAudioPlayer(audioUrl);
 
   const destroyChatMessageMedia = (container) => {
-    container.querySelectorAll(".chat-video-message-player").forEach((player) => player._hls?.destroy());
+    container.querySelectorAll("video-player").forEach((player) => player.destroy?.());
     container.querySelectorAll(".chat-wave-audio-preview").forEach((player) => {
       player._audio?.pause();
       if (player._audio) {
@@ -906,28 +1024,6 @@
   const createVideoMessagePlayer = (message) => {
     const player = document.createElement("div");
     player.className = "chat-video-message-player";
-    const video = document.createElement("video");
-    video.className = "chat-video-message-element";
-    video.controls = true;
-    video.playsInline = true;
-    video.preload = "metadata";
-    const quality = document.createElement("small");
-    quality.className = "chat-video-quality-label";
-    quality.textContent = "جودة تلقائية";
-
-    const useOriginal = () => {
-      if (!message.video_fallback_url) {
-        quality.textContent = "تعذر تشغيل هذا الفيديو.";
-        return;
-      }
-      if (player._hls) {
-        player._hls.destroy();
-        player._hls = null;
-      }
-      video.src = message.video_fallback_url;
-      quality.textContent = "تشغيل الملف الأصلي";
-    };
-
     if (message.video_status === "queued" || message.video_status === "processing") {
       const status = document.createElement("div");
       status.className = "chat-video-processing-status";
@@ -937,38 +1033,79 @@
       return player;
     }
 
-    player.append(video, quality);
-    if (message.video_status === "failed") {
-      useOriginal();
-      return player;
-    }
-    if (!message.video_stream_url) {
-      useOriginal();
-      return player;
-    }
-    if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = message.video_stream_url;
-      return player;
-    }
+    let videoJsPlayer = null;
+    let originalSourceSelected = false;
+    const showPlaybackError = () => {
+      if (player.querySelector(".chat-video-processing-status")) return;
+      const status = document.createElement("div");
+      status.className = "chat-video-processing-status";
+      status.setAttribute("role", "status");
+      status.textContent = "تعذر تشغيل هذا الفيديو.";
+      player.append(status);
+    };
+    const mountMedia = (src, useHls) => {
+      const hasVideoJs = customElements.get("video-player") && customElements.get("video-skin");
+      if (!hasVideoJs) {
+        const nativeVideo = document.createElement("video");
+        nativeVideo.className = "chat-video-message-element";
+        nativeVideo.controls = true;
+        nativeVideo.playsInline = true;
+        nativeVideo.preload = "metadata";
+        nativeVideo.src = src;
+        nativeVideo.addEventListener("error", showPlaybackError, { once: true });
+        player.append(nativeVideo);
+        return;
+      }
 
-    loadHlsLibrary().then((Hls) => {
+      videoJsPlayer = document.createElement("video-player");
+      videoJsPlayer.className = "chat-videojs-player";
+      videoJsPlayer.setAttribute("lang", "ar");
+      videoJsPlayer.setAttribute("dir", "ltr");
+      const skin = document.createElement("video-skin");
+      skin.className = "chat-videojs-skin";
+      const media = document.createElement(useHls ? "hlsjs-video" : "video");
+      media.className = "chat-videojs-media";
+      media.setAttribute("playsinline", "");
+      media.setAttribute("preload", "metadata");
+      media.setAttribute("src", src);
+      media.addEventListener("error", () => {
+        if (useHls && !originalSourceSelected) useOriginal();
+        else showPlaybackError();
+      }, { once: true });
+      skin.append(media);
+      videoJsPlayer.append(skin);
+      player.append(videoJsPlayer);
+    };
+    const useOriginal = () => {
+      if (!message.video_fallback_url || originalSourceSelected) {
+        showPlaybackError();
+        return;
+      }
+      originalSourceSelected = true;
+      videoJsPlayer?.destroy?.();
+      videoJsPlayer?.remove();
+      videoJsPlayer = null;
+      mountMedia(message.video_fallback_url, false);
+    };
+
+    const loading = document.createElement("div");
+    loading.className = "chat-video-processing-status";
+    loading.setAttribute("role", "status");
+    loading.textContent = "جارٍ تحميل مشغل الفيديو…";
+    player.append(loading);
+    loadVideoJsPlayer().then(() => {
       if (!player.isConnected) return;
-      if (!Hls.isSupported()) {
+      loading.remove();
+      if (message.video_status === "failed" || !message.video_stream_url) {
         useOriginal();
         return;
       }
-      const hls = new Hls({ startLevel: -1, capLevelToPlayerSize: true, maxBufferLength: 20 });
-      player._hls = hls;
-      hls.loadSource(message.video_stream_url);
-      hls.attachMedia(video);
-      hls.on(Hls.Events.LEVEL_SWITCHED, (_event, data) => {
-        const level = hls.levels[data.level];
-        quality.textContent = level?.height ? `تلقائي · ${level.height}p` : "جودة تلقائية";
-      });
-      hls.on(Hls.Events.ERROR, (_event, data) => {
-        if (data.fatal) useOriginal();
-      });
-    }).catch(useOriginal);
+      mountMedia(message.video_stream_url, true);
+    }).catch(() => {
+      if (!player.isConnected) return;
+      loading.remove();
+      useOriginal();
+    });
     return player;
   };
 
@@ -1577,7 +1714,22 @@
   });
   audioRecordButton?.addEventListener("click", startAudioRecording);
   compose?.querySelector("[data-attachment-cancel]")?.addEventListener("click", () => {
-    activeVideoUploadRequest?.abort();
+    const session = videoUploadSession;
+    activeVideoUploadRequests.forEach((request) => request.abort());
+    videoUploadAbortController?.abort();
+    videoUploadSession = null;
+    if (session?.cancelUrl) {
+      const cancelData = new FormData();
+      const csrfToken = compose?.querySelector('[name="csrfmiddlewaretoken"]')?.value;
+      if (csrfToken) cancelData.append("csrfmiddlewaretoken", csrfToken);
+      fetch(session.cancelUrl, {
+        method: "POST",
+        body: cancelData,
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+        credentials: "same-origin",
+        keepalive: true,
+      }).catch(() => {});
+    }
     clearSelectedAttachments();
   });
   root.addEventListener("click", (event) => {
@@ -1613,11 +1765,15 @@
     try {
       const formData = new FormData(compose);
       if (recordedAudioFile) formData.set("voice_message", recordedAudioFile, recordedAudioFile.name);
-      const hasVideoFile = attachmentInputs.some((input) => input.name === "video" && input.files?.length);
+      const videoFile = attachmentInputs.find((input) => input.name === "video")?.files?.[0];
       let result;
-      if (hasVideoFile) {
+      if (videoFile && videoUploadStartUrl) {
         updateVideoUploadProgress(0, "جارٍ تجهيز رفع الفيديو…");
-        result = await sendVideoFormWithProgress(formData);
+        result = await sendVideoFormWithProgress(
+          videoFile,
+          formData.get("text") || "",
+          formData.get("reply_to") || "",
+        );
       } else {
         const response = await fetch(compose.action, {
           method: "POST",

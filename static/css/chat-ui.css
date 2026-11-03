@@ -1164,19 +1164,35 @@
   margin-top: 9px;
 }
 
+.chat-videojs-player,
 .chat-video-message-element {
   display: block;
   width: min(100%, 520px);
+  max-width: 100%;
+}
+
+.chat-videojs-skin {
+  display: block;
+  width: min(100%, 520px);
+  aspect-ratio: 16 / 9;
+  max-height: min(64vh, 560px);
+  overflow: hidden;
+  border-radius: 12px;
+  background: #102129;
+  --media-accent-color: #19a777;
+  --media-border-radius: 12px;
+  --media-scale-unit: 14px;
+}
+
+.chat-videojs-media,
+.chat-video-message-element {
+  display: block;
+  width: 100%;
   max-height: min(64vh, 560px);
   border: 1px solid #dce7e9;
   border-radius: 12px;
   background: #102129;
   object-fit: contain;
-}
-
-.chat-video-quality-label {
-  color: #72868b;
-  font-size: 9px;
 }
 
 .chat-video-processing-status {
