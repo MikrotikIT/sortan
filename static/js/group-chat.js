@@ -1595,6 +1595,7 @@
       }
     }
     if (errorBox) errorBox.hidden = true;
+    let messageSentSuccessfully = false;
     try {
       const formData = new FormData(compose);
       if (recordedAudioFile) formData.set("voice_message", recordedAudioFile, recordedAudioFile.name);
@@ -1613,6 +1614,7 @@
         result = await response.json();
         if (!response.ok || !result.ok) throw new Error(result.error || "تعذر إرسال الرسالة.");
       }
+      messageSentSuccessfully = true;
       renderMessageSafely(result.message);
       syncLastDayDivider();
       compose.reset();
@@ -1634,6 +1636,14 @@
       }
       isSubmittingChatMessage = false;
       syncComposerActions();
+      if (messageSentSuccessfully && audioRecordButton) {
+        audioRecordButton.classList.remove("is-recording", "has-recording");
+        audioRecordButton.hidden = false;
+        audioRecordButton.disabled = false;
+        audioRecordButton.setAttribute("aria-label", "تسجيل رسالة صوتية");
+        audioRecordButton.title = "تسجيل رسالة صوتية";
+        if (audioRecordLabel) audioRecordLabel.textContent = "تسجيل";
+      }
     }
   });
 
