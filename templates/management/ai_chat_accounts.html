@@ -1,7 +1,7 @@
 {% extends 'management/base.html' %}
 {% load static %}
 {% block title %}إدارة بوتات الذكاء الاصطناعي — إدارة KODI{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/ai-chat-accounts.css' %}?v=3">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/ai-chat-accounts.css' %}?v=4">{% endblock %}
 {% block content %}
 <div class="ai-workspace" data-models-url="{% url 'management_openrouter_model_list' %}">
   <section class="ai-page-heading">
@@ -14,6 +14,14 @@
     <article class="ai-overview-card"><span class="ai-overview-icon is-green" aria-hidden="true">●</span><div><small>بوتات نشطة</small><strong>{{ active_bot_count }}</strong><span>تعمل الآن</span></div></article>
     <article class="ai-overview-card"><span class="ai-overview-icon is-amber" aria-hidden="true">Ⅱ</span><div><small>بوتات متوقفة</small><strong>{{ paused_bot_count }}</strong><span>في حالة PAUSED</span></div></article>
     <article class="ai-overview-card"><span class="ai-overview-icon is-muted" aria-hidden="true">↻</span><div><small>انتهى عمرها</small><strong>{{ dead_bot_count }}</strong><span>تنتظر التبديل</span></div></article>
+  </section>
+
+  <section class="ai-spend-summary" aria-labelledby="ai-spend-title">
+    <div class="ai-spend-total"><span class="ai-spend-icon" aria-hidden="true">$</span><div><small id="ai-spend-title">إجمالي تكلفة استخدام الذكاء الاصطناعي</small><strong>${{ ai_settings.ai_total_cost_usd|floatformat:8 }} USD</strong><span>من {{ ai_settings.usage_period_started_at|date:"Y-m-d H:i" }} حتى الآن</span></div></div>
+    <div class="ai-spend-stats"><span><strong>{{ ai_settings.ai_text_generation_count }}</strong> توليد نص</span><span><strong>{{ ai_settings.ai_prompt_token_count|add:ai_settings.ai_completion_token_count }}</strong> رمز مستخدم</span>{% if ai_settings.ai_unpriced_generation_count %}<span class="ai-spend-unpriced">{{ ai_settings.ai_unpriced_generation_count }} توليد بلا تكلفة موثقة</span>{% endif %}<small>المبلغ حسب بيانات الاستخدام التي يوفّرها OpenRouter. إحصاءات كل بوت وتوزيع تبقى تراكمية عند تصفير هذا الإجمالي.</small></div>
+    <form class="ai-spend-reset" method="post" action="{% url 'management_ai_chat_usage_reset' %}" onsubmit="return confirm('تصفير الإجمالي العام وبدء فترة إحصاء جديدة؟ ستبقى إحصاءات كل بوت وتوزيع كما هي.')">
+      {% csrf_token %}<input type="hidden" name="group" value="{{ selected_group.pk|default:'' }}"><button class="btn btn-quiet btn-small" type="submit">تصفير الإجمالي</button>
+    </form>
   </section>
 
   {% if not groups %}<div class="ai-empty-global">أنشئ مجموعة محادثة وفعّلها حتى تبدأ إعداد البوتات.</div>{% else %}

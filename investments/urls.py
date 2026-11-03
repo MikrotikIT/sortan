@@ -48,6 +48,7 @@ urlpatterns = [
     path("management/demo-chat-accounts/", chat_management_views.demo_chat_accounts, name="management_demo_chat_accounts"),
     path("management/demo-chat-accounts/create/", chat_management_views.demo_chat_accounts_create, name="management_demo_chat_accounts_create"),
     path("management/ai-chat-accounts/", chat_management_views.ai_chat_accounts, name="management_ai_chat_accounts"),
+    path("management/ai-chat-accounts/usage/reset/", chat_management_views.ai_chat_usage_reset, name="management_ai_chat_usage_reset"),
     path("management/ai-chat-accounts/settings/", chat_management_views.ai_chat_settings_update, name="management_ai_chat_settings_update"),
     path("management/ai-chat-accounts/templates/create/", chat_management_views.ai_bot_template_create, name="management_ai_bot_template_create"),
     path("management/ai-chat-accounts/templates/<int:pk>/edit/", chat_management_views.ai_bot_template_edit, name="management_ai_bot_template_edit"),

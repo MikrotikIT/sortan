@@ -431,6 +431,28 @@ def _new_ai_bot_account(group, template, pool, reserved_names, *, display_name=N
 
 @staff_required
 @require_POST
+def ai_chat_usage_reset(request):
+    group_id = request.POST.get("group") or None
+    with transaction.atomic():
+        AIChatSettings.objects.get_or_create(pk=1)
+        settings_row = AIChatSettings.objects.select_for_update().get(pk=1)
+        reset_at = timezone.now()
+        settings_row.ai_text_generation_count = 0
+        settings_row.ai_prompt_token_count = 0
+        settings_row.ai_completion_token_count = 0
+        settings_row.ai_total_cost_usd = Decimal("0")
+        settings_row.ai_unpriced_generation_count = 0
+        settings_row.usage_period_started_at = reset_at
+        settings_row.save(update_fields=(
+            "ai_text_generation_count", "ai_prompt_token_count", "ai_completion_token_count",
+            "ai_total_cost_usd", "ai_unpriced_generation_count", "usage_period_started_at", "updated_at",
+        ))
+    messages.success(request, "تم تصفير الإجمالي العام. بدأت فترة إحصاء جديدة، وبقيت تفاصيل كل بوت وتوزيع محفوظة.")
+    return redirect(_ai_accounts_page_url(group_id))
+
+
+@staff_required
+@require_POST
 def ai_chat_settings_update(request):
     settings_row, _ = AIChatSettings.objects.get_or_create(pk=1)
     form = AIChatSettingsForm(request.POST, instance=settings_row)

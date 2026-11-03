@@ -366,17 +366,25 @@ def _record_ai_generation_usage(bot, usage):
         "prompt_token_count": F("prompt_token_count") + prompt_tokens,
         "completion_token_count": F("completion_token_count") + completion_tokens,
     }
+    settings_updates = {
+        "ai_text_generation_count": F("ai_text_generation_count") + 1,
+        "ai_prompt_token_count": F("ai_prompt_token_count") + prompt_tokens,
+        "ai_completion_token_count": F("ai_completion_token_count") + completion_tokens,
+    }
     if cost_usd is None:
         account_updates["ai_unpriced_generation_count"] = F("ai_unpriced_generation_count") + 1
         pool_updates["unpriced_generation_count"] = F("unpriced_generation_count") + 1
+        settings_updates["ai_unpriced_generation_count"] = F("ai_unpriced_generation_count") + 1
     else:
         account_updates["ai_total_cost_usd"] = F("ai_total_cost_usd") + cost_usd
         pool_updates["total_cost_usd"] = F("total_cost_usd") + cost_usd
+        settings_updates["ai_total_cost_usd"] = F("ai_total_cost_usd") + cost_usd
 
     with transaction.atomic():
         ChatDemoAccount.objects.filter(pk=bot.pk).update(**account_updates)
         if bot.bot_pool_id:
             AIBotPool.objects.filter(pk=bot.bot_pool_id).update(**pool_updates)
+        AIChatSettings.objects.filter(pk=1).update(**settings_updates)
 
 
 def _reserve_due_bot(now):

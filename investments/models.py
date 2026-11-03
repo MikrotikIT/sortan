@@ -834,6 +834,12 @@ class AIChatSettings(models.Model):
     )
     encrypted_openrouter_api_key = models.TextField("مفتاح OpenRouter المشفر", blank=True)
     selected_model = models.CharField("الموديل الافتراضي", max_length=200, blank=True)
+    ai_text_generation_count = models.PositiveBigIntegerField(default=0)
+    ai_prompt_token_count = models.PositiveBigIntegerField(default=0)
+    ai_completion_token_count = models.PositiveBigIntegerField(default=0)
+    ai_total_cost_usd = models.DecimalField(max_digits=24, decimal_places=12, default=0)
+    ai_unpriced_generation_count = models.PositiveBigIntegerField(default=0)
+    usage_period_started_at = models.DateTimeField("بداية فترة الإحصاء", default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
