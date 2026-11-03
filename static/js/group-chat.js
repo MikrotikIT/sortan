@@ -437,6 +437,7 @@
         item.append(video);
         const uploadProgress = document.createElement("div");
         uploadProgress.className = "chat-video-upload-progress";
+        uploadProgress.dataset.videoUploadProgress = "";
         uploadProgress.hidden = true;
         const uploadStatus = document.createElement("small");
         uploadStatus.dataset.videoUploadStatus = "";
