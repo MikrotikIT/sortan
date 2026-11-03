@@ -25,7 +25,7 @@
       <div><dt>المبلغ قبل الضريبة</dt><dd>{{ withdrawal.amount|floatformat:2 }} USDT</dd></div>
       <div><dt>نسبة الضريبة</dt><dd>{{ withdrawal.tax_percent|floatformat:2 }}%</dd></div>
       <div><dt>قيمة الضريبة</dt><dd>{{ withdrawal.tax_amount|floatformat:2 }} USDT</dd></div>
-      <div class="receipt-address-row"><dt>محفظة الاستلام · TRC20</dt><dd><code dir="ltr">{% if is_demo_receipt %}************************ — {% else %}{{ withdrawal.wallet_address }}{% endif %}</code></dd></div>
+      <div class="receipt-address-row"><dt>محفظة الاستلام · TRC20</dt><dd><code dir="ltr">************************</code></dd></div>
       <div><dt>{% if is_demo_receipt %}تاريخ طلب السحب{% else %}تاريخ طلب السحب{% endif %}</dt><dd>{{ withdrawal.requested_at|date:"Y-m-d H:i:s" }}</dd></div>
       <div><dt>تاريخ إتمام الدفع</dt><dd>{% if withdrawal.processed_at %}{{ withdrawal.processed_at|date:"Y-m-d H:i:s" }}{% elif is_demo_receipt %} {% now "Y-m-d H:i:s" %} {% else %}—{% endif %}</dd></div>
     </dl>
