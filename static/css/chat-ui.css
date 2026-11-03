@@ -983,16 +983,15 @@
 }
 
 .chat-audio-record-button {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
+  display: grid;
+  flex: 0 0 38px;
+  place-items: center;
   justify-content: center;
-  gap: 4px;
-  min-width: 44px;
+  width: 38px;
   min-height: 38px;
-  padding: 4px 7px;
+  padding: 0;
   border: 1px solid transparent;
-  border-radius: 20px;
+  border-radius: 50%;
   background: transparent;
   color: #527984;
   font: 700 10px "Tajawal", sans-serif;
@@ -1018,16 +1017,136 @@
 }
 
 .chat-audio-record-icon {
-  font-size: 15px;
-  line-height: 1;
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.9;
+}
+
+.chat-audio-record-label {
+  display: none;
+  white-space: nowrap;
+}
+
+.chat-audio-record-button.is-recording {
+  display: inline-flex;
+  width: auto;
+  min-width: 78px;
+  padding-inline: 9px;
+  gap: 5px;
+}
+
+.chat-audio-record-button.is-recording .chat-audio-record-label {
+  display: inline;
+}
+
+.chat-video-upload-button {
+  position: relative;
+  display: grid;
+  flex: 0 0 38px;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  margin-bottom: 1px;
+  border-radius: 50%;
+  color: #71858a;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+
+.chat-video-upload-button:hover {
+  background: #e9eff0;
+  color: #176e7c;
+}
+
+.chat-video-upload-button svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.chat-video-upload-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.chat-composer .chat-audio-record-button[hidden],
+.chat-composer .chat-video-upload-button[hidden],
+.chat-attachment-preview-actions [hidden] {
+  display: none !important;
 }
 
 @keyframes chat-record-pulse {
   50% { opacity: .45; transform: scale(.86); }
 }
 
+.chat-wave-audio-preview {
+  display: grid;
+  grid-template-columns: 38px minmax(110px, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  width: min(100%, 290px);
+  min-height: 48px;
+  padding: 5px 7px;
+  border: 1px solid #dce9ec;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #f4fbfa, #f7fafb);
+}
+
+.chat-audio-preview-play {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: #19a777;
+  color: #fff;
+  cursor: pointer;
+}
+
+.chat-audio-preview-play:disabled {
+  opacity: .6;
+  cursor: wait;
+}
+
+.chat-audio-preview-play svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.chat-audio-preview-waveform {
+  min-width: 0;
+  height: 36px;
+  overflow: hidden;
+}
+
+.chat-audio-preview-time {
+  color: #71858a;
+  font-size: 10px;
+  direction: ltr;
+  white-space: nowrap;
+}
+
 .chat-audio-preview {
-  width: min(100%, 250px);
+  width: min(100%, 290px);
   height: 38px;
 }
 
