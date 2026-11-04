@@ -15,6 +15,7 @@
   const canPost = root.dataset.canPost === "true";
   const canReact = root.dataset.canReact === "true";
   const isAdmin = root.dataset.isAdmin === "true";
+  const memberActionUrlTemplate = root.dataset.memberActionUrlTemplate || "";
   const allowVoiceMessages = root.dataset.allowVoiceMessages === "true";
   const videoUploadStartUrl = root.dataset.videoUploadStartUrl || "";
   const demoGrowthUrlTemplate = root.dataset.demoGrowthUrlTemplate || "";
@@ -1212,6 +1213,44 @@
         if (window.confirm("حذف هذه الرسالة؟")) sendSocket({ action: "delete", message_id: message.id });
       });
     }
+    const isRealCustomerMessage = Boolean(
+      isAdmin
+      && memberActionUrlTemplate
+      && message.customer_profile_url
+      && Number(message.sender_id) > 0
+      && !message.sender_is_admin
+      && !message.is_demo
+      && !message.is_ai
+    );
+    if (isRealCustomerMessage) {
+      addMessageAction("عرض الملف الشخصي", "", () => {
+        actionMenu.open = false;
+        window.location.assign(message.customer_profile_url);
+      });
+      addMessageAction("إزالة من المجموعة", "is-danger", () => {
+        actionMenu.open = false;
+        if (window.confirm(`إزالة ${message.sender} من هذه المجموعة؟`)) {
+          sendCustomerModerationAction(message, "remove");
+        }
+      });
+      addMessageAction("حظر من المجموعة", "is-danger", () => {
+        actionMenu.open = false;
+        const reason = window.prompt("سبب الحظر من المجموعة (اختياري):", "");
+        if (reason !== null) sendCustomerModerationAction(message, "ban_group", reason);
+      });
+      addMessageAction("حظر من المنصة", "is-danger", () => {
+        actionMenu.open = false;
+        const reason = window.prompt("اكتب سبب حظر هذا العميل من المنصة:", "مخالفة سياسات المنصة");
+        if (reason === null) return;
+        if (!reason.trim()) {
+          showError("اكتب سبب الحظر قبل المتابعة.");
+          return;
+        }
+        if (window.confirm(`حظر ${message.sender} من المنصة بالكامل؟`)) {
+          sendCustomerModerationAction(message, "ban_platform", reason);
+        }
+      });
+    }
     addMessageAction("نسخ", "", async () => {
       const mediaUrl = message.media_url || message.video_fallback_url || message.video_stream_url;
       const value = message.text || (mediaUrl ? new URL(mediaUrl, window.location.origin).href : "");
@@ -1508,9 +1547,37 @@
 
   const showError = (message) => {
     if (!errorBox) return;
+    errorBox.classList.remove("is-success");
     errorBox.textContent = message;
     errorBox.hidden = false;
     window.setTimeout(() => { errorBox.hidden = true; }, 6000);
+  };
+
+  const sendCustomerModerationAction = async (message, action, reason = "") => {
+    const targetUserId = Number(message.sender_id);
+    const csrf = root.querySelector('[name="csrfmiddlewaretoken"]')?.value || "";
+    if (!memberActionUrlTemplate || !csrf || !Number.isSafeInteger(targetUserId) || targetUserId <= 0) {
+      showError("تعذر تجهيز إجراء إدارة العميل.");
+      return;
+    }
+    const url = memberActionUrlTemplate.replace(/\/0\/action\/?$/, `/${targetUserId}/action/`);
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Accept": "application/json", "X-CSRFToken": csrf },
+        body: new URLSearchParams({ action, reason }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || "تعذر تنفيذ الإجراء.");
+      if (!errorBox) return;
+      errorBox.classList.add("is-success");
+      errorBox.textContent = result.message || "تم تنفيذ الإجراء.";
+      errorBox.hidden = false;
+      window.setTimeout(() => { errorBox.hidden = true; }, 6000);
+    } catch (error) {
+      showError(error.message || "تعذر تنفيذ الإجراء.");
+    }
   };
 
   const updateReactionCounts = (payload) => {

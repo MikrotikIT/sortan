@@ -201,6 +201,7 @@ def send_group_message_push(self, message_id):
                     android_tag=f"chat-group-{group_id}",
                     android_priority="high" if important_reply else "normal",
                     android_notification_priority="high" if important_reply else "default",
+                    android_color="#805AD5" if important_reply else None,
                 )
                 result_totals["success_count"] += push_result["success_count"]
                 result_totals["failure_count"] += push_result["failure_count"]

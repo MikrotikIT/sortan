@@ -50,6 +50,7 @@ from .models import (
     ChatMessage,
     DemoWithdrawalReceipt,
     PlatformSettings,
+    User,
 )
 
 
@@ -217,6 +218,64 @@ def chat_group_member_remove(request, pk, user_id):
     _broadcast_group_event(group.pk, {"type": "member_removed", "target_user_id": target_user_id})
     messages.success(request, f"تمت إزالة {phone} من أعضاء المجموعة.")
     return redirect("management_chat_group_edit", pk=group.pk)
+
+
+@staff_required
+@require_POST
+def chat_group_member_action(request, pk, user_id):
+    group = get_object_or_404(ChatGroup, pk=pk)
+    action = (request.POST.get("action") or "").strip()
+    reason = (request.POST.get("reason") or "").strip()
+    if action not in {"remove", "ban_group", "ban_platform"}:
+        return JsonResponse({"ok": False, "error": "الإجراء غير صالح."}, status=400)
+    if action == "ban_platform" and not reason:
+        return JsonResponse({"ok": False, "error": "اكتب سبب حظر الحساب من المنصة."}, status=400)
+    if len(reason) > 1200:
+        return JsonResponse({"ok": False, "error": "سبب الحظر طويل جداً."}, status=400)
+
+    with transaction.atomic():
+        user = get_object_or_404(
+            User.objects.select_for_update(),
+            pk=user_id,
+            is_staff=False,
+            is_fake_account=False,
+        )
+        if action == "remove":
+            ChatMembership.objects.filter(group=group, user=user).delete()
+            affected_group_ids = [group.pk]
+            event_type = "member_removed"
+            success_message = "تمت إزالة العميل من المجموعة."
+        elif action == "ban_group":
+            ChatMembership.objects.filter(group=group, user=user).delete()
+            ChatGroupBan.objects.update_or_create(
+                group=group,
+                user=user,
+                defaults={"banned_by": request.user, "reason": reason[:500]},
+            )
+            affected_group_ids = [group.pk]
+            event_type = "member_banned"
+            success_message = "تم حظر العميل من المجموعة."
+        else:
+            if user.approval_status != "blocked":
+                user.blocked_from_status = user.approval_status
+            user.approval_status = "blocked"
+            user.block_reason = reason
+            user.is_active = False
+            user.save(update_fields=("approval_status", "blocked_from_status", "block_reason", "is_active"))
+            affected_group_ids = sorted(
+                set(ChatGroupPresence.objects.filter(user=user).values_list("group_id", flat=True))
+                | set(ChatMembership.objects.filter(user=user).values_list("group_id", flat=True))
+            )
+            ChatGroupPresence.objects.filter(user=user).delete()
+            event_type = "platform_blocked"
+            success_message = "تم حظر حساب العميل من المنصة وإيقاف جلساته في المجموعات."
+
+    for affected_group_id in affected_group_ids:
+        _broadcast_group_event(
+            affected_group_id,
+            {"type": event_type, "target_user_id": user.pk},
+        )
+    return JsonResponse({"ok": True, "message": success_message})
 
 
 @staff_required

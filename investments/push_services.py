@@ -52,6 +52,7 @@ def _send_to_devices(
     android_tag=None,
     android_priority="high",
     android_notification_priority="high",
+    android_color=None,
 ):
     device_rows = list(devices.values_list("pk", "token"))
     if not device_rows:
@@ -75,6 +76,7 @@ def _send_to_devices(
                     channel_id=android_channel_id,
                     tag=android_tag,
                     priority=android_notification_priority,
+                    color=android_color,
                 ),
             ),
         )
@@ -102,6 +104,7 @@ def send_push_to_user(
     android_tag=None,
     android_priority="high",
     android_notification_priority="high",
+    android_color=None,
 ):
     return _send_to_devices(
         PushDevice.objects.filter(user=user),
@@ -112,6 +115,7 @@ def send_push_to_user(
         android_tag=android_tag,
         android_priority=android_priority,
         android_notification_priority=android_notification_priority,
+        android_color=android_color,
     )
 
 

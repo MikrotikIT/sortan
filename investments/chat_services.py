@@ -282,6 +282,11 @@ def serialize_chat_message(message, viewer_id=None, demo_account_id=None):
         "demo_account_id": message.demo_account_id,
         "sender": _message_sender_name(message),
         "sender_is_admin": bool(message.sender.is_staff and not message.demo_sender_name),
+        "customer_profile_url": (
+            reverse("management_customer_detail", args=(message.sender_id,))
+            if not message.sender.is_staff and not message.sender.is_fake_account and not message.demo_sender_name
+            else ""
+        ),
         "is_demo": bool(message.demo_sender_name),
         "is_ai": bool(message.demo_sender_is_ai),
         "text": message.text,

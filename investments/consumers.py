@@ -145,9 +145,14 @@ class GroupChatConsumer(AsyncJsonWebsocketConsumer):
 
     async def chat_broadcast(self, event):
         payload = event.get("payload", {})
-        if payload.get("type") in {"member_banned", "member_removed"}:
+        if payload.get("type") in {"member_banned", "member_removed", "platform_blocked"}:
             if payload.get("target_user_id") == self.chat_context["user_id"]:
-                await self.send_json({"type": "access_revoked", "message": "لم تعد عضواً في هذه المجموعة."})
+                message = (
+                    "تم إيقاف حسابك من المنصة."
+                    if payload.get("type") == "platform_blocked"
+                    else "لم تعد عضواً في هذه المجموعة."
+                )
+                await self.send_json({"type": "access_revoked", "message": message})
                 await self.close(code=4403)
             return
         if payload.get("type") == "group_closed":
