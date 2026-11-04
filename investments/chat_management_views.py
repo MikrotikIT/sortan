@@ -43,6 +43,7 @@ from .models import (
     ChatDemoAccount,
     ChatGroup,
     ChatGroupBan,
+    ChatGroupPresence,
     ChatMembership,
     ChatMessage,
     DemoWithdrawalReceipt,
@@ -300,6 +301,15 @@ def _ai_accounts_page_url(group_id=None):
     return f"{page_url}?group={group_id}" if group_id else page_url
 
 
+def _enqueue_ai_chat_advance():
+    try:
+        from .tasks import advance_ai_chat_bots
+
+        advance_ai_chat_bots.delay()
+    except Exception:
+        logger.exception("Could not enqueue AI chat bot state update")
+
+
 @staff_required
 def demo_chat_accounts(request):
     groups = ChatGroup.objects.filter(is_active=True).order_by("title", "pk")
@@ -349,6 +359,38 @@ def ai_chat_accounts(request):
         selected_group = groups.first()
 
     ai_settings, _ = AIChatSettings.objects.get_or_create(pk=1)
+    human_presence_count = (
+        ChatGroupPresence.objects.filter(
+            group=selected_group,
+            last_seen_at__gte=timezone.now() - timedelta(seconds=90),
+            user__is_active=True,
+        ).values("user_id").distinct().count()
+        if selected_group else 0
+    )
+    if not ai_settings.enabled:
+        ai_run_message = "النظام متوقف. فعّل النظام ثم احفظ الإعدادات."
+        ai_run_ready = False
+    elif selected_group is None:
+        ai_run_message = "اختر مجموعة نشطة لإدارة البوتات."
+        ai_run_ready = False
+    elif selected_group.message_mode == ChatGroup.MessageMode.LOCKED:
+        ai_run_message = "المجموعة مقفلة، لذلك لن تعمل البوتات حتى تفتحها."
+        ai_run_ready = False
+    elif not selected_group.ai_bot_pools.filter(is_enabled=True).exists():
+        ai_run_message = (
+            "كل توزيعات هذه المجموعة متوقفة. نشّط التوزيعة التي تريد تشغيلها."
+            if selected_group.ai_bot_pools.exists()
+            else "لا يوجد توزيع بوتات لهذه المجموعة. أضف توزيعاً لتبدأ البوتات."
+        )
+        ai_run_ready = False
+    elif ai_settings.run_mode == AIChatSettings.RunMode.HUMAN_PRESENCE and not human_presence_count:
+        ai_run_message = "النظام مفعّل وينتظر اتصال شخص بالمجموعة. للتشغيل دون أشخاص اختر «تشغيل يدوي مستمر»."
+        ai_run_ready = False
+    else:
+        ai_run_message = "النظام جاهز للتشغيل" + (
+            f" — يوجد {human_presence_count} شخص متصل." if human_presence_count else " — التشغيل اليدوي المستمر مفعّل."
+        )
+        ai_run_ready = True
     templates = list(AIBotTemplate.objects.order_by("name", "pk"))
     template_rows = [
         (template, AIBotTemplateForm(instance=template, prefix=f"template-{template.pk}"))
@@ -365,8 +407,17 @@ def ai_chat_accounts(request):
         AIBotPool.objects.filter(group=selected_group)
         .select_related("template")
         .annotate(
-            active_count=Count("accounts", filter=Q(accounts__is_ai=True, accounts__ai_state="ACTIVE"), distinct=True),
-            paused_count=Count("accounts", filter=Q(accounts__is_ai=True, accounts__ai_state="PAUSED"), distinct=True),
+            active_count=Count(
+                "accounts",
+                filter=Q(accounts__is_ai=True, accounts__ai_state="ACTIVE", is_enabled=True),
+                distinct=True,
+            ),
+            paused_count=Count(
+                "accounts",
+                filter=Q(accounts__is_ai=True)
+                & (Q(accounts__ai_state="PAUSED") | Q(is_enabled=False, accounts__ai_state="ACTIVE")),
+                distinct=True,
+            ),
             dead_count=Count("accounts", filter=Q(accounts__is_ai=True, accounts__ai_state="DEAD"), distinct=True),
         )
         .order_by("template__name", "pk")
@@ -379,6 +430,9 @@ def ai_chat_accounts(request):
             "groups": groups,
             "selected_group": selected_group,
             "ai_settings": ai_settings,
+            "ai_run_message": ai_run_message,
+            "ai_run_ready": ai_run_ready,
+            "human_presence_count": human_presence_count,
             "ai_settings_form": AIChatSettingsForm(instance=ai_settings),
             "templates": templates,
             "template_rows": template_rows,
@@ -389,7 +443,7 @@ def ai_chat_accounts(request):
             "openrouter_key_present": bool(
                 ai_settings.encrypted_openrouter_api_key or getattr(settings, "OPENROUTER_API_KEY", "")
             ),
-            "active_bot_count": ai_accounts.filter(ai_state="ACTIVE").count(),
+            "active_bot_count": ai_accounts.filter(ai_state="ACTIVE", bot_pool__is_enabled=True).count(),
             "paused_bot_count": ai_accounts.filter(ai_state="PAUSED").count(),
             "dead_bot_count": ai_accounts.filter(ai_state="DEAD").count(),
         },
@@ -458,6 +512,7 @@ def ai_chat_settings_update(request):
     form = AIChatSettingsForm(request.POST, instance=settings_row)
     if form.is_valid():
         form.save()
+        transaction.on_commit(_enqueue_ai_chat_advance)
         messages.success(request, "تم حفظ إعدادات تشغيل البوتات وربط OpenRouter.")
     else:
         error = next(iter(form.errors.values()), ["راجع الحقول المحددة."])[0]
@@ -537,17 +592,48 @@ def ai_bot_pool_save(request):
                         "ai_state", "ai_dead_at", "ai_next_action_at", "ai_last_active_at", "ai_partner",
                         "ai_pending_text", "ai_pending_reply_to",
                     ))
-            elif len(current_accounts) < desired_count:
+            elif len(current_accounts) < desired_count and pool.is_enabled:
                 reserved_names = _reserved_demo_chat_names()
                 for _ in range(desired_count - len(current_accounts)):
                     _new_ai_bot_account(group, template, pool, reserved_names)
             pool.next_replacement_at = None
             pool.save(update_fields=("next_replacement_at", "updated_at"))
+            transaction.on_commit(_enqueue_ai_chat_advance)
     except ChatGroup.DoesNotExist:
         messages.error(request, "مجموعة المحادثة لم تعد متاحة.")
         return redirect(_ai_accounts_page_url())
     messages.success(request, f"تم ضبط {desired_count} بوت من قالب {template.name} في {group.title}.")
     return redirect(_ai_accounts_page_url(group.pk))
+
+
+@staff_required
+@require_POST
+def ai_bot_pool_toggle(request, pool_id):
+    with transaction.atomic():
+        pool_group_id = get_object_or_404(AIBotPool.objects.only("group_id"), pk=pool_id).group_id
+        get_object_or_404(ChatGroup.objects.select_for_update(), pk=pool_group_id)
+        pool = get_object_or_404(AIBotPool.objects.select_for_update().select_related("template"), pk=pool_id)
+        pool.is_enabled = not pool.is_enabled
+        pool.next_replacement_at = None
+        pool.save(update_fields=("is_enabled", "next_replacement_at", "updated_at"))
+
+        if not pool.is_enabled:
+            pairs = list(pool.accounts.exclude(ai_partner_id=None).values_list("pk", "ai_partner_id"))
+            disabled_account_ids = [account_id for account_id, _ in pairs]
+            partner_ids = [partner_id for _, partner_id in pairs]
+            pool.accounts.update(ai_partner=None)
+            if partner_ids:
+                ChatDemoAccount.objects.filter(
+                    pk__in=partner_ids, ai_partner_id__in=disabled_account_ids
+                ).update(ai_partner=None)
+
+        transaction.on_commit(_enqueue_ai_chat_advance)
+
+    if pool.is_enabled:
+        messages.success(request, f"تم تنشيط توزيعة {pool.template.name}؛ ستعود بوتاتها للعمل حسب إعداد النظام.")
+    else:
+        messages.success(request, f"تم إيقاف توزيعة {pool.template.name}؛ لن تُرسل بوتاتها رسائل أو تُنشأ لها بدائل.")
+    return redirect(_ai_accounts_page_url(pool.group_id))
 
 
 @staff_required
@@ -692,11 +778,18 @@ def demo_chat_account_regenerate_name(request, pk):
 @staff_required
 @require_POST
 def demo_chat_account_delete(request, pk):
-    account = get_object_or_404(ChatDemoAccount.objects.select_related("group"), pk=pk)
-    group_id = account.group_id
-    display_name = account.display_name
-    is_ai = account.is_ai
-    account.delete()
+    group_id = get_object_or_404(ChatDemoAccount.objects.only("group_id"), pk=pk).group_id
+    with transaction.atomic():
+        get_object_or_404(ChatGroup.objects.select_for_update(), pk=group_id)
+        account = get_object_or_404(
+            ChatDemoAccount.objects.select_for_update().select_related("group"), pk=pk
+        )
+        group_id = account.group_id
+        display_name = account.display_name
+        is_ai = account.is_ai
+        account.delete()
+        if is_ai:
+            transaction.on_commit(_enqueue_ai_chat_advance)
     messages.success(request, f"تم حذف هوية {display_name}. بقيت رسائلها السابقة محفوظة في المجموعة.")
     return redirect(_ai_accounts_page_url(group_id) if is_ai else _demo_accounts_page_url(group_id))
 

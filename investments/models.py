@@ -899,6 +899,7 @@ class AIBotTemplate(models.Model):
 class AIBotPool(models.Model):
     group = models.ForeignKey(ChatGroup, on_delete=models.CASCADE, related_name="ai_bot_pools")
     template = models.ForeignKey(AIBotTemplate, on_delete=models.PROTECT, related_name="pools")
+    is_enabled = models.BooleanField("تفعيل التوزيعة", default=True)
     desired_count = models.PositiveSmallIntegerField("عدد البوتات المطلوبة", default=1)
     replacement_min_seconds = models.PositiveSmallIntegerField("أقل انتظار قبل البديل (ثانية)", default=5)
     replacement_max_seconds = models.PositiveSmallIntegerField("أعلى انتظار قبل البديل (ثانية)", default=60)

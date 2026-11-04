@@ -518,7 +518,7 @@ def create_ai_chat_message(account_id, text, reply_to_id):
     account = ChatDemoAccount.objects.select_for_update(of=("self",)).select_related(
         "group", "bot_pool", "bot_pool__created_by"
     ).filter(pk=account_id, is_ai=True, ai_state="ACTIVE").first()
-    if account is None or not account.group.is_active or account.bot_pool is None:
+    if account is None or not account.group.is_active or account.bot_pool is None or not account.bot_pool.is_enabled:
         raise ChatRuleError("حساب الذكاء الاصطناعي غير متاح الآن.")
     if account.group.message_mode == ChatGroup.MessageMode.LOCKED:
         raise ChatRuleError("مجموعة المحادثة مقفلة.")

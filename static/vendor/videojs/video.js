@@ -130,6 +130,18 @@ import"./i18n-BfZDJOyu.js";import{n as e}from"./shadow-styles-9eM0EVFC.js";impor
 <media-tooltip trigger="vjs-iSAklLIk-0-4-trigger" side="top" class="media-popup media-popup-safe-area media-popup-transition media-popup-surface media-tooltip">
 <media-text token="menu.settings">Settings</media-text>
 </media-tooltip>
+<media-fullscreen-button class="media-button media-fullscreen-button" id="vjs-iSAklLIk-0-8-trigger">
+<media-icon name="fullscreen-enter" class="media-button-icon media-fullscreen-button-enter-icon">
+</media-icon>
+<media-icon name="fullscreen-exit" class="media-button-icon media-fullscreen-button-exit-icon">
+</media-icon>
+</media-fullscreen-button>
+<media-tooltip trigger="vjs-iSAklLIk-0-8-trigger" side="top" class="media-popup media-popup-safe-area media-popup-transition media-popup-surface media-tooltip">
+<media-tooltip-label>
+</media-tooltip-label>
+<media-tooltip-shortcut class="media-tooltip-shortcut">
+</media-tooltip-shortcut>
+</media-tooltip>
 <media-menu side="top" align="center" class="media-popup media-popup-surface media-menu-popup media-menu-resizable-popup" id="vjs-28BtKs3v-0-popup">
 <media-menu-content class="media-menu-content">
 <media-menu-item commandfor="vjs-ZGpCKm5h-0-content" class="media-menu-trigger-item">
@@ -269,56 +281,7 @@ import"./i18n-BfZDJOyu.js";import{n as e}from"./shadow-styles-9eM0EVFC.js";impor
 </media-menu-content>
 </media-menu>
 </media-controls-group>
-<media-controls-group class="video-controls-secondary">
-<media-cast-button class="media-button media-cast-button" id="vjs-iSAklLIk-0-5-trigger">
-<media-icon name="cast-enter" class="media-button-icon media-cast-button-enter-icon">
-</media-icon>
-<media-icon name="cast-exit" class="media-button-icon media-cast-button-exit-icon">
-</media-icon>
-</media-cast-button>
-<media-tooltip trigger="vjs-iSAklLIk-0-5-trigger" side="top" class="media-popup media-popup-safe-area media-popup-transition media-popup-surface media-tooltip">
-<media-tooltip-label>
-</media-tooltip-label>
-<media-tooltip-shortcut class="media-tooltip-shortcut">
-</media-tooltip-shortcut>
-</media-tooltip>
-<media-airplay-button class="media-button media-airplay-button" id="vjs-iSAklLIk-0-6-trigger">
-<media-icon name="airplay-enter" class="media-button-icon media-airplay-button-enter-icon">
-</media-icon>
-<media-icon name="airplay-exit" class="media-button-icon media-airplay-button-exit-icon">
-</media-icon>
-</media-airplay-button>
-<media-tooltip trigger="vjs-iSAklLIk-0-6-trigger" side="top" class="media-popup media-popup-safe-area media-popup-transition media-popup-surface media-tooltip">
-<media-tooltip-label>
-</media-tooltip-label>
-<media-tooltip-shortcut class="media-tooltip-shortcut">
-</media-tooltip-shortcut>
-</media-tooltip>
-<media-pip-button class="media-button media-pip-button" id="vjs-iSAklLIk-0-7-trigger">
-<media-icon name="pip-enter" class="media-button-icon media-pip-button-enter-icon">
-</media-icon>
-<media-icon name="pip-exit" class="media-button-icon media-pip-button-exit-icon">
-</media-icon>
-</media-pip-button>
-<media-tooltip trigger="vjs-iSAklLIk-0-7-trigger" side="top" class="media-popup media-popup-safe-area media-popup-transition media-popup-surface media-tooltip">
-<media-tooltip-label>
-</media-tooltip-label>
-<media-tooltip-shortcut class="media-tooltip-shortcut">
-</media-tooltip-shortcut>
-</media-tooltip>
-<media-fullscreen-button class="media-button media-fullscreen-button" id="vjs-iSAklLIk-0-8-trigger">
-<media-icon name="fullscreen-enter" class="media-button-icon media-fullscreen-button-enter-icon">
-</media-icon>
-<media-icon name="fullscreen-exit" class="media-button-icon media-fullscreen-button-exit-icon">
-</media-icon>
-</media-fullscreen-button>
-<media-tooltip trigger="vjs-iSAklLIk-0-8-trigger" side="top" class="media-popup media-popup-safe-area media-popup-transition media-popup-surface media-tooltip">
-<media-tooltip-label>
-</media-tooltip-label>
-<media-tooltip-shortcut class="media-tooltip-shortcut">
-</media-tooltip-shortcut>
-</media-tooltip>
-</media-controls-group>
+
 </media-tooltip-group>
 </media-controls-content>
 </media-controls>

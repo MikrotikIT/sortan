@@ -53,6 +53,7 @@ urlpatterns = [
     path("management/ai-chat-accounts/templates/create/", chat_management_views.ai_bot_template_create, name="management_ai_bot_template_create"),
     path("management/ai-chat-accounts/templates/<int:pk>/edit/", chat_management_views.ai_bot_template_edit, name="management_ai_bot_template_edit"),
     path("management/ai-chat-accounts/pools/save/", chat_management_views.ai_bot_pool_save, name="management_ai_bot_pool_save"),
+    path("management/ai-chat-accounts/pools/<int:pool_id>/toggle/", chat_management_views.ai_bot_pool_toggle, name="management_ai_bot_pool_toggle"),
     path("management/ai-chat-accounts/models/", chat_management_views.openrouter_model_list, name="management_openrouter_model_list"),
     path("management/ai-chat-accounts/group/<int:group_id>/delete-all/", chat_management_views.ai_chat_accounts_delete_group, name="management_ai_chat_accounts_delete_group"),
     path("management/demo-chat-accounts/<int:pk>/edit/", chat_management_views.demo_chat_account_edit, name="management_demo_chat_account_edit"),

@@ -412,11 +412,13 @@ class AIChatSettingsForm(forms.Form):
 
 class AIBotTemplateForm(forms.ModelForm):
     wait_min_seconds = forms.IntegerField(
-        label="أقل انتظار قبل الإرسال (ثانية)", min_value=1, max_value=3600,
+        label="أقل تأخير بين الرسائل (ثانية)", min_value=1, max_value=3600,
+        help_text="مهلة عشوائية مستقلة بين رسالة البوت والرسالة التالية؛ تضاف إلى وقت القراءة والكتابة.",
         widget=forms.NumberInput(attrs={"min": 1, "max": 3600}),
     )
     wait_max_seconds = forms.IntegerField(
-        label="أعلى انتظار قبل الإرسال (ثانية)", min_value=1, max_value=3600,
+        label="أعلى تأخير بين الرسائل (ثانية)", min_value=1, max_value=3600,
+        help_text="مهلة عشوائية مستقلة بين رسالة البوت والرسالة التالية؛ تضاف إلى وقت القراءة والكتابة.",
         widget=forms.NumberInput(attrs={"min": 1, "max": 3600}),
     )
     reading_words_per_second = forms.DecimalField(
@@ -452,8 +454,8 @@ class AIBotTemplateForm(forms.ModelForm):
             "role": "وظيفة الحساب",
             "model_id": "موديل OpenRouter",
             "system_prompt": "تعليمات الشخصية",
-            "wait_min_seconds": "أقل انتظار قبل الإرسال (ثانية)",
-            "wait_max_seconds": "أعلى انتظار قبل الإرسال (ثانية)",
+            "wait_min_seconds": "أقل تأخير بين الرسائل (ثانية)",
+            "wait_max_seconds": "أعلى تأخير بين الرسائل (ثانية)",
             "reading_words_per_second": "سرعة القراءة (كلمة/ثانية)",
             "writing_words_per_second": "سرعة الكتابة (كلمة/ثانية)",
             "lifetime_minutes": "عمر البوت (دقيقة)",

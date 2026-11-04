@@ -3,7 +3,7 @@
   const list = root?.querySelector("[data-chat-messages]");
   const listViewport = root?.querySelector(".chat-message-list-wrap");
   if (!root || !list || !listViewport) return;
-  const videoJsEntryUrl = new URL("../vendor/videojs/video.js", document.currentScript?.src || `${window.location.origin}/static/js/group-chat.js`).href;
+  const videoJsEntryUrl = new URL("../vendor/videojs/video.js?v=10.2.0-controls-1", document.currentScript?.src || `${window.location.origin}/static/js/group-chat.js`).href;
   const videoJsHlsUrl = new URL("../vendor/videojs/media/hlsjs-video.js", document.currentScript?.src || `${window.location.origin}/static/js/group-chat.js`).href;
   let videoJsLoaderPromise = null;
 
@@ -1026,45 +1026,23 @@
   };
 
   const addVideoQualityPicker = (container, videoPlayer, media) => {
-    let store = null;
-    try {
-      store = videoPlayer?.store || null;
-    } catch {
-      store = null;
-    }
+    const store = videoPlayer.store;
     const renditionList = media?.videoRenditions;
 
     const picker = document.createElement("div");
     picker.className = "chat-video-quality-picker";
-    const actions = document.createElement("div");
-    actions.className = "chat-video-quality-actions";
     const trigger = document.createElement("button");
     trigger.type = "button";
     trigger.className = "chat-video-quality-trigger";
     trigger.setAttribute("aria-haspopup", "menu");
     trigger.setAttribute("aria-expanded", "false");
-    trigger.setAttribute("aria-label", "إعدادات الفيديو والجودة");
-    trigger.title = "إعدادات الفيديو والجودة";
-    trigger.append(
-      createSvgIcon("chat-video-quality-icon", ["M4 6h16", "M4 12h16", "M4 18h16"], [
-        { cx: 8, cy: 6, r: 1.5 },
-        { cx: 15, cy: 12, r: 1.5 },
-        { cx: 10, cy: 18, r: 1.5 },
-      ]),
-      document.createTextNode("إعدادات"),
-    );
-    const fullscreenButton = document.createElement("button");
-    fullscreenButton.type = "button";
-    fullscreenButton.className = "chat-video-expand-button";
-    fullscreenButton.setAttribute("aria-label", "تكبير الفيديو");
-    fullscreenButton.title = "عرض الفيديو بملء الشاشة";
+    trigger.textContent = "الجودة";
     const menu = document.createElement("div");
     menu.className = "chat-video-quality-menu";
     menu.setAttribute("role", "menu");
     menu.setAttribute("aria-label", "اختيار جودة الفيديو");
     menu.hidden = true;
-    actions.append(trigger, fullscreenButton);
-    picker.append(actions, menu);
+    picker.append(trigger, menu);
     container.append(picker);
 
     const closeMenu = () => {
@@ -1076,23 +1054,8 @@
       menu.hidden = false;
       trigger.setAttribute("aria-expanded", "true");
     };
-    const isFullscreen = () => Boolean(
-      store?.state?.isFullscreen ||
-      (videoPlayer && document.fullscreenElement === videoPlayer) ||
-      document.fullscreenElement === container ||
-      document.fullscreenElement === media ||
-      media?.webkitDisplayingFullscreen,
-    );
-    const updateFullscreenButton = () => {
-      const active = isFullscreen();
-      fullscreenButton.setAttribute("aria-label", active ? "تصغير الفيديو" : "تكبير الفيديو");
-      fullscreenButton.title = active ? "الخروج من ملء الشاشة" : "عرض الفيديو بملء الشاشة";
-      fullscreenButton.replaceChildren(createSvgIcon("chat-video-expand-icon", active
-        ? ["M8 3v5H3", "M16 3v5h5", "M21 16h-5v5", "M3 16h5v5"]
-        : ["M8 3H5a2 2 0 0 0-2 2v3", "M16 3h3a2 2 0 0 1 2 2v3", "M21 16v3a2 2 0 0 1-2 2h-3", "M8 21H5a2 2 0 0 1-2-2v-3"]));
-    };
     const updateOptions = () => {
-      const state = store?.state;
+      const state = store.state;
       const playerRenditions = Array.isArray(state?.videoRenditionList) ? state.videoRenditionList : [];
       const renditions = playerRenditions.length
         ? playerRenditions
@@ -1100,18 +1063,19 @@
       if (!renditions.length) {
         picker.hidden = false;
         trigger.disabled = true;
+        trigger.textContent = "الجودة";
         trigger.title = "جارٍ تحميل خيارات الجودة";
         menu.replaceChildren();
         closeMenu();
-        updateFullscreenButton();
         return;
       }
 
       picker.hidden = false;
       trigger.disabled = renditions.length < 2;
+      trigger.textContent = renditions.length > 1 ? "الجودة" : `الجودة · ${renditionLabel(renditions[0])}`;
       trigger.title = renditions.length > 1
-        ? "إعدادات الفيديو واختيار الجودة"
-        : `إعدادات الفيديو؛ الجودة المتاحة ${renditionLabel(renditions[0])}`;
+        ? "تغيير جودة الفيديو"
+        : "يتوفر مستوى جودة واحد لهذا الفيديو";
       menu.replaceChildren();
 
       const choices = [
@@ -1131,7 +1095,7 @@
         option.textContent = choice.label;
         option.addEventListener("click", (event) => {
           event.stopPropagation();
-          if (typeof store?.state?.selectVideoRendition === "function") {
+          if (typeof store.state?.selectVideoRendition === "function") {
             store.state.selectVideoRendition(choice.id);
           } else if (renditionList) {
             renditionList.selectedIndex = choice.id === "auto"
@@ -1143,45 +1107,6 @@
         });
         menu.append(option);
       });
-      updateFullscreenButton();
-    };
-
-    const requestFullscreen = async (event) => {
-      event.stopPropagation();
-      closeMenu();
-      const state = store?.state;
-      try {
-        if (isFullscreen()) {
-          if (typeof state?.exitFullscreen === "function") await state.exitFullscreen();
-          else if (document.fullscreenElement && document.exitFullscreen) await document.exitFullscreen();
-          else if (media?.webkitExitFullscreen) media.webkitExitFullscreen();
-          else throw new Error("Fullscreen exit is unavailable.");
-        } else if (typeof state?.requestFullscreen === "function") {
-          await state.requestFullscreen();
-        } else if (videoPlayer?.requestFullscreen) {
-          await videoPlayer.requestFullscreen();
-        } else if (media?.requestFullscreen) {
-          await media.requestFullscreen();
-        } else if (media?.webkitEnterFullscreen) {
-          media.webkitEnterFullscreen();
-        } else throw new Error("Fullscreen is unavailable.");
-      } catch {
-        const nativeVideo = media?.shadowRoot?.querySelector("video") || media?.querySelector("video") || media;
-        try {
-          if (nativeVideo?.webkitDisplayingFullscreen && nativeVideo.webkitExitFullscreen) {
-            nativeVideo.webkitExitFullscreen();
-          } else if (nativeVideo?.webkitEnterFullscreen) {
-            nativeVideo.webkitEnterFullscreen();
-          } else if (nativeVideo?.requestFullscreen) {
-            await nativeVideo.requestFullscreen();
-          } else {
-            showError("تعذر تكبير الفيديو على هذا الجهاز.");
-          }
-        } catch {
-          showError("تعذر تكبير الفيديو على هذا الجهاز.");
-        }
-      }
-      updateFullscreenButton();
     };
 
     trigger.addEventListener("click", (event) => {
@@ -1189,7 +1114,6 @@
       if (menu.hidden) openMenu();
       else closeMenu();
     });
-    fullscreenButton.addEventListener("click", requestFullscreen);
     picker.addEventListener("click", (event) => event.stopPropagation());
     container.addEventListener("click", closeMenu);
     picker.addEventListener("keydown", (event) => {
@@ -1199,19 +1123,13 @@
       trigger.focus();
     });
 
-    const unsubscribe = typeof store?.subscribe === "function" ? store.subscribe(updateOptions) : null;
+    const unsubscribe = typeof store.subscribe === "function" ? store.subscribe(updateOptions) : null;
     const listEvents = ["change", "addrendition", "removerendition"];
     listEvents.forEach((eventName) => renditionList?.addEventListener(eventName, updateOptions));
-    document.addEventListener("fullscreenchange", updateFullscreenButton);
-    media?.addEventListener("webkitbeginfullscreen", updateFullscreenButton);
-    media?.addEventListener("webkitendfullscreen", updateFullscreenButton);
     updateOptions();
     const cleanup = () => {
       unsubscribe?.();
       listEvents.forEach((eventName) => renditionList?.removeEventListener(eventName, updateOptions));
-      document.removeEventListener("fullscreenchange", updateFullscreenButton);
-      media?.removeEventListener("webkitbeginfullscreen", updateFullscreenButton);
-      media?.removeEventListener("webkitendfullscreen", updateFullscreenButton);
       picker.remove();
     };
     container._chatQualityPickerCleanup = cleanup;
@@ -1259,7 +1177,6 @@
         nativeVideo.src = src;
         nativeVideo.addEventListener("error", showPlaybackError, { once: true });
         player.append(nativeVideo);
-        qualityPickerCleanup = addVideoQualityPicker(player, null, nativeVideo);
         return;
       }
 
@@ -1281,7 +1198,7 @@
       skin.append(media);
       videoJsPlayer.append(skin);
       player.append(videoJsPlayer);
-      qualityPickerCleanup = addVideoQualityPicker(player, videoJsPlayer, media);
+      if (useHls) qualityPickerCleanup = addVideoQualityPicker(player, videoJsPlayer, media);
     };
     const useOriginal = () => {
       if (!message.video_fallback_url || originalSourceSelected) {

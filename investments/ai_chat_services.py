@@ -75,10 +75,12 @@ def _mark_dead(bot, now):
         if partner:
             partner.ai_partner = None
             if partner.ai_state == "ACTIVE":
-                partner.ai_next_action_at = now + timedelta(seconds=_random_wait(partner))
+                partner.ai_next_action_at = now + timedelta(seconds=2)
             partner.save(update_fields=("ai_partner", "ai_next_action_at"))
     pool = bot.bot_pool
-    if pool and pool.desired_count > pool.accounts.filter(is_ai=True, ai_state__in=("ACTIVE", "PAUSED")).count():
+    if pool and pool.is_enabled and pool.desired_count > pool.accounts.filter(
+        is_ai=True, ai_state__in=("ACTIVE", "PAUSED")
+    ).count():
         if not pool.next_replacement_at:
             pool.next_replacement_at = now + timedelta(
                 seconds=randint(pool.replacement_min_seconds, pool.replacement_max_seconds)
@@ -149,11 +151,11 @@ def _pair_unassigned_bots(group_id):
         ChatDemoAccount.objects.filter(pk=partner_id, ai_partner_id=bot.pk).update(ai_partner=None)
     askers = list(ChatDemoAccount.objects.select_for_update().filter(
         group_id=group_id, is_ai=True, ai_role="asker", ai_partner__isnull=True,
-        ai_state__in=("ACTIVE", "PAUSED"),
+        ai_state__in=("ACTIVE", "PAUSED"), bot_pool__is_enabled=True,
     ).order_by("pk"))
     responders = list(ChatDemoAccount.objects.select_for_update().filter(
         group_id=group_id, is_ai=True, ai_role="bot_responder", ai_partner__isnull=True,
-        ai_state__in=("ACTIVE", "PAUSED"),
+        ai_state__in=("ACTIVE", "PAUSED"), bot_pool__is_enabled=True,
     ).order_by("pk"))
     for asker, responder in zip(askers, responders):
         asker.ai_partner_id = responder.pk
@@ -178,7 +180,8 @@ def _maintain_group(group_id, settings_row, now):
             if not settings_row.active_time_only and now >= bot.created_at + timedelta(seconds=bot.ai_lifetime_seconds):
                 _mark_dead(bot, now)
                 continue
-            if running:
+            pool_running = running and bot.bot_pool_id is not None and bot.bot_pool.is_enabled
+            if pool_running:
                 if bot.ai_state == "PAUSED":
                     bot.ai_state = "ACTIVE"
                     bot.ai_last_active_at = now
@@ -211,7 +214,7 @@ def _maintain_group(group_id, settings_row, now):
 
         if running:
             pools = AIBotPool.objects.select_for_update().select_related("template").filter(
-                group=group, template__is_active=True
+                group=group, is_enabled=True, template__is_active=True
             ).order_by("pk")
             for pool in pools:
                 occupied = pool.accounts.filter(is_ai=True, ai_state__in=("ACTIVE", "PAUSED")).count()
@@ -390,7 +393,7 @@ def _record_ai_generation_usage(bot, usage):
 def _reserve_due_bot(now):
     ids = ChatDemoAccount.objects.filter(
         is_ai=True, ai_state="ACTIVE", ai_next_action_at__lte=now,
-        group__is_active=True, bot_pool__isnull=False,
+        group__is_active=True, bot_pool__isnull=False, bot_pool__is_enabled=True,
     ).order_by("ai_next_action_at", "pk").values_list("pk", flat=True)[:40]
     for account_id in ids:
         with transaction.atomic():
@@ -410,23 +413,31 @@ def _reserve_due_bot(now):
                 if target:
                     reply_to_id = target.pk
                 elif not bot.ai_partner or bot.ai_partner.ai_state != "ACTIVE":
-                    bot.ai_next_action_at = now + timedelta(seconds=_random_wait(bot))
-                    bot.save(update_fields=("ai_next_action_at",))
+                    bot.ai_next_action_at = now + timedelta(seconds=2)
+                    bot.ai_pending_reply_to = None
+                    bot.save(update_fields=("ai_next_action_at", "ai_pending_reply_to"))
                     continue
             if target is None and bot.ai_role == "asker":
                 last_mine = ChatMessage.objects.filter(demo_account=bot).order_by("-pk").first()
                 if last_mine and not ChatMessage.objects.filter(
                     group_id=bot.group_id, demo_account=bot.ai_partner, reply_to=last_mine
                 ).exists():
-                    bot.ai_next_action_at = now + timedelta(seconds=_random_wait(bot))
-                    bot.save(update_fields=("ai_next_action_at",))
+                    bot.ai_next_action_at = now + timedelta(seconds=2)
+                    bot.ai_pending_reply_to = None
+                    bot.save(update_fields=("ai_next_action_at", "ai_pending_reply_to"))
                     continue
             if target is None:
                 target, reply_to_id = _reply_target_for(bot)
                 if bot.ai_role != "asker" and target is None:
-                    bot.ai_next_action_at = now + timedelta(seconds=max(2, _random_wait(bot)))
-                    bot.save(update_fields=("ai_next_action_at",))
+                    bot.ai_next_action_at = now + timedelta(seconds=2)
+                    bot.ai_pending_reply_to = None
+                    bot.save(update_fields=("ai_next_action_at", "ai_pending_reply_to"))
                     continue
+            if target is not None and bot.ai_pending_reply_to_id != target.pk:
+                bot.ai_pending_reply_to = target
+                bot.ai_next_action_at = now + timedelta(seconds=_random_wait(bot))
+                bot.save(update_fields=("ai_pending_reply_to", "ai_next_action_at"))
+                continue
             bot.ai_next_action_at = now + timedelta(seconds=45)
             bot.save(update_fields=("ai_next_action_at",))
             return bot.pk, target, reply_to_id, None
@@ -457,16 +468,20 @@ def advance_ai_chat_bots():
         return {"sent": 0, "running": True}
     bot_id, target, reply_to_id, pending_text = reserved
     bot = ChatDemoAccount.objects.select_related("bot_pool__created_by").get(pk=bot_id)
+    if not bot.bot_pool_id or not bot.bot_pool.is_enabled:
+        return {"sent": 0, "running": True}
     try:
         is_pending = pending_text is not None
         text = pending_text if is_pending else _generate_response(bot, target, settings_row)
         if not text:
             raise ValueError("The AI model returned an empty chat message")
         latest_settings = AIChatSettings.objects.filter(pk=1).first()
-        latest_bot = ChatDemoAccount.objects.select_related("group").filter(pk=bot.pk).first()
+        latest_bot = ChatDemoAccount.objects.select_related("group", "bot_pool").filter(pk=bot.pk).first()
         if (
             not latest_bot
             or latest_bot.ai_state != "ACTIVE"
+            or not latest_bot.bot_pool_id
+            or not latest_bot.bot_pool.is_enabled
             or not _should_run(latest_settings, latest_bot.group, timezone.now())
         ):
             if latest_bot and latest_bot.ai_state == "ACTIVE":
@@ -478,12 +493,14 @@ def advance_ai_chat_bots():
             delay_seconds = _reading_and_writing_delay(latest_bot, target, text)
             send_at = timezone.now() + timedelta(seconds=delay_seconds)
             with transaction.atomic():
-                scheduled_bot = ChatDemoAccount.objects.select_for_update().select_related("group").filter(
+                scheduled_bot = ChatDemoAccount.objects.select_for_update().select_related("group", "bot_pool").filter(
                     pk=latest_bot.pk, ai_state="ACTIVE"
                 ).first()
                 current_settings = AIChatSettings.objects.filter(pk=1).first()
                 if (
                     not scheduled_bot
+                    or not scheduled_bot.bot_pool_id
+                    or not scheduled_bot.bot_pool.is_enabled
                     or not _should_run(current_settings, scheduled_bot.group, timezone.now())
                 ):
                     if scheduled_bot:
@@ -502,7 +519,7 @@ def advance_ai_chat_bots():
         with transaction.atomic():
             message = create_ai_chat_message(bot.pk, text, reply_to_id)
             ChatDemoAccount.objects.filter(pk=bot.pk, ai_state="ACTIVE").update(
-                ai_next_action_at=timezone.now() + timedelta(seconds=_random_wait(bot)),
+                ai_next_action_at=timezone.now() + timedelta(seconds=2),
                 ai_pending_text="",
                 ai_pending_reply_to=None,
             )
