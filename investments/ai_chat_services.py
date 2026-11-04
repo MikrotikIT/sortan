@@ -10,7 +10,8 @@ from urllib.request import Request, urlopen
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.conf import settings
-from django.db import F, transaction
+from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
 from django.utils.html import strip_tags
 
