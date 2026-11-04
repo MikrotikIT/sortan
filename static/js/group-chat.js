@@ -743,7 +743,7 @@
         audioRecordLabel.textContent = `إيقاف ${minutes}:${seconds}`;
         audioRecordButton.setAttribute("aria-label", `إيقاف تسجيل الرسالة الصوتية، المدة ${minutes}:${seconds}`);
       }, 500);
-    } catch {
+    } catch (error) {
       audioStream?.getTracks().forEach((track) => track.stop());
       audioStream = null;
       audioRecorder = null;
@@ -751,7 +751,16 @@
       audioRecordButton.setAttribute("aria-label", "تسجيل رسالة صوتية");
       audioRecordButton.title = "تسجيل رسالة صوتية";
       syncComposerActions();
-      showError("لم نتمكن من تشغيل الميكروفون. اسمح للموقع باستخدامه ثم أعد المحاولة.");
+      console.error("Chat microphone recording failed", error);
+      const errorName = error?.name;
+      const errorMessage = errorName === "NotAllowedError"
+        ? "لم يسمح Android لـ Kodi باستخدام الميكروفون. تحقق من إذن الميكروفون للتطبيق ثم أعد المحاولة."
+        : errorName === "NotReadableError" || errorName === "AbortError"
+          ? "تعذر فتح الميكروفون. أغلق أي تطبيق يستخدمه ثم أعد المحاولة."
+          : errorName === "SecurityError"
+            ? "التسجيل يحتاج اتصالًا آمنًا. افتح المحادثة عبر HTTPS ثم أعد المحاولة."
+            : "لم نتمكن من تشغيل الميكروفون. تحقق من إذن Kodi بالميكروفون ثم أعد المحاولة.";
+      showError(errorMessage);
     }
   };
 
