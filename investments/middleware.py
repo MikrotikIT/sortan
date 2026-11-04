@@ -18,6 +18,8 @@ class ApprovalRequiredMiddleware:
         "notification_mark_read",
         "notifications_mark_all_read",
         "notification_unread_count",
+        "push_device_register",
+        "push_device_unregister",
     }
 
     def __init__(self, get_response):
