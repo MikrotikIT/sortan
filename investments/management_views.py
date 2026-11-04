@@ -25,6 +25,7 @@ from .management_forms import CustomerBlockForm, CustomerInfoForm, CustomerPassw
 from .demo_film_titles import DEMO_FILM_TITLES
 from .firebase_credentials import save_service_account_upload, service_account_status
 from .models import DemoInvestment, Deposit, Film, InternalBalanceCredit, Investment, InvestmentVoucher, JoinApplication, ServiceHeartbeat, SupportOption, User, UserNotification, Wallet, WalletSyncRun, WithdrawalRequest
+from .models import ChatGroup, ChatGroupPresence
 from .push_services import queue_bulk_notification_push
 from .services import approve_deposit, deposit_status_for_amount, get_platform_settings, notify_balance_received, notify_deposit_event, pay_withdrawal, reject_deposit, reject_withdrawal
 from .wallet_services import decrypt_private_key, ensure_wallet, sync_all_wallets
@@ -87,6 +88,7 @@ def _paginate(request, queryset, per_page=50):
 
 @staff_required
 def dashboard(request):
+    online_people_count, online_group_rows = _management_online_presence()
     return render(
         request,
         "management/dashboard.html",
@@ -100,10 +102,56 @@ def dashboard(request):
             "pending_withdrawal_count": WithdrawalRequest.objects.filter(status=WithdrawalRequest.Status.PENDING).count(),
             "wallet_count": Wallet.objects.count(),
             "wallet_total": Wallet.objects.aggregate(total=Sum("usdt_balance"))["total"] or 0,
+            "online_people_count": online_people_count,
+            "online_group_rows": online_group_rows,
             "recent_investments": Investment.objects.select_related("user", "film").order_by("-invested_at")[:6],
             "recent_withdrawals": WithdrawalRequest.objects.select_related("user").order_by("-requested_at")[:5],
         },
     )
+
+
+def _management_online_presence():
+    active_since = timezone.now() - timedelta(seconds=90)
+    eligible_users = (
+        Q(live_presences__user__is_staff=True)
+        | Q(live_presences__user__approval_status="approved")
+    )
+    live_presence_filter = Q(
+        live_presences__last_seen_at__gte=active_since,
+        live_presences__user__is_active=True,
+        live_presences__user__is_fake_account=False,
+    ) & eligible_users
+    online_group_rows = list(
+        ChatGroup.objects.filter(is_active=True)
+        .annotate(
+            online_count=Count(
+                "live_presences__user_id",
+                filter=live_presence_filter,
+                distinct=True,
+            )
+        )
+        .order_by("title", "pk")
+        .values("pk", "title", "online_count")
+    )
+    online_people_count = (
+        ChatGroupPresence.objects.filter(
+            group__is_active=True,
+            last_seen_at__gte=active_since,
+            user__is_active=True,
+            user__is_fake_account=False,
+        )
+        .filter(Q(user__is_staff=True) | Q(user__approval_status="approved"))
+        .values("user_id")
+        .distinct()
+        .count()
+    )
+    return online_people_count, online_group_rows
+
+
+@staff_required
+def management_online_presence(request):
+    online_people_count, online_group_rows = _management_online_presence()
+    return JsonResponse({"total": online_people_count, "groups": online_group_rows})
 
 
 @staff_required

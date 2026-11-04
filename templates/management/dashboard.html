@@ -1,4 +1,5 @@
 {% extends 'management/base.html' %}
+{% load static %}
 {% block title %}إدارة Kodi TV{% endblock %}
 {% block content %}
 <section class="management-heading"><div><span class="eyebrow">مساحة المشرف</span><h1>لوحة الإدارة</h1><p>إدارة مشاريع الأفلام وحسابات المستثمرين والطلبات.</p></div><a class="btn btn-primary" href="{% url 'management_film_create' %}">＋ إضافة فيلم</a></section>
@@ -8,6 +9,16 @@
   <a class="management-stat" href="{% url 'management_investments' %}"><span>استثمارات نشطة</span><strong>{{ active_investment_count }}</strong><small>قيد الاستثمار</small></a>
   <a class="management-stat stat-attention" href="{% url 'management_deposits' %}"><span>إيداعات للمراجعة</span><strong>{{ pending_deposit_count }}</strong><small>تحتاج إجراء</small></a>
   <a class="management-stat stat-attention" href="{% url 'management_withdrawals' %}"><span>طلبات سحب</span><strong>{{ pending_withdrawal_count }}</strong><small>تحتاج مراجعة</small></a>
+</section>
+<section class="management-panel live-presence-panel" data-live-presence-url="{% url 'management_online_presence' %}" aria-labelledby="live-presence-title">
+  <div class="management-panel-head live-presence-heading">
+    <div><span class="eyebrow">اتصال مجموعات الدردشة</span><h2 id="live-presence-title">الأشخاص الحقيقيون المتصلون</h2><small>يُحسب كل شخص مرة واحدة؛ الحسابات التجريبية مستبعدة.</small></div>
+    <div class="live-presence-total"><span class="live-presence-indicator" aria-hidden="true"></span><strong data-online-total>{{ online_people_count }}</strong><span>شخص متصل</span></div>
+  </div>
+  <div class="admin-table-wrap live-presence-table-wrap"><table class="admin-table"><thead><tr><th>المجموعة</th><th>الأشخاص المتصلون</th></tr></thead><tbody data-online-groups>
+    {% for row in online_group_rows %}<tr><td>{{ row.title }}</td><td><span class="live-presence-count">{{ row.online_count }}</span></td></tr>{% empty %}<tr><td colspan="2" class="live-presence-empty">لا توجد مجموعات نشطة.</td></tr>{% endfor %}
+  </tbody></table></div>
+  <p class="live-presence-note">يظهر الاتصال عند نشاط WebSocket في المجموعة خلال آخر 90 ثانية، وتُحدّث الأعداد تلقائيًا.</p>
 </section>
 <section class="management-columns">
   <article class="management-panel"><div class="management-panel-head"><div><span class="eyebrow">آخر النشاط</span><h2>استثمارات حديثة</h2></div><a href="{% url 'management_investments' %}">عرض الكل ←</a></div>{% if recent_investments %}<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>المستخدم</th><th>الفيلم</th><th>المبلغ</th><th>الحالة</th></tr></thead><tbody>{% for item in recent_investments %}<tr><td dir="ltr">{{ item.user.phone }}</td><td>{{ item.film_title }}</td><td>{{ item.amount|floatformat:2 }} USDT</td><td>{% if item.status == 'completed' %}<span class="status status-done">مكتمل</span>{% else %}<span class="status status-pending">قيد الاستثمار</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="admin-empty">لا توجد استثمارات بعد.</div>{% endif %}</article>
@@ -24,3 +35,4 @@
   <a href="{% url 'management_deposits' %}"><span>＋</span><div><strong>إدارة الإيداعات</strong><small>تسجيل ومراجعة السجلات</small></div><b>←</b></a>
 </section>
 {% endblock %}
+{% block extra_js %}<script src="{% static 'js/management-live-presence.js' %}?v=1" defer></script>{% endblock %}

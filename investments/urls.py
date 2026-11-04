@@ -45,6 +45,7 @@ urlpatterns = [
     path("chat/messages/<int:pk>/attachment/", chat_views.chat_message_attachment, name="chat_message_attachment"),
     path("chat/messages/<int:pk>/video/<path:resource>", chat_views.chat_message_video_stream, name="chat_message_video_stream"),
     path("management/", management_views.dashboard, name="management_dashboard"),
+    path("management/online-presence/", management_views.management_online_presence, name="management_online_presence"),
     path("management/demo-chat-accounts/", chat_management_views.demo_chat_accounts, name="management_demo_chat_accounts"),
     path("management/demo-chat-accounts/create/", chat_management_views.demo_chat_accounts_create, name="management_demo_chat_accounts_create"),
     path("management/ai-chat-accounts/", chat_management_views.ai_chat_accounts, name="management_ai_chat_accounts"),
