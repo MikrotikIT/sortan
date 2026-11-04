@@ -1,7 +1,6 @@
 import json
 import logging
 import math
-import secrets
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 from random import randint
@@ -15,6 +14,7 @@ from django.db.models import F
 from django.utils import timezone
 from django.utils.html import strip_tags
 
+from .chat_names import new_chat_account_name
 from .chat_services import create_ai_chat_message
 from .models import AIBotPool, AIChatSettings, ChatDemoAccount, ChatGroup, ChatGroupPresence, ChatMessage
 
@@ -100,27 +100,22 @@ def _active_lifetime_elapsed(bot, now):
     return bot.ai_elapsed_active_seconds + current_run
 
 
-def _new_account_name(template):
-    suffix = "".join(secrets.choice(ARABIC_LETTERS) for _ in range(6))
-    return f"{template.name} {suffix}"[:120]
+def _new_account_name(reserved_names):
+    return new_chat_account_name(reserved_names)
 
 
 def _spawn_pool_account(pool, now):
     template = pool.template
-    account = None
-    for _ in range(20):
-        name = _new_account_name(template)
-        if not ChatDemoAccount.objects.filter(group_id=pool.group_id, display_name=name).exists():
-            account = ChatDemoAccount.objects.create(
-                group_id=pool.group_id,
-                display_name=name,
-                is_ai=True,
-                bot_pool=pool,
-            )
-            break
-    if account is None:
-        logger.error("Unable to allocate a unique display name for AI bot pool %s", pool.pk)
-        return None
+    reserved_names = {
+        name.casefold()
+        for name in ChatDemoAccount.objects.values_list("display_name", flat=True)
+    }
+    account = ChatDemoAccount.objects.create(
+        group_id=pool.group_id,
+        display_name=_new_account_name(reserved_names),
+        is_ai=True,
+        bot_pool=pool,
+    )
     account.ai_role = template.role
     account.ai_model_id = template.model_id
     account.ai_system_prompt = template.system_prompt

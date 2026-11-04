@@ -35,6 +35,7 @@ from .chat_services import (
     serialize_chat_message,
     set_demo_message_reaction,
 )
+from .chat_names import new_chat_account_name
 from .management_views import staff_required
 from .models import (
     AIBotPool,
@@ -455,9 +456,8 @@ def _new_ai_bot_account(group, template, pool, reserved_names, *, display_name=N
         try:
             display_name = _new_demo_chat_name(reserved_names)
         except ValueError:
-            letters = "ابتثجحخدذرزسشصضطظعغفقكلمنهوي"
             for _ in range(50):
-                candidate = f"{template.name} {''.join(choice(letters) for _ in range(6))}"
+                candidate = new_chat_account_name(set(reserved_names))
                 if candidate.casefold() not in reserved_names:
                     display_name = candidate
                     reserved_names.add(candidate.casefold())
