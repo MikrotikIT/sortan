@@ -494,7 +494,7 @@ def advance_ai_chat_bots():
             delay_seconds = _reading_and_writing_delay(latest_bot, target, text)
             send_at = timezone.now() + timedelta(seconds=delay_seconds)
             with transaction.atomic():
-                scheduled_bot = ChatDemoAccount.objects.select_for_update().select_related("group", "bot_pool").filter(
+                scheduled_bot = ChatDemoAccount.objects.select_for_update(of=("self",)).select_related("group", "bot_pool").filter(
                     pk=latest_bot.pk, ai_state="ACTIVE"
                 ).first()
                 current_settings = AIChatSettings.objects.filter(pk=1).first()
