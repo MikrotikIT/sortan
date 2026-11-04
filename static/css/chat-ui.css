@@ -1183,7 +1183,14 @@
   gap: 6px;
 }
 
+.chat-video-quality-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .chat-video-quality-trigger,
+.chat-video-expand-button,
 .chat-video-quality-option {
   min-height: 32px;
   padding: 6px 10px;
@@ -1198,7 +1205,35 @@
   backdrop-filter: blur(8px);
 }
 
+.chat-video-quality-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-video-quality-icon,
+.chat-video-expand-icon {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.chat-video-expand-button {
+  display: grid;
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  place-items: center;
+  padding: 0;
+}
+
 .chat-video-quality-trigger:hover,
+.chat-video-expand-button:hover,
 .chat-video-quality-option:hover,
 .chat-video-quality-option[aria-checked="true"] {
   border-color: rgb(255 255 255 / 38%);
@@ -1211,6 +1246,7 @@
 }
 
 .chat-video-quality-trigger:focus-visible,
+.chat-video-expand-button:focus-visible,
 .chat-video-quality-option:focus-visible {
   outline: 2px solid #75e0b9;
   outline-offset: 2px;
@@ -1235,6 +1271,12 @@
   border-color: transparent;
   background: transparent;
   text-align: start;
+}
+
+@media (min-width: 901px) and (pointer: fine) {
+  .chat-video-expand-button {
+    display: none;
+  }
 }
 
 .chat-videojs-player,
