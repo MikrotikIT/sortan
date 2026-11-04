@@ -314,6 +314,7 @@ def _generate_response(bot, target, settings_row):
         "model": model,
         "messages": [{"role": "system", "content": system_prompt}, *_prompt_messages(bot, target)],
         "temperature": 0.8,
+        "reasoning_effort": "none",
         "max_tokens": 240,
         "usage": {"include": True},
     }
@@ -331,10 +332,23 @@ def _generate_response(bot, target, settings_row):
     with urlopen(request, timeout=18) as response:
         payload = json.loads(response.read().decode("utf-8"))
     _record_ai_generation_usage(bot, payload.get("usage"))
-    content = payload.get("choices", [{}])[0].get("message", {}).get("content", "")
+    choices = payload.get("choices") or []
+    choice = choices[0] if choices and isinstance(choices[0], dict) else {}
+    response_message = choice.get("message") or {}
+    content = response_message.get("content", "")
     if isinstance(content, list):
         content = "".join(part.get("text", "") for part in content if isinstance(part, dict))
-    return strip_tags(str(content or "")).strip()[:2000]
+    text = strip_tags(str(content or "")).strip()[:2000]
+    if not text:
+        usage = payload.get("usage") if isinstance(payload.get("usage"), dict) else {}
+        raise ValueError(
+            "The AI model returned an empty chat message "
+            f"(model={payload.get('model') or 'unknown'}, "
+            f"finish_reason={choice.get('finish_reason') or 'unknown'}, "
+            f"completion_tokens={usage.get('completion_tokens', usage.get('output_tokens', 'unknown'))}, "
+            f"reasoning_present={bool(response_message.get('reasoning') or response_message.get('reasoning_details'))})"
+        )
+    return text
 
 
 def _usage_token_count(usage, primary_key, fallback_key):
