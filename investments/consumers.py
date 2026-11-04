@@ -98,7 +98,9 @@ class GroupChatConsumer(AsyncJsonWebsocketConsumer):
         if not isinstance(content, dict):
             await self.send_json({"type": "error", "message": "صيغة الطلب غير صالحة."})
             return
-        action = content.get("action")
+        # Older chat clients may use `type` for the command field, while the
+        # current client uses `action` (responses continue to use `type`).
+        action = content.get("action") or content.get("type")
         user_id = self.chat_context["user_id"]
         try:
             if action == "heartbeat":
