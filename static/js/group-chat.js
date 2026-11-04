@@ -21,6 +21,17 @@
   const demoAccountId = Number(root.dataset.demoAccountId || 0);
   const demoReactionUrlTemplate = root.dataset.demoReactionUrlTemplate || "";
   const readUrl = root.dataset.readUrl || "";
+  const messageRepliesToViewer = (message) => {
+    const target = message?.reply_to;
+    if (!target || target.deleted) return false;
+    if (demoAccountId) {
+      return Number(target.demo_account_id || 0) === demoAccountId
+        && Number(message.demo_account_id || 0) !== demoAccountId;
+    }
+    return !target.demo_account_id
+      && Number(target.sender_id) === userId
+      && Number(message.sender_id) !== userId;
+  };
   const compose = root.querySelector("[data-chat-compose]");
   const messageInput = compose?.querySelector('textarea[name="text"]');
   let attachmentInputs = [...(compose?.querySelectorAll('input[type="file"]') || [])];
@@ -1131,7 +1142,8 @@
       videoStatusRank[message.video_status] < videoStatusRank[previous.dataset.videoStatus]
     ) return previous;
     const item = document.createElement("li");
-    item.className = `chat-message${Number(message.sender_id) === userId ? " is-mine" : ""}`;
+    const repliesToViewer = messageRepliesToViewer(message);
+    item.className = `chat-message${Number(message.sender_id) === userId ? " is-mine" : ""}${repliesToViewer ? " is-reply-to-me" : ""}`;
     item.dataset.messageId = String(message.id);
     item.dataset.videoStatus = message.video_status || "";
     const dateInfo = messageDateInfo(message);
@@ -1229,6 +1241,7 @@
     if (message.reply_to) {
       const quote = document.createElement(message.reply_to.deleted ? "div" : "button");
       quote.className = `chat-reply-quote${message.reply_to.deleted ? " is-deleted" : ""}`;
+      if (repliesToViewer) quote.classList.add("is-reply-to-me");
       quote.dataset.replyTargetId = String(message.reply_to.id);
       if (!message.reply_to.deleted) {
         quote.type = "button";
@@ -1240,7 +1253,7 @@
           window.setTimeout(() => target.classList.remove("is-reply-target"), 1800);
         });
       }
-      quote.textContent = `${escapeText(message.reply_to.sender)}: ${escapeText(message.reply_to.preview)}${message.reply_to.deleted ? " · الرسالة الأصلية محذوفة" : ""}`;
+      quote.textContent = `${repliesToViewer ? "رد على رسالتك · " : ""}${escapeText(message.reply_to.sender)}: ${escapeText(message.reply_to.preview)}${message.reply_to.deleted ? " · الرسالة الأصلية محذوفة" : ""}`;
       card.append(quote);
     }
 
@@ -1308,7 +1321,8 @@
     if (!message || !message.id) return null;
     const previous = list.querySelector(`[data-message-id="${Number(message.id)}"]`);
     const item = document.createElement("li");
-    item.className = `chat-message${Number(message.sender_id) === userId ? " is-mine" : ""}`;
+    const repliesToViewer = messageRepliesToViewer(message);
+    item.className = `chat-message${Number(message.sender_id) === userId ? " is-mine" : ""}${repliesToViewer ? " is-reply-to-me" : ""}`;
     item.setAttribute("data-message-id", String(message.id));
     if (message.created_day) item.setAttribute("data-message-day", String(message.created_day));
 
@@ -1333,8 +1347,8 @@
 
     if (message.reply_to) {
       const reply = document.createElement("div");
-      reply.className = "chat-reply-quote";
-      reply.textContent = `${message.reply_to.sender || "عضو"}: ${message.reply_to.preview || "رسالة"}`;
+      reply.className = `chat-reply-quote${repliesToViewer ? " is-reply-to-me" : ""}`;
+      reply.textContent = `${repliesToViewer ? "رد على رسالتك · " : ""}${message.reply_to.sender || "عضو"}: ${message.reply_to.preview || "رسالة"}`;
       card.appendChild(reply);
     }
     if (message.text) {

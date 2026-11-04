@@ -271,6 +271,19 @@ html[data-customer-theme="dark"] body.customer-shell .chat-message-attachment {
   color: #dce8eb;
 }
 
+html[data-customer-theme="dark"] body.customer-shell .chat-message.is-reply-to-me .chat-message-card {
+  border-color: #70588e;
+  border-right-color: #b18bdf;
+  background: #292136;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, .2);
+}
+
+html[data-customer-theme="dark"] body.customer-shell .chat-message.is-reply-to-me .chat-reply-quote {
+  border-right-color: #b18bdf;
+  background: #352a45;
+  color: #ddc9f5;
+}
+
 html[data-customer-theme="dark"] body.customer-shell .chat-message-text,
 html[data-customer-theme="dark"] body.customer-shell .chat-message-header > strong,
 html[data-customer-theme="dark"] body.customer-shell .chat-room-title h1,

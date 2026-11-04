@@ -263,6 +263,8 @@ def serialize_chat_message(message, viewer_id=None, demo_account_id=None):
     if reply:
         reply_data = {
             "id": message.reply_to_original_id or reply.pk,
+            "sender_id": reply.sender_id,
+            "demo_account_id": reply.demo_account_id,
             "sender": _message_sender_name(reply),
             "preview": message.reply_to_preview or _reply_preview(reply),
             "deleted": False,
@@ -277,6 +279,7 @@ def serialize_chat_message(message, viewer_id=None, demo_account_id=None):
     return {
         "id": message.pk,
         "sender_id": message.sender_id,
+        "demo_account_id": message.demo_account_id,
         "sender": _message_sender_name(message),
         "sender_is_admin": bool(message.sender.is_staff and not message.demo_sender_name),
         "is_demo": bool(message.demo_sender_name),

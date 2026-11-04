@@ -159,14 +159,31 @@ def send_group_message_push(self, message_id):
             pending_count = pending_messages.count()
             if pending_count:
                 newest_pending = pending_messages.select_related("sender").order_by("-pk").first()
-                preview = _chat_push_message_preview(newest_pending)
+                important_reply = (
+                    pending_messages.filter(
+                        reply_to__sender_id=membership.user_id,
+                        demo_account__isnull=True,
+                        sender__is_active=True,
+                        sender__is_fake_account=False,
+                    )
+                    .filter(Q(sender__is_staff=True) | Q(sender__approval_status="approved"))
+                    .select_related("sender")
+                    .order_by("-pk")
+                    .first()
+                )
+                notification_message = important_reply or newest_pending
+                preview = _chat_push_message_preview(notification_message)
                 sender_name = (
-                    newest_pending.demo_sender_name
-                    if newest_pending.demo_sender_is_ai and newest_pending.demo_sender_name
-                    else newest_pending.sender.get_full_name().strip() or "عضو"
+                    notification_message.demo_sender_name
+                    if notification_message.demo_sender_is_ai and notification_message.demo_sender_name
+                    else notification_message.sender.get_full_name().strip() or "عضو"
                 )
                 body = f"{sender_name}: {preview[:140]}"
-                if pending_count > 1:
+                if important_reply:
+                    body = f"رد {sender_name} على رسالتك: {preview[:120]}"
+                    if pending_count > 1:
+                        body = f"{pending_count} رسائل جديدة · {body}"
+                elif pending_count > 1:
                     body = f"{pending_count} رسائل جديدة · آخرها {body}"
 
                 push_result = send_push_to_user(
@@ -175,12 +192,15 @@ def send_group_message_push(self, message_id):
                     body=body[:180],
                     data={
                         "type": "group_message",
+                        "is_reply": "true" if important_reply else "false",
                         "group_id": str(group_id),
                         "message_id": str(newest_pending.pk),
                         "url": reverse("chat_group_room", args=(group_id,)),
                     },
-                    android_channel_id="chat_messages",
+                    android_channel_id="chat_replies" if important_reply else "chat_messages_feed",
                     android_tag=f"chat-group-{group_id}",
+                    android_priority="high" if important_reply else "normal",
+                    android_notification_priority="high" if important_reply else "default",
                 )
                 result_totals["success_count"] += push_result["success_count"]
                 result_totals["failure_count"] += push_result["failure_count"]

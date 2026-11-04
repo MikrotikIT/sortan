@@ -50,6 +50,8 @@ def _send_to_devices(
     data=None,
     android_channel_id="account_updates",
     android_tag=None,
+    android_priority="high",
+    android_notification_priority="high",
 ):
     device_rows = list(devices.values_list("pk", "token"))
     if not device_rows:
@@ -68,10 +70,11 @@ def _send_to_devices(
             notification=messaging.Notification(title=title, body=body),
             data=notification_data or None,
             android=messaging.AndroidConfig(
-                priority="high",
+                priority=android_priority,
                 notification=messaging.AndroidNotification(
                     channel_id=android_channel_id,
                     tag=android_tag,
+                    priority=android_notification_priority,
                 ),
             ),
         )
@@ -97,6 +100,8 @@ def send_push_to_user(
     data=None,
     android_channel_id="account_updates",
     android_tag=None,
+    android_priority="high",
+    android_notification_priority="high",
 ):
     return _send_to_devices(
         PushDevice.objects.filter(user=user),
@@ -105,6 +110,8 @@ def send_push_to_user(
         data=data,
         android_channel_id=android_channel_id,
         android_tag=android_tag,
+        android_priority=android_priority,
+        android_notification_priority=android_notification_priority,
     )
 
 
