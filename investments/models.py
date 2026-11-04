@@ -947,6 +947,7 @@ class ChatMembership(models.Model):
     notifications_muted = models.BooleanField("كتم إشعارات هذه المجموعة", default=False)
     joined_at = models.DateTimeField("تاريخ الانضمام", auto_now_add=True)
     last_read_message_id = models.PositiveBigIntegerField("آخر رسالة مقروءة", null=True, blank=True, editable=False)
+    last_push_message_id = models.PositiveBigIntegerField(null=True, blank=True, editable=False)
 
     class Meta:
         ordering = ("joined_at", "pk")

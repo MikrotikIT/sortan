@@ -31,7 +31,7 @@ from .models import (
     UserNotification,
 )
 from .notification_services import notification_push_body
-from .push_services import send_push_to_user, send_push_to_users
+from .push_services import CHAT_NOTIFICATION_BATCH_SECONDS, send_push_to_user, send_push_to_users
 from .wallet_services import sync_all_wallets
 
 
@@ -73,69 +73,121 @@ def send_bulk_notification_push(user_ids, title, body, data):
     return result
 
 
+def _chat_push_message_preview(message):
+    preview = message.text.strip()
+    if preview:
+        return preview
+    if message.image:
+        return "أرسل صورة"
+    if message.voice_message:
+        return "أرسل رسالة صوتية"
+    if message.video:
+        return "أرسل فيديو"
+    if message.attachment:
+        return "أرسل ملفًا"
+    return "رسالة جديدة"
+
+
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 4})
 def send_group_message_push(self, message_id):
-    message = (
-        ChatMessage.objects.select_related("group", "sender")
+    trigger_message = (
+        ChatMessage.objects.select_related("group")
         .filter(pk=message_id, group__is_active=True)
         .first()
     )
-    if not message:
+    if not trigger_message:
         return {"success_count": 0, "failure_count": 0}
 
-    banned_user_ids = ChatGroupBan.objects.filter(group_id=message.group_id).values_list("user_id", flat=True)
-    memberships = list(
+    group_id = trigger_message.group_id
+    latest_message = (
+        ChatMessage.objects.select_related("group")
+        .filter(group_id=group_id, group__is_active=True)
+        .order_by("-pk")
+        .first()
+    )
+    if not latest_message:
+        return {"success_count": 0, "failure_count": 0}
+    if latest_message.pk != trigger_message.pk:
+        return {"status": "superseded", "message_id": message_id}
+
+    banned_user_ids = ChatGroupBan.objects.filter(group_id=group_id).values_list("user_id", flat=True)
+    eligible_memberships = (
         ChatMembership.objects.filter(
-            group_id=message.group_id,
+            group_id=group_id,
             user__is_active=True,
             notifications_muted=False,
         )
         .filter(Q(user__is_staff=True) | Q(user__approval_status="approved"))
-        .exclude(user_id=message.sender_id)
         .exclude(user_id__in=banned_user_ids)
-        .select_related("user")
     )
-    staff_ids = [membership.user_id for membership in memberships if membership.user.is_staff]
-    staff_read_states = dict(
-        ChatGroupReadState.objects.filter(group_id=message.group_id, user_id__in=staff_ids)
-        .values_list("user_id", "last_read_message_id")
-    )
+    membership_ids = list(eligible_memberships.values_list("pk", flat=True))
+    result_totals = {"success_count": 0, "failure_count": 0}
 
-    recipient_ids = []
-    for membership in memberships:
-        last_read_message_id = (
-            staff_read_states.get(membership.user_id)
-            if membership.user.is_staff
-            else membership.last_read_message_id
-        )
-        if last_read_message_id is None or last_read_message_id < message.pk:
-            recipient_ids.append(membership.user_id)
+    for membership_id in membership_ids:
+        with transaction.atomic():
+            membership = (
+                ChatMembership.objects.select_for_update()
+                .select_related("user", "group")
+                .filter(
+                    pk=membership_id,
+                    group_id=group_id,
+                    user__is_active=True,
+                    notifications_muted=False,
+                )
+                .filter(Q(user__is_staff=True) | Q(user__approval_status="approved"))
+                .exclude(user_id__in=banned_user_ids)
+                .first()
+            )
+            if not membership:
+                continue
 
-    if not recipient_ids:
-        return {"success_count": 0, "failure_count": 0}
+            cursor = membership.last_push_message_id or 0
+            last_read_message_id = membership.last_read_message_id
+            if membership.user.is_staff:
+                last_read_message_id = ChatGroupReadState.objects.filter(
+                    group_id=group_id,
+                    user_id=membership.user_id,
+                ).values_list("last_read_message_id", flat=True).first()
 
-    preview = message.text.strip()
-    if not preview:
-        preview = (
-            "أرسل صورة" if message.image
-            else "رسالة صوتية" if message.voice_message
-            else "أرسل فيديو" if message.video
-            else "أرسل ملفاً" if message.attachment
-            else "رسالة جديدة"
-        )
-    sender_name = message.sender.get_full_name().strip() or "عضو"
-    return send_push_to_users(
-        recipient_ids,
-        title=message.group.title,
-        body=f"{sender_name}: {preview[:180]}",
-        data={
-            "type": "group_message",
-            "group_id": str(message.group_id),
-            "message_id": str(message.pk),
-            "url": reverse("chat_group_room", args=(message.group_id,)),
-        },
-    )
+            if latest_message.pk <= cursor:
+                continue
 
+            pending_messages = ChatMessage.objects.filter(
+                group_id=group_id,
+                pk__gt=last_read_message_id or 0,
+                pk__lte=latest_message.pk,
+                created_at__gte=membership.joined_at,
+            ).exclude(sender_id=membership.user_id)
+
+            pending_count = pending_messages.count()
+            if pending_count:
+                newest_pending = pending_messages.select_related("sender").order_by("-pk").first()
+                preview = _chat_push_message_preview(newest_pending)
+                sender_name = newest_pending.sender.get_full_name().strip() or "عضو"
+                body = f"{sender_name}: {preview[:140]}"
+                if pending_count > 1:
+                    body = f"{pending_count} رسائل جديدة · آخرها {body}"
+
+                push_result = send_push_to_user(
+                    membership.user,
+                    title=membership.group.title,
+                    body=body[:180],
+                    data={
+                        "type": "group_message",
+                        "group_id": str(group_id),
+                        "message_id": str(newest_pending.pk),
+                        "url": reverse("chat_group_room", args=(group_id,)),
+                    },
+                    android_channel_id="chat_messages",
+                    android_tag=f"chat-group-{group_id}",
+                )
+                result_totals["success_count"] += push_result["success_count"]
+                result_totals["failure_count"] += push_result["failure_count"]
+
+            membership.last_push_message_id = latest_message.pk
+            membership.save(update_fields=("last_push_message_id",))
+
+    return result_totals
 
 def _broadcast_chat(group_id, payload):
     layer = get_channel_layer()

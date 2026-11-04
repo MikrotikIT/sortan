@@ -15,6 +15,7 @@ from .notification_services import notification_push_body
 
 _FIREBASE_APP_LOCK = Lock()
 logger = logging.getLogger(__name__)
+CHAT_NOTIFICATION_BATCH_SECONDS = 12
 
 
 def _firebase_app():
@@ -41,7 +42,15 @@ def _firebase_app():
                 return firebase_admin.get_app(app_name)
 
 
-def _send_to_devices(devices, *, title, body, data=None):
+def _send_to_devices(
+    devices,
+    *,
+    title,
+    body,
+    data=None,
+    android_channel_id="account_updates",
+    android_tag=None,
+):
     device_rows = list(devices.values_list("pk", "token"))
     if not device_rows:
         return {"success_count": 0, "failure_count": 0}
@@ -60,7 +69,10 @@ def _send_to_devices(devices, *, title, body, data=None):
             data=notification_data or None,
             android=messaging.AndroidConfig(
                 priority="high",
-                notification=messaging.AndroidNotification(channel_id="default"),
+                notification=messaging.AndroidNotification(
+                    channel_id=android_channel_id,
+                    tag=android_tag,
+                ),
             ),
         )
         response = messaging.send_each_for_multicast(message, app=app)
@@ -77,16 +89,34 @@ def _send_to_devices(devices, *, title, body, data=None):
     return {"success_count": success_count, "failure_count": failure_count}
 
 
-def send_push_to_user(user, *, title, body, data=None):
+def send_push_to_user(
+    user,
+    *,
+    title,
+    body,
+    data=None,
+    android_channel_id="account_updates",
+    android_tag=None,
+):
     return _send_to_devices(
         PushDevice.objects.filter(user=user),
         title=title,
         body=body,
         data=data,
+        android_channel_id=android_channel_id,
+        android_tag=android_tag,
     )
 
 
-def send_push_to_users(user_ids, *, title, body, data=None):
+def send_push_to_users(
+    user_ids,
+    *,
+    title,
+    body,
+    data=None,
+    android_channel_id="account_updates",
+    android_tag=None,
+):
     user_ids = {int(user_id) for user_id in user_ids if user_id}
     if not user_ids:
         return {"success_count": 0, "failure_count": 0}
@@ -95,15 +125,26 @@ def send_push_to_users(user_ids, *, title, body, data=None):
         title=title,
         body=body,
         data=data,
+        android_channel_id=android_channel_id,
+        android_tag=android_tag,
     )
 
 
-def send_push_to_all(*, title, body, data=None):
+def send_push_to_all(
+    *,
+    title,
+    body,
+    data=None,
+    android_channel_id="account_updates",
+    android_tag=None,
+):
     return _send_to_devices(
         PushDevice.objects.all(),
         title=title,
         body=body,
         data=data,
+        android_channel_id=android_channel_id,
+        android_tag=android_tag,
     )
 
 
@@ -144,7 +185,10 @@ def _enqueue_group_message_push(message_id):
     from .tasks import send_group_message_push
 
     try:
-        send_group_message_push.apply_async(args=(message_id,), countdown=8)
+        send_group_message_push.apply_async(
+            args=(message_id,),
+            countdown=CHAT_NOTIFICATION_BATCH_SECONDS,
+        )
     except Exception:
         logger.exception("Could not queue push for group chat message %s", message_id)
 
