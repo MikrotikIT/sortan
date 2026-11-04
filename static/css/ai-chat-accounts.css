@@ -24,3 +24,5 @@
 @media(max-width:1100px){.ai-directory-row{grid-template-columns:35px minmax(140px,1fr) auto auto auto auto}.ai-directory-row>.btn{grid-column:5;grid-row:auto}.ai-directory-row>.ai-delete-bot-form{grid-column:6;grid-row:auto}}
 @media(max-width:720px){.ai-directory-row{grid-template-columns:35px minmax(0,1fr) auto}.ai-directory-row>.btn{grid-column:3;grid-row:3/5}.ai-directory-row>.ai-delete-bot-form{grid-column:3;grid-row:5/7}}
 @media(max-width:460px){.ai-directory-row{grid-template-columns:32px minmax(0,1fr)}.ai-directory-row>.btn,.ai-directory-row>.ai-delete-bot-form{grid-column:2;grid-row:auto;justify-self:start}}
+
+.ai-template-actions{display:flex;justify-content:flex-start;margin-top:9px;padding-top:8px;border-top:1px solid #edf1f2}.ai-template-actions form{margin:0}.ai-template-delete{padding:6px 10px;border:1px solid #f0d9d7;border-radius:7px;background:#fff8f7;color:#b54d48;font:700 9px 'Tajawal',sans-serif;cursor:pointer;transition:background .15s,border-color .15s}.ai-template-delete:hover{border-color:#e8b9b5;background:#fff0ee}.ai-template-delete:focus-visible{outline:3px solid #f3d2cf;outline-offset:2px}

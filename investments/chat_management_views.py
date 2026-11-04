@@ -9,6 +9,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.db import transaction
 from django.db.models import Count, Q
+from django.db.models.deletion import ProtectedError
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -538,7 +539,7 @@ def ai_bot_template_create(request):
 @require_POST
 def ai_bot_template_edit(request, pk):
     template = get_object_or_404(AIBotTemplate, pk=pk)
-    form = AIBotTemplateForm(request.POST, instance=template)
+    form = AIBotTemplateForm(request.POST, instance=template, prefix=f"template-{pk}")
     if form.is_valid():
         form.save()
         messages.success(request, f"تم تحديث قالب {template.name}. البوتات الموجودة تحتفظ بنسختها؛ التحديث يطبق على البدائل الجديدة.")
@@ -546,6 +547,30 @@ def ai_bot_template_edit(request, pk):
         error = next(iter(form.errors.values()), ["راجع الحقول المحددة."])[0]
         messages.error(request, f"تعذر تحديث القالب: {error}")
     group_id = request.POST.get("group", "")
+    return redirect(_ai_accounts_page_url(group_id or None))
+
+
+@staff_required
+@require_POST
+def ai_bot_template_delete(request, pk):
+    template = get_object_or_404(AIBotTemplate, pk=pk)
+    group_id = request.POST.get("group", "")
+    template_name = template.name
+    if template.pools.exists():
+        messages.error(
+            request,
+            f"لا يمكن حذف قالب «{template_name}» لأنه مرتبط بتوزيعة واحدة أو أكثر. احذف توزيعاته أولاً ثم أعد المحاولة.",
+        )
+    else:
+        try:
+            template.delete()
+        except ProtectedError:
+            messages.error(
+                request,
+                f"لا يمكن حذف قالب «{template_name}» لأنه مرتبط بتوزيعة. احذف التوزيعة أولاً ثم أعد المحاولة.",
+            )
+        else:
+            messages.success(request, f"تم حذف قالب «{template_name}».")
     return redirect(_ai_accounts_page_url(group_id or None))
 
 
