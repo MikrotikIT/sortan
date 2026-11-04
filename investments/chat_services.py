@@ -547,6 +547,9 @@ def create_ai_chat_message(account_id, text, reply_to_id):
         text=text[:2000],
         **_reply_snapshot(reply),
     )
+    from .push_services import queue_group_message_push
+
+    queue_group_message_push(message.pk)
     return serialize_chat_message(message, viewer_id=user.pk)
 
 

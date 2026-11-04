@@ -107,9 +107,6 @@ def send_group_message_push(self, message_id):
     )
     if not latest_message:
         return {"success_count": 0, "failure_count": 0}
-    if latest_message.pk != trigger_message.pk:
-        return {"status": "superseded", "message_id": message_id}
-
     banned_user_ids = ChatGroupBan.objects.filter(group_id=group_id).values_list("user_id", flat=True)
     eligible_memberships = (
         ChatMembership.objects.filter(
@@ -154,7 +151,7 @@ def send_group_message_push(self, message_id):
 
             pending_messages = ChatMessage.objects.filter(
                 group_id=group_id,
-                pk__gt=last_read_message_id or 0,
+                pk__gt=max(cursor, last_read_message_id or 0),
                 pk__lte=latest_message.pk,
                 created_at__gte=membership.joined_at,
             ).exclude(sender_id=membership.user_id)
@@ -163,7 +160,11 @@ def send_group_message_push(self, message_id):
             if pending_count:
                 newest_pending = pending_messages.select_related("sender").order_by("-pk").first()
                 preview = _chat_push_message_preview(newest_pending)
-                sender_name = newest_pending.sender.get_full_name().strip() or "عضو"
+                sender_name = (
+                    newest_pending.demo_sender_name
+                    if newest_pending.demo_sender_is_ai and newest_pending.demo_sender_name
+                    else newest_pending.sender.get_full_name().strip() or "عضو"
+                )
                 body = f"{sender_name}: {preview[:140]}"
                 if pending_count > 1:
                     body = f"{pending_count} رسائل جديدة · آخرها {body}"
