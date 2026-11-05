@@ -1,10 +1,11 @@
 import os
 import re
+from bisect import bisect_left
 from datetime import timedelta
 from random import randint
 
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Exists, OuterRef, Q
 from django.utils import timezone
 from django.utils.html import strip_tags
 from django.urls import reverse
@@ -34,6 +35,77 @@ REACTION_GLYPHS = {
     ChatReaction.Kind.DISLIKE.value: "👎",
 }
 REACTION_ORDER = tuple(REACTION_GLYPHS)
+CHAT_PRESENCE_FRESHNESS_SECONDS = 45
+
+
+def get_chat_group_active_counts(group_ids, *, now=None):
+    group_ids = set(group_ids or ())
+    if not group_ids:
+        return {}
+    now = now or timezone.now()
+    active_presence = (
+        ChatGroupPresence.objects.filter(
+            group_id__in=group_ids,
+            last_seen_at__gte=now - timedelta(seconds=CHAT_PRESENCE_FRESHNESS_SECONDS),
+            user__is_active=True,
+            user__is_fake_account=False,
+        )
+        .filter(Q(user__is_staff=True) | Q(user__approval_status="approved"))
+        .annotate(
+            is_banned=Exists(
+                ChatGroupBan.objects.filter(
+                    group_id=OuterRef("group_id"),
+                    user_id=OuterRef("user_id"),
+                )
+            )
+        )
+        .filter(Q(user__is_staff=True) | Q(is_banned=False))
+        .values("group_id")
+        .annotate(total=Count("user_id", distinct=True))
+        .values_list("group_id", "total")
+    )
+    return dict(active_presence)
+
+
+def get_chat_message_view_counts(messages):
+    messages = list(messages)
+    if not messages:
+        return {}
+
+    group_ids = {message.group_id for message in messages}
+    minimum_message_id = min(message.pk for message in messages)
+    last_reads = {}
+    read_queries = (
+        ChatMembership.objects.filter(
+            group_id__in=group_ids,
+            last_read_message_id__gte=minimum_message_id,
+            user__is_fake_account=False,
+        ).values_list("group_id", "user_id", "last_read_message_id"),
+        ChatGroupReadState.objects.filter(
+            group_id__in=group_ids,
+            last_read_message_id__gte=minimum_message_id,
+            user__is_fake_account=False,
+        ).values_list("group_id", "user_id", "last_read_message_id"),
+    )
+    for read_query in read_queries:
+        for group_id, user_id, last_read_message_id in read_query:
+            key = (group_id, user_id)
+            last_reads[key] = max(last_reads.get(key, 0), last_read_message_id)
+
+    reads_by_group = {}
+    for (group_id, _user_id), last_read_message_id in last_reads.items():
+        reads_by_group.setdefault(group_id, []).append(last_read_message_id)
+    for thresholds in reads_by_group.values():
+        thresholds.sort()
+
+    view_counts = {}
+    for message in messages:
+        thresholds = reads_by_group.get(message.group_id, [])
+        count = len(thresholds) - bisect_left(thresholds, message.pk)
+        if last_reads.get((message.group_id, message.sender_id), 0) >= message.pk:
+            count -= 1
+        view_counts[message.pk] = max(0, count)
+    return view_counts
 
 
 def allowed_group_reactions(group):

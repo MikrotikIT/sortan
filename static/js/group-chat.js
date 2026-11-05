@@ -1134,6 +1134,21 @@
     return player;
   };
 
+  const createMessageViewCount = (message, previous) => {
+    if (!isAdmin) return null;
+    let count = Number(message.view_count);
+    if (message.view_count === undefined || message.view_count === null || !Number.isFinite(count)) {
+      count = Number(previous?.querySelector("[data-message-view-count]")?.dataset.viewCount);
+    }
+    if (!Number.isFinite(count)) count = 0;
+    const node = document.createElement("small");
+    node.className = "chat-message-view-count";
+    node.dataset.messageViewCount = "";
+    node.dataset.viewCount = String(Math.max(0, count));
+    node.textContent = `مشاهدات فعلية: ${Math.max(0, count)}`;
+    return node;
+  };
+
   const renderMessage = (message, { prepend = false } = {}) => {
     if (!message || !message.id) return;
     const previous = list.querySelector(`[data-message-id="${Number(message.id)}"]`);
@@ -1345,6 +1360,8 @@
       footer.append(reply);
     }
     if (reactions.childElementCount) footer.append(reactions);
+    const viewCount = createMessageViewCount(message, previous);
+    if (viewCount) footer.append(viewCount);
     if (footer.childElementCount) card.append(footer);
     item.append(card);
     if (previous) {
@@ -1413,6 +1430,14 @@
         media.textContent = String(message.attachment_name || "تنزيل الملف");
       }
       card.appendChild(media);
+    }
+
+    const viewCount = createMessageViewCount(message, previous);
+    if (viewCount) {
+      const footer = document.createElement("div");
+      footer.className = "chat-message-footer";
+      footer.appendChild(viewCount);
+      card.appendChild(footer);
     }
 
     item.appendChild(card);
@@ -1630,6 +1655,23 @@
     root.dataset.memberCount = String(payload.actual_member_count || 0);
     root.dataset.demoMemberOffset = String(payload.demo_member_offset || 0);
     root.querySelectorAll("[data-room-member-count]").forEach((node) => { node.textContent = String(total); });
+    if (isAdmin && payload.active_chat_count !== undefined) {
+      const activeCount = Math.max(0, Number(payload.active_chat_count) || 0);
+      root.querySelectorAll("[data-active-chat-count]").forEach((node) => { node.textContent = String(activeCount); });
+    }
+  };
+
+  const updateMessageViewCount = (payload) => {
+    if (!isAdmin || payload.view_count === undefined || payload.view_count === null) return;
+    const messageId = Number(payload.id ?? payload.message_id);
+    if (!Number.isFinite(messageId)) return;
+    const item = [...list.querySelectorAll("[data-message-id]")]
+      .find((node) => Number(node.dataset.messageId) === messageId);
+    const countNode = item?.querySelector("[data-message-view-count]");
+    if (!countNode) return;
+    const count = Math.max(0, Number(payload.view_count) || 0);
+    countNode.dataset.viewCount = String(count);
+    countNode.textContent = `مشاهدات فعلية: ${count}`;
   };
 
   let pollingStats = false;
@@ -1656,7 +1698,10 @@
       if (!response.ok) return;
       const data = await response.json();
       data.groups?.forEach(updateMemberCount);
-      data.messages?.forEach((message) => updateReactionCounts({ ...message, message_id: message.id }));
+      data.messages?.forEach((message) => {
+        updateReactionCounts({ ...message, message_id: message.id });
+        updateMessageViewCount(message);
+      });
     } catch { /* WebSocket updates remain active if the polling fallback is unavailable. */ }
     finally { pollingStats = false; }
   };

@@ -28,6 +28,8 @@ from .chat_forms import ChatDemoGrowthForm, ChatUploadForm
 from .chat_services import (
     ChatRuleError,
     configure_message_demo_growth,
+    get_chat_group_active_counts,
+    get_chat_message_view_counts,
     get_chat_unread_counts,
     group_member_access,
     mark_chat_group_read,
@@ -208,6 +210,11 @@ def chat_live_stats(request):
         )
     ).distinct()
     visible_groups = list(groups)
+    active_chat_counts = (
+        get_chat_group_active_counts([group.pk for group in visible_groups])
+        if request.user.is_staff
+        else {}
+    )
 
     member_group_ids = set(
         ChatMembership.objects.filter(user=request.user, group__is_active=True)
@@ -222,7 +229,7 @@ def chat_live_stats(request):
 
     serialized_messages = []
     if message_ids and member_group_ids:
-        page_messages = (
+        page_messages = list(
             ChatMessage.objects.filter(pk__in=message_ids, group_id__in=member_group_ids)
             .select_related("group", "sender", "reply_to", "reply_to__sender")
             .prefetch_related("reactions", "demo_reaction_counts", "demo_account_reactions")
@@ -231,18 +238,26 @@ def chat_live_stats(request):
             serialize_chat_message(message, viewer_id=request.user.pk, demo_account_id=demo_account.pk if demo_account else None)
             for message in page_messages
         ]
+        if request.user.is_staff:
+            view_counts = get_chat_message_view_counts(page_messages)
+            for message_data in serialized_messages:
+                message_data["view_count"] = view_counts.get(message_data["id"], 0)
+
+    serialized_groups = []
+    for group in visible_groups:
+        group_data = {
+            "id": group.pk,
+            "actual_member_count": group.actual_member_count,
+            "demo_member_offset": group.demo_member_offset,
+            "display_member_count": group.actual_member_count + group.demo_member_offset,
+        }
+        if request.user.is_staff:
+            group_data["active_chat_count"] = active_chat_counts.get(group.pk, 0)
+        serialized_groups.append(group_data)
 
     response = JsonResponse({
         "ok": True,
-        "groups": [
-            {
-                "id": group.pk,
-                "actual_member_count": group.actual_member_count,
-                "demo_member_offset": group.demo_member_offset,
-                "display_member_count": group.actual_member_count + group.demo_member_offset,
-            }
-            for group in visible_groups
-        ],
+        "groups": serialized_groups,
         "messages": serialized_messages,
     })
     response["Cache-Control"] = "no-store"
@@ -545,6 +560,7 @@ def chat_group_room(request, pk):
     has_older_messages = False
     can_post = False
     can_moderate = False
+    active_chat_count = 0
     if request.user.is_staff or membership:
         page_messages = list(
             ChatMessage.objects.filter(group=group)
@@ -558,8 +574,14 @@ def chat_group_room(request, pk):
         if (membership or request.user.is_staff) and page_messages:
             latest_message_id = page_messages[-1].pk
             mark_chat_group_read(request.user, group, latest_message_id)
+        if request.user.is_staff:
+            view_counts = get_chat_message_view_counts(page_messages)
+            for message_data in messages_data:
+                message_data["view_count"] = view_counts.get(message_data["id"], 0)
         can_post = user_can_post(request.user, group)
         can_moderate = user_can_moderate(request.user, group)
+    if request.user.is_staff:
+        active_chat_count = get_chat_group_active_counts([group.pk]).get(group.pk, 0)
 
     context = {
         "group": group,
@@ -570,6 +592,7 @@ def chat_group_room(request, pk):
         "has_older_messages": has_older_messages,
         "can_post": can_post,
         "can_moderate": can_moderate,
+        "active_chat_count": active_chat_count,
         "ws_path": f"/ws/chat/groups/{group.pk}/",
         "history_url": reverse("chat_group_history", args=(group.pk,)),
         "read_url": reverse("chat_group_mark_read", args=(group.pk,)),
@@ -648,9 +671,14 @@ def chat_group_history(request, pk):
     )
     has_more = len(older_messages) > 50
     older_messages = list(reversed(older_messages[:50]))
+    serialized_messages = [_message_json(message, request.user.pk) for message in older_messages]
+    if request.user.is_staff:
+        view_counts = get_chat_message_view_counts(older_messages)
+        for message_data in serialized_messages:
+            message_data["view_count"] = view_counts.get(message_data["id"], 0)
     response = JsonResponse({
         "ok": True,
-        "messages": [_message_json(message, request.user.pk) for message in older_messages],
+        "messages": serialized_messages,
         "has_more": has_more,
     })
     response["Cache-Control"] = "no-store"

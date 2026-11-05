@@ -2,14 +2,14 @@
 {% load static %}
 {% block body_class %}chat-room-page{% endblock %}
 {% block title %}{{ group.title }} — KODI{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/group-chat.css' %}?v=11"><link rel="stylesheet" href="{% static 'css/chat-fullscreen.css' %}?v=2"><link rel="stylesheet" href="{% static 'css/chat-ui.css' %}?v=24">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/group-chat.css' %}?v=12"><link rel="stylesheet" href="{% static 'css/chat-fullscreen.css' %}?v=2"><link rel="stylesheet" href="{% static 'css/chat-ui.css' %}?v=24">{% endblock %}
 {% block content %}
 <section class="chat-room" data-chat-room data-ws-path="{{ ws_path }}" data-history-url="{{ history_url }}" data-read-url="{{ read_url }}" data-video-upload-start-url="{% url 'chat_video_upload_start' group.pk %}" data-member-action-url-template="{% url 'management_chat_member_action' group.pk 0 %}" data-has-older-messages="{{ has_older_messages|yesno:'true,false' }}" data-chat-live-stats-url="{% url 'chat_live_stats' %}" data-group-id="{{ group.pk }}" data-current-user="{{ request.user.pk }}" data-can-moderate="{{ can_moderate|yesno:'true,false' }}" data-can-post="{{ can_post|yesno:'true,false' }}" data-is-admin="{{ request.user.is_staff|yesno:'true,false' }}" data-demo-growth-url-template="{{ demo_growth_url_template }}" data-can-react="{{ group.reactions_enabled|yesno:'true,false' }}" data-allowed-reactions="{{ group.allowed_reactions|join:',' }}" data-allow-voice-messages="{{ group.allow_voice_messages|yesno:'true,false' }}" data-allow-videos="{{ group.allow_videos|yesno:'true,false' }}" data-member-count="{{ actual_member_count }}" data-demo-member-offset="{{ group.demo_member_offset }}">
   <span hidden>{% csrf_token %}</span>
   <header class="chat-room-header">
     <a class="chat-back-link" href="{% url 'chat_groups' %}" aria-label="العودة للمجموعات">→</a>
     {% if group.image %}<img class="chat-group-avatar" src="{% url 'chat_group_image' group.pk %}" alt="">{% else %}<span class="chat-group-avatar chat-group-avatar-placeholder" aria-hidden="true">✦</span>{% endif %}
-    <a class="chat-room-title chat-room-title-link" href="{% url 'chat_group_detail' group.pk %}" aria-label="عرض تفاصيل مجموعة {{ group.title }}"><h1>{{ group.title }}</h1><p>{{ group.description|default:"مجموعة محادثة" }}</p><small class="chat-members-line"><b data-room-member-count>{{ display_member_count }}</b> عضواً</small></a>
+    <a class="chat-room-title chat-room-title-link" href="{% url 'chat_group_detail' group.pk %}" aria-label="عرض تفاصيل مجموعة {{ group.title }}"><h1>{{ group.title }}</h1><p>{{ group.description|default:"مجموعة محادثة" }}</p><small class="chat-members-line"><b data-room-member-count>{{ display_member_count }}</b> عضواً{% if request.user.is_staff %}<span class="chat-active-user-count">متصلون الآن: <b data-active-chat-count>{{ active_chat_count }}</b></span>{% endif %}</small></a>
     <span class="chat-connection-status" data-chat-status>جارٍ الاتصال…</span>
   </header>
   {% if not membership and not request.user.is_staff %}<div class="chat-join-prompt"><div><strong>انضم للمجموعة لعرض الرسائل والمشاركة</strong></div><form method="post" action="{% url 'chat_group_join' group.pk %}">{% csrf_token %}<button class="btn btn-primary" type="submit">انضمام للمجموعة</button></form></div>
@@ -52,4 +52,4 @@
 </section>
 {{ messages_data|json_script:"chat-initial-messages" }}
 {% endblock %}
-{% block extra_js %}<script src="{% static 'js/group-chat.js' %}?v=48" defer></script>{% endblock %}
+{% block extra_js %}<script src="{% static 'js/group-chat.js' %}?v=49" defer></script>{% endblock %}
