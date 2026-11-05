@@ -514,6 +514,9 @@ def create_demo_uploaded_message(group_id, demo_account_id, user_id, form):
         attachment_name=original_name,
         **reply_snapshot,
     )
+    from .push_services import queue_group_message_push
+
+    queue_group_message_push(message.pk)
     if video:
         from .tasks import process_chat_video
 
