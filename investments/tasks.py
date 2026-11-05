@@ -160,7 +160,6 @@ def send_group_message_push(self, message_id):
                 important_reply = (
                     pending_messages.filter(
                         reply_to__sender_id=membership.user_id,
-                        demo_account__isnull=True,
                         sender__is_active=True,
                     )
                     .filter(
@@ -171,8 +170,8 @@ def send_group_message_push(self, message_id):
                     .order_by("-pk")
                     .first()
                 )
-                # A direct human reply is important even when the member muted
-                # ordinary group notifications. Keep the regular feed muted.
+                # Direct replies to a member are important even when ordinary
+                # group notifications are muted. Keep unrelated group messages muted.
                 if important_reply or not membership.notifications_muted:
                     notification_message = important_reply or newest_pending
                     preview = _chat_push_message_preview(notification_message)
