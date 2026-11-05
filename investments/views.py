@@ -368,6 +368,7 @@ def create_investment(request):
 @login_required
 def withdrawals(request):
     settle_due_investments(request.user)
+    request.user.refresh_from_db(fields=("earnings_balance",))
     settings = get_platform_settings()
     available_at = withdraw_available_at(request.user, settings)
     pending_request = request.user.withdrawals.filter(status=WithdrawalRequest.Status.PENDING).exists()
@@ -406,9 +407,11 @@ def withdrawals(request):
     )
     can_request = not pending_request and cooldown_passed and not referral_gate_blocked
     minimum_withdrawal_amount = settings.withdrawal_minimum_amount if settings.withdrawal_minimum_enabled else None
+    minimum_balance_for_withdrawal = minimum_withdrawal_amount or Decimal("0.01")
+    meets_withdrawal_minimum = request.user.earnings_balance >= minimum_balance_for_withdrawal
     form = WithdrawalForm(request.POST or None, minimum_amount=minimum_withdrawal_amount)
     if request.method == "POST":
-        if referral_gate_blocked:
+        if referral_gate_blocked and meets_withdrawal_minimum:
             messages.error(
                 request,
                 f"أكمل دعوة {remaining_referrals} مستخدم(ين) قبل تقديم طلب السحب.",
@@ -453,6 +456,7 @@ def withdrawals(request):
             "referral_count": referral_count,
             "remaining_referrals": remaining_referrals,
             "referral_progress_percent": referral_progress_percent,
+            "meets_withdrawal_minimum": meets_withdrawal_minimum,
         },
     )
 

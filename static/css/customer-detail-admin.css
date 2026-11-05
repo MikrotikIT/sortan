@@ -6,6 +6,24 @@
   margin-bottom: 18px;
 }
 
+.customer-application-photo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 16px;
+  color: #71838a;
+  font-size: 12px;
+}
+
+.customer-application-photo img {
+  display: block;
+  width: 112px;
+  height: 124px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #f1f5f5;
+}
+
 .customer-admin-forms .management-panel {
   min-width: 0;
   margin: 0;

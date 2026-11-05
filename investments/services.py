@@ -47,8 +47,8 @@ def parse_withdrawal_referral_rules(value):
         withdrawal_count, referral_count = item.split(":", 1)
         withdrawal_count = int(withdrawal_count.strip())
         referral_count = int(referral_count.strip())
-        if withdrawal_count < 1 or referral_count < 1:
-            raise ValueError("يجب أن تكون أعداد السحوبات والمدعوين أعداداً موجبة.")
+        if withdrawal_count < 0 or referral_count < 1:
+            raise ValueError("يجب ألا يقل عدد السحوبات عن صفر، وأن يكون عدد المدعوين موجباً.")
         rules.append((withdrawal_count, referral_count))
     return sorted(rules)
 

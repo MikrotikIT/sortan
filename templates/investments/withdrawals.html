@@ -6,14 +6,14 @@
 {% block content %}
 <section class="welcome-row"><div><span class="eyebrow">أرباحك بين يديك</span><h1>السحب والمعاملات</h1><p>اطلب تحويل أرباحك إلى محفظة USDT على شبكة TRON TRC20.</p></div><a class="btn btn-quiet" href="{% url 'dashboard' %}">← العودة للوحة</a></section>
 <section class="withdraw-grid"><div class="panel withdraw-form-panel"><div class="panel-heading"><div><span class="eyebrow">طلب جديد</span><h2>سحب الأرباح</h2></div><span class="network-badge"><i></i> USDT · TRC20</span></div><div class="withdraw-available"><div><span>الأرباح المتاحة</span><strong>{{ user.earnings_balance|floatformat:2 }} <small>USDT</small></strong></div><span class="wallet-symbol">↗</span></div>
-{% if referral_gate_blocked %}
+{% if referral_gate_blocked and meets_withdrawal_minimum %}
 <section class="referral-gate-notice" role="alert" aria-labelledby="referral-gate-title">
   <div class="referral-gate-heading">
     <span class="referral-gate-icon" aria-hidden="true">!</span>
     <div class="referral-gate-copy">
       <span class="referral-gate-label">تنبيه بخصوص السحب</span>
       <h2 id="referral-gate-title">السحب متوقف مؤقتاً</h2>
-      <p>لا يُحتسب المدعو إلا بعد أن يبلغ مجموع إيداعاته المقبولة 100 USDT على الأقل. يلزم {{ active_referral_rule.1 }} مدعوين مستوفين لهذا الشرط بعد إتمام {{ active_referral_rule.0 }} سحوبات مدفوعة.</p>
+      <p>لا يُحتسب المدعو إلا بعد أن يبلغ مجموع إيداعاته المقبولة 100 USDT على الأقل. {% if active_referral_rule.0 == 0 %}يلزم {{ active_referral_rule.1 }} مدعوين مستوفين لهذا الشرط قبل طلب أول سحب مدفوع.{% else %}يلزم {{ active_referral_rule.1 }} مدعوين مستوفين لهذا الشرط بعد إتمام {{ active_referral_rule.0 }} سحوبات مدفوعة.{% endif %}</p>
     </div>
   </div>
   <div class="referral-progress-section">
@@ -27,6 +27,8 @@
     </div>
   </div>
 </section>
+{% elif referral_gate_blocked %}
+<div class="notice notice-info"><strong>متطلبات السحب</strong><span>تظهر متطلبات الدعوات عند بلوغ أرباحك الحد الأدنى للسحب.</span></div>
 {% endif %}
 {% if pending_request %}<div class="notice notice-info"><strong>لديك طلب قيد المراجعة</strong><span>يمكنك تقديم طلب جديد بعد معالجة الطلب الحالي.</span></div>{% elif not can_request and not referral_gate_blocked %}<div class="notice notice-warn"><strong>السحب غير متاح حالياً</strong><span>{% if available_at %}موعد إتاحة السحب التالي: {{ available_at|date:"Y-m-d H:i" }}{% else %}لا يمكنك تقديم طلب سحب حالياً.{% endif %}</span></div>{% endif %}
 {% if settings.withdrawal_minimum_enabled %}<div class="notice notice-info"><strong>الحد الأدنى للسحب</strong><span>يمكنك طلب سحب مبلغ يبدأ من {{ settings.withdrawal_minimum_amount|floatformat:2 }} USDT.</span></div>{% endif %}

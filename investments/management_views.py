@@ -11,7 +11,7 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured, PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, DateTimeField, F, Max, Q, Sum
+from django.db.models import Count, DateTimeField, F, Max, OuterRef, Q, Subquery, Sum
 from django.db.models.functions import Coalesce, TruncDate
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -663,6 +663,9 @@ def customers(request):
     if account_type not in {"all", "customers", "staff"}:
         account_type = "all"
     items = User.objects.all().select_related("referred_by").annotate(
+        join_application_name=Subquery(
+            JoinApplication.objects.filter(user_id=OuterRef("pk")).values("full_name")[:1]
+        ),
         investment_count=Count("investments", distinct=True),
         deposit_count=Count("deposits", filter=Q(deposits__status=Deposit.Status.APPROVED), distinct=True),
         referral_count=Count("referrals", distinct=True),
@@ -675,7 +678,11 @@ def customers(request):
     elif account_type == "staff":
         items = items.filter(is_staff=True)
     if query:
-        items = items.filter(Q(phone__icontains=query) | Q(referral_code__icontains=query))
+        items = items.filter(
+            Q(phone__icontains=query)
+            | Q(referral_code__icontains=query)
+            | Q(join_application__full_name__icontains=query)
+        )
     if status == "active":
         items = items.filter(is_active=True).filter(Q(is_staff=True) | Q(approval_status="approved"))
     elif status == "inactive":

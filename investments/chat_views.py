@@ -101,7 +101,10 @@ def chat_groups(request):
         return redirect("account_review")
     groups_queryset = ChatGroup.objects.filter(is_active=True)
     if not request.user.is_staff:
-        groups_queryset = groups_queryset.filter(Q(is_public=True) | Q(memberships__user=request.user))
+        banned_group_ids = ChatGroupBan.objects.filter(user=request.user).values_list("group_id", flat=True)
+        groups_queryset = groups_queryset.filter(
+            Q(is_public=True) | Q(memberships__user=request.user)
+        ).exclude(pk__in=banned_group_ids)
     groups = list(
         groups_queryset
         .annotate(
@@ -117,16 +120,14 @@ def chat_groups(request):
     memberships = dict(
         ChatMembership.objects.filter(user=request.user).values_list("group_id", "notifications_muted")
     )
-    banned_ids = set(ChatGroupBan.objects.filter(user=request.user).values_list("group_id", flat=True))
     unread_counts, _ = get_chat_unread_counts(request.user, [group.pk for group in groups])
     for group in groups:
         group.has_membership = group.pk in memberships
         group.notifications_muted = memberships.get(group.pk, False)
         group.is_member = request.user.is_staff or group.has_membership
-        group.is_banned = not request.user.is_staff and group.pk in banned_ids
         group.display_member_count = group.actual_member_count + group.demo_member_offset
         group.unread_count = unread_counts.get(group.pk, 0)
-        group.image_url = reverse("chat_group_image", args=(group.pk,)) if group.image and not group.is_banned else ""
+        group.image_url = reverse("chat_group_image", args=(group.pk,)) if group.image else ""
     return render(request, "investments/chat_groups.html", {"groups": groups})
 
 
@@ -257,7 +258,6 @@ def chat_group_join(request, pk):
     if not request.user.is_staff and not group.is_public:
         raise Http404
     if not request.user.is_staff and ChatGroupBan.objects.filter(group=group, user=request.user).exists():
-        messages.error(request, "أنت محظور من هذه المجموعة.")
         return redirect("chat_groups")
     if ChatMembership.objects.filter(group=group, user=request.user).exists():
         return redirect("chat_group_room", pk=group.pk)
@@ -536,7 +536,9 @@ def chat_group_room(request, pk):
     group = get_object_or_404(ChatGroup, pk=pk, is_active=True)
     membership = ChatMembership.objects.filter(group=group, user=request.user).first()
     is_banned = ChatGroupBan.objects.filter(group=group, user=request.user).exists()
-    if not request.user.is_staff and not membership and (not group.is_public or is_banned):
+    if not request.user.is_staff and is_banned:
+        return redirect("chat_groups")
+    if not request.user.is_staff and not membership and not group.is_public:
         raise Http404
 
     messages_data = []
@@ -562,7 +564,6 @@ def chat_group_room(request, pk):
     context = {
         "group": group,
         "membership": membership,
-        "is_banned": is_banned,
         "actual_member_count": group.member_count,
         "display_member_count": group.member_count + group.demo_member_offset,
         "messages_data": messages_data,
@@ -584,13 +585,15 @@ def chat_group_detail(request, pk):
     group = get_object_or_404(ChatGroup, pk=pk, is_active=True)
     membership = ChatMembership.objects.filter(group=group, user=request.user).first()
     is_banned = ChatGroupBan.objects.filter(group=group, user=request.user).exists()
+    if not request.user.is_staff and is_banned:
+        return redirect("chat_groups")
     if not request.user.is_staff and not membership and not group.is_public:
         raise Http404
 
     member_count = group.member_count
     is_full = bool(group.max_members and member_count >= group.max_members)
-    can_join = bool(group.is_public and not request.user.is_staff and not membership and not is_banned and not is_full)
-    can_open_room = bool(request.user.is_staff or (membership and not is_banned))
+    can_join = bool(group.is_public and not request.user.is_staff and not membership and not is_full)
+    can_open_room = bool(request.user.is_staff or membership)
     reaction_emojis = {
         "like": "👍",
         "heart": "❤️",
@@ -611,14 +614,13 @@ def chat_group_detail(request, pk):
         {
             "group": group,
             "membership": membership,
-            "is_banned": is_banned,
             "member_count": member_count,
             "display_member_count": member_count + group.demo_member_offset,
             "is_full": is_full,
             "can_join": can_join,
             "can_open_room": can_open_room,
             "reactions": reactions,
-            "image_url": reverse("chat_group_image", args=(group.pk,)) if group.image and not is_banned else "",
+            "image_url": reverse("chat_group_image", args=(group.pk,)) if group.image else "",
         },
     )
 

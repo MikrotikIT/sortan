@@ -27,7 +27,7 @@
     withdrawalLabel.textContent = 'بعد كم سحب مدفوع؟';
     const withdrawalInput = document.createElement('input');
     withdrawalInput.type = 'number';
-    withdrawalInput.min = '1';
+    withdrawalInput.min = '0';
     withdrawalInput.step = '1';
     withdrawalInput.value = withdrawalCount;
     withdrawalInput.dataset.withdrawalCount = '';
