@@ -177,7 +177,7 @@ def send_group_message_push(self, message_id):
                     preview = _chat_push_message_preview(notification_message)
                     sender_name = (
                         notification_message.demo_sender_name
-                        if notification_message.demo_sender_is_ai and notification_message.demo_sender_name
+                        if notification_message.demo_sender_name
                         else notification_message.sender.get_full_name().strip() or "عضو"
                     )
                     body = f"{sender_name}: {preview[:140]}"
