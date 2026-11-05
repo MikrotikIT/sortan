@@ -98,14 +98,52 @@ def get_chat_message_view_counts(messages):
     for thresholds in reads_by_group.values():
         thresholds.sort()
 
+    reactions_by_message = {}
+    for message_id, user_id in ChatReaction.objects.filter(
+        message_id__in=[message.pk for message in messages],
+        user__is_fake_account=False,
+    ).values_list("message_id", "user_id"):
+        reactions_by_message.setdefault(message_id, set()).add(user_id)
+
     view_counts = {}
     for message in messages:
         thresholds = reads_by_group.get(message.group_id, [])
         count = len(thresholds) - bisect_left(thresholds, message.pk)
         if last_reads.get((message.group_id, message.sender_id), 0) >= message.pk:
             count -= 1
+        count += sum(
+            1
+            for user_id in reactions_by_message.get(message.pk, ())
+            if user_id != message.sender_id
+            and last_reads.get((message.group_id, user_id), 0) < message.pk
+        )
         view_counts[message.pk] = max(0, count)
     return view_counts
+
+
+def get_chat_message_viewer_ids(message):
+    viewer_ids = set(
+        ChatMembership.objects.filter(
+            group_id=message.group_id,
+            last_read_message_id__gte=message.pk,
+            user__is_fake_account=False,
+        ).values_list("user_id", flat=True)
+    )
+    viewer_ids.update(
+        ChatGroupReadState.objects.filter(
+            group_id=message.group_id,
+            last_read_message_id__gte=message.pk,
+            user__is_fake_account=False,
+        ).values_list("user_id", flat=True)
+    )
+    viewer_ids.update(
+        ChatReaction.objects.filter(
+            message_id=message.pk,
+            user__is_fake_account=False,
+        ).values_list("user_id", flat=True)
+    )
+    viewer_ids.discard(message.sender_id)
+    return viewer_ids
 
 
 def allowed_group_reactions(group):

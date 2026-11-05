@@ -15,7 +15,7 @@ from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Sum
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -30,6 +30,7 @@ from .chat_services import (
     configure_message_demo_growth,
     get_chat_group_active_counts,
     get_chat_message_view_counts,
+    get_chat_message_viewer_ids,
     get_chat_unread_counts,
     group_member_access,
     mark_chat_group_read,
@@ -37,7 +38,17 @@ from .chat_services import (
     user_can_moderate,
     user_can_post,
 )
-from .models import ChatDemoAccount, ChatGroup, ChatGroupBan, ChatMembership, ChatMessage, ChatReaction
+from .models import (
+    ChatDemoAccount,
+    ChatGroup,
+    ChatGroupBan,
+    ChatMembership,
+    ChatMessage,
+    ChatReaction,
+    Deposit,
+    JoinApplication,
+    User,
+)
 from .chat_services import create_uploaded_message
 
 
@@ -684,6 +695,67 @@ def chat_group_history(request, pk):
     response["Cache-Control"] = "no-store"
     return response
 
+
+@login_required
+@require_GET
+def chat_message_viewers(request, pk, message_id):
+    if not request.user.is_staff:
+        return JsonResponse({"ok": False, "error": "هذه البيانات متاحة للإدارة فقط."}, status=403)
+    group = get_object_or_404(ChatGroup, pk=pk, is_active=True)
+    message = get_object_or_404(ChatMessage, pk=message_id, group=group)
+    viewer_ids = get_chat_message_viewer_ids(message)
+
+    users = list(User.objects.filter(pk__in=viewer_ids, is_fake_account=False).order_by("phone"))
+    applications = {
+        application.user_id: application
+        for application in JoinApplication.objects.filter(user_id__in=viewer_ids)
+    }
+    deposit_totals = {
+        row["user_id"]: row
+        for row in Deposit.objects.filter(user_id__in=viewer_ids)
+        .values("user_id")
+        .annotate(
+            deposit_count=Count("pk"),
+            approved_count=Count("pk", filter=Q(status=Deposit.Status.APPROVED)),
+            approved_amount=Sum("amount", filter=Q(status=Deposit.Status.APPROVED)),
+        )
+    }
+    reaction_labels = dict(ChatReaction.Kind.choices)
+    reaction_glyphs = {"like": "👍", "heart": "❤️", "fire": "🔥", "clap": "👏", "dislike": "👎"}
+    reactions = {
+        reaction.user_id: {
+            "kind": reaction.kind,
+            "label": reaction_labels.get(reaction.kind, "تفاعل"),
+            "glyph": reaction_glyphs.get(reaction.kind, "💬"),
+        }
+        for reaction in ChatReaction.objects.filter(
+            message=message,
+            user_id__in=viewer_ids,
+            user__is_fake_account=False,
+        )
+    }
+
+    viewers = []
+    for user in users:
+        application = applications.get(user.pk)
+        full_name = application.full_name if application else user.get_full_name().strip()
+        deposit_data = deposit_totals.get(user.pk, {})
+        viewers.append({
+            "id": user.pk,
+            "full_name": full_name or user.phone,
+            "phone": user.phone,
+            "image_url": reverse("join_application_photo", args=(application.pk,))
+            if application and application.profile_image else "",
+            "customer_url": reverse("management_customer_detail", args=(user.pk,)),
+            "deposit_count": deposit_data.get("deposit_count", 0),
+            "approved_count": deposit_data.get("approved_count", 0),
+            "approved_amount": deposit_data.get("approved_amount") or 0,
+            "reaction": reactions.get(user.pk),
+        })
+
+    response = JsonResponse({"ok": True, "message_id": message.pk, "view_count": len(viewer_ids), "viewers": viewers})
+    response["Cache-Control"] = "private, no-store"
+    return response
 
 @login_required
 @require_POST

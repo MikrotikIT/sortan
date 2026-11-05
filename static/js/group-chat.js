@@ -22,6 +22,13 @@
   const demoAccountId = Number(root.dataset.demoAccountId || 0);
   const demoReactionUrlTemplate = root.dataset.demoReactionUrlTemplate || "";
   const readUrl = root.dataset.readUrl || "";
+  const viewersUrlTemplate = root.dataset.messageViewersUrlTemplate || "";
+  const viewersDialog = root.querySelector("[data-chat-viewers-dialog]");
+  const viewersSummary = viewersDialog?.querySelector("[data-chat-viewers-summary]");
+  const viewersStatus = viewersDialog?.querySelector("[data-chat-viewers-status]");
+  const viewersList = viewersDialog?.querySelector("[data-chat-viewers-list]");
+  let viewersRequestGeneration = 0;
+  let viewersRequestController = null;
   const messageRepliesToViewer = (message) => {
     const target = message?.reply_to;
     if (!target || target.deleted) return false;
@@ -1134,6 +1141,114 @@
     return player;
   };
 
+  const formatViewerAmount = (amount) => Number(amount || 0).toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+
+  const renderViewerCard = (viewer) => {
+    const card = document.createElement("article");
+    card.className = "chat-viewer-card";
+    const avatar = document.createElement("div");
+    avatar.className = "chat-viewer-avatar";
+    if (viewer.image_url) {
+      const image = document.createElement("img");
+      image.src = viewer.image_url;
+      image.alt = `صورة ${viewer.full_name || "العميل"}`;
+      image.loading = "lazy";
+      avatar.append(image);
+    } else {
+      const initial = document.createElement("span");
+      initial.textContent = String(viewer.full_name || "ع").trim().charAt(0) || "ع";
+      avatar.append(initial);
+    }
+
+    const details = document.createElement("div");
+    details.className = "chat-viewer-details";
+    const identity = document.createElement("div");
+    identity.className = "chat-viewer-identity";
+    const name = document.createElement("strong");
+    name.textContent = viewer.full_name || "عميل";
+    const phone = document.createElement("span");
+    phone.className = "chat-viewer-phone";
+    phone.dir = "ltr";
+    phone.textContent = viewer.phone || "—";
+    identity.append(name, phone);
+
+    const deposits = document.createElement("small");
+    deposits.className = "chat-viewer-deposits";
+    deposits.textContent = `الإيداعات: ${Number(viewer.deposit_count || 0)} · المقبول: ${Number(viewer.approved_count || 0)} (${formatViewerAmount(viewer.approved_amount)} USDT)`;
+    const reaction = document.createElement("small");
+    reaction.className = `chat-viewer-reaction${viewer.reaction ? " has-reaction" : ""}`;
+    reaction.textContent = viewer.reaction
+      ? `تفاعله مع الرسالة: ${viewer.reaction.glyph} ${viewer.reaction.label}`
+      : "لم يتفاعل مع هذه الرسالة";
+
+    details.append(identity, deposits, reaction);
+    if (viewer.customer_url) {
+      const profileLink = document.createElement("a");
+      profileLink.className = "chat-viewer-profile-link";
+      profileLink.href = viewer.customer_url;
+      profileLink.target = "_blank";
+      profileLink.rel = "noopener noreferrer";
+      profileLink.textContent = "ملف العميل";
+      details.append(profileLink);
+    }
+    card.append(avatar, details);
+    return card;
+  };
+
+  const openMessageViewers = async (messageId) => {
+    if (!isAdmin || !viewersDialog || !viewersUrlTemplate || typeof viewersDialog.showModal !== "function") return;
+    const generation = ++viewersRequestGeneration;
+    viewersRequestController?.abort();
+    viewersRequestController = new AbortController();
+    clearChildren(viewersList);
+    if (viewersSummary) viewersSummary.textContent = "";
+    if (viewersStatus) {
+      viewersStatus.hidden = false;
+      viewersStatus.textContent = "جارٍ تحميل قائمة المشاهدين…";
+    }
+    if (!viewersDialog.open) viewersDialog.showModal();
+
+    const url = viewersUrlTemplate.replace(/\/0\/viewers\/?$/, `/${Number(messageId)}/viewers/`);
+    try {
+      const response = await fetch(url, {
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { "Accept": "application/json" },
+        signal: viewersRequestController.signal,
+      });
+      const data = await response.json();
+      if (generation !== viewersRequestGeneration) return;
+      if (!response.ok || !data.ok) throw new Error(data.error || "تعذر تحميل قائمة المشاهدين.");
+
+      if (viewersSummary) viewersSummary.textContent = `${Number(data.view_count || 0)} مشاهدة فعلية`;
+      const viewers = data.viewers || [];
+      if (!viewers.length) {
+        if (viewersStatus) viewersStatus.textContent = "لا توجد مشاهدات فعلية مسجلة لهذه الرسالة.";
+        return;
+      }
+      if (viewersStatus) viewersStatus.hidden = true;
+      viewers.forEach((viewer) => viewersList.append(renderViewerCard(viewer)));
+    } catch (error) {
+      if (generation !== viewersRequestGeneration || error.name === "AbortError") return;
+      if (viewersStatus) {
+        viewersStatus.hidden = false;
+        viewersStatus.textContent = error.message || "تعذر تحميل قائمة المشاهدين.";
+      }
+    }
+  };
+
+  viewersDialog?.querySelector("[data-chat-viewers-close]")?.addEventListener("click", () => viewersDialog.close());
+  viewersDialog?.addEventListener("click", (event) => {
+    if (event.target === viewersDialog) viewersDialog.close();
+  });
+  viewersDialog?.addEventListener("close", () => {
+    viewersRequestGeneration += 1;
+    viewersRequestController?.abort();
+  });
+
   const createMessageViewCount = (message, previous) => {
     if (!isAdmin) return null;
     let count = Number(message.view_count);
@@ -1141,11 +1256,14 @@
       count = Number(previous?.querySelector("[data-message-view-count]")?.dataset.viewCount);
     }
     if (!Number.isFinite(count)) count = 0;
-    const node = document.createElement("small");
+    const node = document.createElement("button");
+    node.type = "button";
     node.className = "chat-message-view-count";
     node.dataset.messageViewCount = "";
     node.dataset.viewCount = String(Math.max(0, count));
     node.textContent = `مشاهدات فعلية: ${Math.max(0, count)}`;
+    node.setAttribute("aria-label", `عرض ${Math.max(0, count)} من المشاهدات الفعلية`);
+    node.addEventListener("click", () => openMessageViewers(message.id));
     return node;
   };
 
@@ -1672,6 +1790,7 @@
     const count = Math.max(0, Number(payload.view_count) || 0);
     countNode.dataset.viewCount = String(count);
     countNode.textContent = `مشاهدات فعلية: ${count}`;
+    countNode.setAttribute("aria-label", `عرض ${count} من المشاهدات الفعلية`);
   };
 
   let pollingStats = false;

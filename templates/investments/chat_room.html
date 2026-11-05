@@ -2,9 +2,9 @@
 {% load static %}
 {% block body_class %}chat-room-page{% endblock %}
 {% block title %}{{ group.title }} — KODI{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/group-chat.css' %}?v=12"><link rel="stylesheet" href="{% static 'css/chat-fullscreen.css' %}?v=2"><link rel="stylesheet" href="{% static 'css/chat-ui.css' %}?v=24">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/group-chat.css' %}?v=13"><link rel="stylesheet" href="{% static 'css/chat-fullscreen.css' %}?v=2"><link rel="stylesheet" href="{% static 'css/chat-ui.css' %}?v=24">{% endblock %}
 {% block content %}
-<section class="chat-room" data-chat-room data-ws-path="{{ ws_path }}" data-history-url="{{ history_url }}" data-read-url="{{ read_url }}" data-video-upload-start-url="{% url 'chat_video_upload_start' group.pk %}" data-member-action-url-template="{% url 'management_chat_member_action' group.pk 0 %}" data-has-older-messages="{{ has_older_messages|yesno:'true,false' }}" data-chat-live-stats-url="{% url 'chat_live_stats' %}" data-group-id="{{ group.pk }}" data-current-user="{{ request.user.pk }}" data-can-moderate="{{ can_moderate|yesno:'true,false' }}" data-can-post="{{ can_post|yesno:'true,false' }}" data-is-admin="{{ request.user.is_staff|yesno:'true,false' }}" data-demo-growth-url-template="{{ demo_growth_url_template }}" data-can-react="{{ group.reactions_enabled|yesno:'true,false' }}" data-allowed-reactions="{{ group.allowed_reactions|join:',' }}" data-allow-voice-messages="{{ group.allow_voice_messages|yesno:'true,false' }}" data-allow-videos="{{ group.allow_videos|yesno:'true,false' }}" data-member-count="{{ actual_member_count }}" data-demo-member-offset="{{ group.demo_member_offset }}">
+<section class="chat-room" data-chat-room data-ws-path="{{ ws_path }}" data-history-url="{{ history_url }}" data-read-url="{{ read_url }}" data-message-viewers-url-template="{% if request.user.is_staff %}{% url 'chat_message_viewers' group.pk 0 %}{% endif %}" data-video-upload-start-url="{% url 'chat_video_upload_start' group.pk %}" data-member-action-url-template="{% url 'management_chat_member_action' group.pk 0 %}" data-has-older-messages="{{ has_older_messages|yesno:'true,false' }}" data-chat-live-stats-url="{% url 'chat_live_stats' %}" data-group-id="{{ group.pk }}" data-current-user="{{ request.user.pk }}" data-can-moderate="{{ can_moderate|yesno:'true,false' }}" data-can-post="{{ can_post|yesno:'true,false' }}" data-is-admin="{{ request.user.is_staff|yesno:'true,false' }}" data-demo-growth-url-template="{{ demo_growth_url_template }}" data-can-react="{{ group.reactions_enabled|yesno:'true,false' }}" data-allowed-reactions="{{ group.allowed_reactions|join:',' }}" data-allow-voice-messages="{{ group.allow_voice_messages|yesno:'true,false' }}" data-allow-videos="{{ group.allow_videos|yesno:'true,false' }}" data-member-count="{{ actual_member_count }}" data-demo-member-offset="{{ group.demo_member_offset }}">
   <span hidden>{% csrf_token %}</span>
   <header class="chat-room-header">
     <a class="chat-back-link" href="{% url 'chat_groups' %}" aria-label="العودة للمجموعات">→</a>
@@ -49,7 +49,8 @@
     </form>
     {% endif %}
   {% endif %}
+  {% if request.user.is_staff %}<dialog class="chat-viewers-dialog" data-chat-viewers-dialog aria-labelledby="chat-viewers-title"><div class="chat-viewers-panel"><header class="chat-viewers-header"><div><strong id="chat-viewers-title">مشاهدو الرسالة</strong><small data-chat-viewers-summary></small></div><button type="button" data-chat-viewers-close aria-label="إغلاق القائمة">×</button></header><div class="chat-viewers-content"><p class="chat-viewers-status" data-chat-viewers-status role="status" aria-live="polite">جارٍ تحميل القائمة…</p><div class="chat-viewers-list" data-chat-viewers-list></div></div></div></dialog>{% endif %}
 </section>
 {{ messages_data|json_script:"chat-initial-messages" }}
 {% endblock %}
-{% block extra_js %}<script src="{% static 'js/group-chat.js' %}?v=50" defer></script>{% endblock %}
+{% block extra_js %}<script src="{% static 'js/group-chat.js' %}?v=51" defer></script>{% endblock %}
