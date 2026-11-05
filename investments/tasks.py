@@ -162,9 +162,11 @@ def send_group_message_push(self, message_id):
                         reply_to__sender_id=membership.user_id,
                         demo_account__isnull=True,
                         sender__is_active=True,
-                        sender__is_fake_account=False,
                     )
-                    .filter(Q(sender__is_staff=True) | Q(sender__approval_status="approved"))
+                    .filter(
+                        Q(sender__is_staff=True)
+                        | Q(sender__is_fake_account=False, sender__approval_status="approved")
+                    )
                     .select_related("sender")
                     .order_by("-pk")
                     .first()
