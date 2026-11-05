@@ -438,6 +438,99 @@ class Film(models.Model):
         super().save(*args, **kwargs)
 
 
+class InvestmentAutoPostLink(models.Model):
+    class Status(models.TextChoices):
+        AVAILABLE = "available", "في السلة"
+        USED = "used", "تم النشر"
+
+    title = models.CharField("اسم الفيلم", max_length=180)
+    description = models.TextField("نبذة الفيلم", blank=True)
+    external_url = models.URLField("رابط الاستثمار", max_length=500)
+    image_url = models.URLField("رابط صورة خارجي", max_length=500, blank=True)
+    image = models.ImageField(
+        "صورة الفيلم",
+        upload_to="investment_link_basket/",
+        blank=True,
+        validators=[FileExtensionValidator(("jpg", "jpeg", "png", "webp"))],
+    )
+    status = models.CharField("الحالة", max_length=12, choices=Status.choices, default=Status.AVAILABLE)
+    created_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="created_investment_auto_post_links",
+    )
+    used_film = models.ForeignKey(
+        Film,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="auto_post_source_links",
+    )
+    used_at = models.DateTimeField("وقت الاستخدام", null=True, blank=True)
+    created_at = models.DateTimeField("تاريخ الإضافة", auto_now_add=True)
+
+    class Meta:
+        ordering = ("status", "created_at", "pk")
+        verbose_name = "رابط جاهز للنشر"
+        verbose_name_plural = "سلة روابط الاستثمار"
+
+    def __str__(self):
+        return f"{self.title} — {self.get_status_display()}"
+
+
+class InvestmentAutoPostSchedule(models.Model):
+    name = models.CharField("اسم الجدولة", max_length=120)
+    enabled = models.BooleanField("مفعّلة", default=False)
+    group = models.ForeignKey("ChatGroup", verbose_name="مجموعة النشر", on_delete=models.PROTECT, related_name="investment_auto_post_schedules")
+    sender = models.ForeignKey(User, verbose_name="الناشر", on_delete=models.PROTECT, related_name="investment_auto_post_schedules")
+    timezone_name = models.CharField("المنطقة الزمنية", max_length=64, default="Asia/Damascus")
+    publish_times = models.JSONField("أوقات النشر اليومية", default=list)
+    waiting_duration = models.PositiveIntegerField("مدة الاستثمار", default=10, validators=[MinValueValidator(1)])
+    waiting_unit = models.CharField("وحدة مدة الاستثمار", max_length=8, choices=Film.DurationUnit.choices, default=Film.DurationUnit.DAYS)
+    minimum_investment_amount = models.DecimalField("الحد الأدنى للاستثمار (USDT)", max_digits=12, decimal_places=2, default=100, validators=[MinValueValidator(0.01)])
+    profit_percent = models.DecimalField("نسبة الربح (%)", max_digits=6, decimal_places=2, default=3, validators=[MinValueValidator(0), MaxValueValidator(100)])
+    link_expiry_duration = models.PositiveIntegerField("مدة صلاحية الرابط", null=True, blank=True, default=1, validators=[MinValueValidator(1)])
+    link_expiry_unit = models.CharField("وحدة صلاحية الرابط", max_length=8, choices=Film.ExpiryUnit.choices, default=Film.ExpiryUnit.DAYS)
+    message_template = models.TextField(
+        "قالب رسالة المجموعة",
+        default="أهلاً بكم\nهذا هو رابط الاستثمار: {link}\nكود الاستثمار: {code}\nمدة الاستثمار: {duration}\nالحد الأدنى: {minimum} USDT",
+    )
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="created_investment_auto_post_schedules")
+    created_at = models.DateTimeField("تاريخ الإنشاء", auto_now_add=True)
+    updated_at = models.DateTimeField("آخر تعديل", auto_now=True)
+
+    class Meta:
+        ordering = ("name", "pk")
+        verbose_name = "جدولة نشر استثمار"
+        verbose_name_plural = "جداول نشر الاستثمارات"
+
+    def __str__(self):
+        return self.name
+
+
+class InvestmentAutoPostRun(models.Model):
+    class Status(models.TextChoices):
+        SENT = "sent", "تم النشر"
+        FAILED = "failed", "فشل النشر"
+
+    schedule = models.ForeignKey(InvestmentAutoPostSchedule, on_delete=models.CASCADE, related_name="runs")
+    scheduled_at = models.DateTimeField("موعد النشر المحدد")
+    status = models.CharField("الحالة", max_length=8, choices=Status.choices)
+    link_item = models.ForeignKey(InvestmentAutoPostLink, null=True, blank=True, on_delete=models.SET_NULL, related_name="runs")
+    film = models.ForeignKey(Film, null=True, blank=True, on_delete=models.SET_NULL, related_name="auto_post_runs")
+    message = models.ForeignKey("ChatMessage", null=True, blank=True, on_delete=models.SET_NULL, related_name="investment_auto_post_runs")
+    error = models.TextField("تفاصيل الخطأ", blank=True)
+    created_at = models.DateTimeField("وقت التنفيذ", auto_now_add=True)
+
+    class Meta:
+        ordering = ("-scheduled_at", "-pk")
+        constraints = [models.UniqueConstraint(fields=("schedule", "scheduled_at"), name="auto_post_sched_slot_uniq")]
+        verbose_name = "تنفيذ نشر استثمار مجدول"
+        verbose_name_plural = "سجل نشر الاستثمارات المجدول"
+
+
 class InvestmentVoucher(models.Model):
     class Status(models.TextChoices):
         AVAILABLE = "available", "متاحة"
@@ -947,6 +1040,7 @@ class ChatMembership(models.Model):
     notifications_muted = models.BooleanField("كتم إشعارات هذه المجموعة", default=False)
     joined_at = models.DateTimeField("تاريخ الانضمام", auto_now_add=True)
     last_read_message_id = models.PositiveBigIntegerField("آخر رسالة مقروءة", null=True, blank=True, editable=False)
+    last_read_at = models.DateTimeField("وقت آخر قراءة", null=True, blank=True, editable=False)
     last_push_message_id = models.PositiveBigIntegerField(null=True, blank=True, editable=False)
 
     class Meta:
@@ -963,6 +1057,7 @@ class ChatGroupReadState(models.Model):
     group = models.ForeignKey(ChatGroup, on_delete=models.CASCADE, related_name="read_states")
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="chat_group_read_states")
     last_read_message_id = models.PositiveBigIntegerField(null=True, blank=True, editable=False)
+    last_read_at = models.DateTimeField(null=True, blank=True, editable=False)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=("group", "user"), name="unique_chat_group_read_state")]

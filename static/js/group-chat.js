@@ -1146,6 +1146,28 @@
     maximumFractionDigits: 2,
   });
 
+  const formatViewerRelativeTime = (timestamp) => {
+    const elapsedSeconds = Math.max(0, Math.floor((Date.now() - Date.parse(timestamp)) / 1000));
+    if (!Number.isFinite(elapsedSeconds)) return "";
+    if (elapsedSeconds < 60) return "منذ أقل من دقيقة";
+    const minutes = Math.floor(elapsedSeconds / 60);
+    if (minutes < 60) {
+      if (minutes === 1) return "منذ دقيقة واحدة";
+      if (minutes === 2) return "منذ دقيقتين";
+      return minutes <= 10 ? `منذ ${minutes} دقائق` : `منذ ${minutes} دقيقة`;
+    }
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) {
+      if (hours === 1) return "منذ ساعة واحدة";
+      if (hours === 2) return "منذ ساعتين";
+      return hours <= 10 ? `منذ ${hours} ساعات` : `منذ ${hours} ساعة`;
+    }
+    const days = Math.floor(hours / 24);
+    if (days === 1) return "منذ يوم واحد";
+    if (days === 2) return "منذ يومين";
+    return days <= 10 ? `منذ ${days} أيام` : `منذ ${days} يوم`;
+  };
+
   const renderViewerCard = (viewer) => {
     const card = document.createElement("article");
     card.className = "chat-viewer-card";
@@ -1184,7 +1206,20 @@
       ? `تفاعله مع الرسالة: ${viewer.reaction.glyph} ${viewer.reaction.label}`
       : "لم يتفاعل مع هذه الرسالة";
 
-    details.append(identity, deposits, reaction);
+    const viewed = document.createElement("small");
+    viewed.className = "chat-viewer-seen-time";
+    if (viewer.viewed_at) {
+      const date = document.createElement("time");
+      date.dateTime = viewer.viewed_at;
+      date.textContent = viewer.viewed_at_display || viewer.viewed_at;
+      const relative = document.createElement("span");
+      relative.textContent = formatViewerRelativeTime(viewer.viewed_at);
+      viewed.append("المشاهدة: ", date, " · ", relative);
+    } else {
+      viewed.textContent = "وقت المشاهدة غير متوفر";
+    }
+
+    details.append(identity, viewed, deposits, reaction);
     if (viewer.customer_url) {
       const profileLink = document.createElement("a");
       profileLink.className = "chat-viewer-profile-link";

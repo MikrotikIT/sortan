@@ -489,3 +489,10 @@ def advance_ai_chat_bots():
     from .ai_chat_services import advance_ai_chat_bots as run_ai_chat_bots
 
     return run_ai_chat_bots()
+
+
+@shared_task
+def publish_scheduled_investment_links():
+    from .investment_auto_posts import process_due_investment_auto_posts
+
+    return process_due_investment_auto_posts()

@@ -7,7 +7,7 @@
   <title>{% block title %}إدارة Kodi TV{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'css/site.css' %}"><link rel="stylesheet" href="{% static 'css/management.css' %}"><link rel="stylesheet" href="{% static 'css/management-enhancements.css' %}"><link rel="stylesheet" href="{% static 'css/brand-assets.css' %}">
+  <link rel="stylesheet" href="{% static 'css/site.css' %}"><link rel="stylesheet" href="{% static 'css/management.css' %}"><link rel="stylesheet" href="{% static 'css/management-enhancements.css' %}?v=2"><link rel="stylesheet" href="{% static 'css/brand-assets.css' %}">
   {% block extra_head %}{% endblock %}
 </head>
 <body class="management-body">
@@ -27,6 +27,8 @@
       <a href="{% url 'management_finance' %}">المالية</a>
       <a href="{% url 'management_reconciliation' %}">المطابقة المالية</a>
       <a href="{% url 'management_films' %}">الأفلام</a>
+      <a href="{% url 'management_investment_auto_posts' %}">النشر التلقائي للاستثمار</a>
+      <a href="{% url 'management_investment_link_basket' %}">سلة روابط الاستثمار</a>
       <a href="{% url 'management_support_options' %}">خيارات الدعم</a>
       <a href="{% url 'management_vouchers' %}">القسائم</a>
       <a href="{% url 'management_deposits' %}">الإيداعات</a>

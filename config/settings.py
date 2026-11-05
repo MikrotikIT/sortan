@@ -169,6 +169,11 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": 2.0,
         "options": {"expires": 5},
     },
+    "publish-scheduled-investment-links": {
+        "task": "investments.tasks.publish_scheduled_investment_links",
+        "schedule": 60,
+        "options": {"expires": 120},
+    },
 }
 
 STATIC_URL = "static/"

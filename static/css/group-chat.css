@@ -35,3 +35,4 @@
 .chat-ai-badge{border-color:rgba(18,133,126,.24);background:linear-gradient(135deg,#e8faf4,#e8f5fb);color:#168078}.chat-ai-badge::before{background:linear-gradient(135deg,#17a18d,#368ab4);content:"AI";font:700 7px/1 Arial,sans-serif}
 .chat-upload-error.is-success{background:#ecf8f0;color:#287a4d}
 .chat-closed-notice{display:flex;align-items:center;justify-content:center;gap:9px;padding:13px 16px;border-top:1px solid #e9def2;background:linear-gradient(120deg,#faf7fd,#f5f1f9);color:#684889;font-size:12px;font-weight:700;text-align:center}.chat-closed-notice::before{content:"🔒";font-size:15px}
+.chat-viewer-seen-time{color:#087f98;font-size:10px;line-height:1.6}.chat-viewer-seen-time time{font-variant-numeric:tabular-nums}

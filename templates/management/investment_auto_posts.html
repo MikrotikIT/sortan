@@ -1,0 +1,28 @@
+{% extends 'management/base.html' %}
+{% block title %}النشر التلقائي لروابط الاستثمار — Kodi TV{% endblock %}
+{% block content %}
+<section class="management-heading">
+  <div><span class="eyebrow">الأفلام والمحادثات</span><h1>النشر التلقائي لروابط الاستثمار</h1><p>ينشئ النظام في كل موعد فيلماً جديداً برمز من 4 أرقام، ثم ينشره في المجموعة باسم الناشر المحدد.</p></div>
+  <div class="auto-post-heading-actions"><a class="btn btn-quiet" href="{% url 'management_investment_link_basket' %}">سلة الروابط · {{ available_link_count }}</a><a class="btn btn-primary" href="{% url 'management_investment_auto_post_create' %}">＋ إضافة جدولة</a></div>
+</section>
+
+<section class="management-panel">
+  <div class="management-panel-head"><div><h2>جداول النشر</h2><p>الأوقات تُقرأ حسب المنطقة الزمنية المكتوبة في كل جدول.</p></div><span class="count-pill">{{ schedules|length }} جدولة</span></div>
+  {% if schedules %}<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>الجدولة</th><th>المجموعة</th><th>الناشر</th><th>الأوقات اليومية</th><th>المنطقة الزمنية</th><th>الحالة</th><th>الإجراءات</th></tr></thead><tbody>
+  {% for item in schedules %}<tr>
+    <td><strong>{{ item.name }}</strong><br><small>استثمار {{ item.waiting_duration }} {{ item.get_waiting_unit_display }} · حد أدنى {{ item.minimum_investment_amount|floatformat:2 }} USDT</small></td>
+    <td>{{ item.group.title }}</td><td dir="ltr">{{ item.sender.phone }}</td>
+    <td dir="ltr">{{ item.publish_times|join:" · " }}</td><td dir="ltr">{{ item.timezone_name }}</td>
+    <td>{% if item.enabled %}<span class="status status-done">مفعّلة</span>{% else %}<span class="status status-pending">متوقفة</span>{% endif %}</td>
+    <td><div class="row-actions"><a class="table-action" href="{% url 'management_investment_auto_post_edit' item.pk %}">تعديل</a><form method="post" action="{% url 'management_investment_auto_post_toggle' item.pk %}">{% csrf_token %}<button class="table-action" type="submit">{% if item.enabled %}إيقاف{% else %}تفعيل{% endif %}</button></form><form method="post" action="{% url 'management_investment_auto_post_delete' item.pk %}" onsubmit="return confirm('حذف هذه الجدولة وسجل تشغيلها؟')">{% csrf_token %}<button class="table-action danger-action" type="submit">حذف</button></form></div></td>
+  </tr>{% endfor %}
+  </tbody></table></div>{% else %}<div class="admin-empty">لا توجد جداول بعد. أضف جدولة وحدد المجموعة والناشر وأوقات النشر.</div>{% endif %}
+</section>
+
+<section class="management-panel">
+  <div class="management-panel-head"><div><h2>آخر محاولات النشر</h2><p>تظهر هنا نتيجة كل موعد، بما في ذلك نفاد الروابط أو أخطاء صلاحية الناشر.</p></div></div>
+  {% if recent_runs %}<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>الموعد</th><th>الجدولة والمجموعة</th><th>النتيجة</th><th>الفيلم</th><th>التفاصيل</th></tr></thead><tbody>
+  {% for run in recent_runs %}<tr><td>{{ run.scheduled_at|date:"Y-m-d H:i" }}</td><td>{{ run.schedule.name }}<br><small>{{ run.schedule.group.title }}</small></td><td>{% if run.status == 'sent' %}<span class="status status-done">تم النشر</span>{% else %}<span class="status status-rejected">فشل</span>{% endif %}</td><td>{{ run.film.title|default:"—" }}</td><td>{{ run.error|default:"—"|truncatechars:100 }}</td></tr>{% endfor %}
+  </tbody></table></div>{% else %}<div class="admin-empty">لم يحِن موعد نشر بعد.</div>{% endif %}
+</section>
+{% endblock %}

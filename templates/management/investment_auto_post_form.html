@@ -1,0 +1,12 @@
+{% extends 'management/base.html' %}
+{% load static %}
+{% block title %}{{ heading }} — Kodi TV{% endblock %}
+{% block content %}
+<section class="management-heading"><div><span class="eyebrow">النشر التلقائي</span><h1>{{ heading }}</h1><p>الإعدادات تحفظ الجدولة متوقفة افتراضياً؛ فعّلها من قائمة الجداول عندما تصبح جاهزة.</p></div><a class="btn btn-quiet" href="{% url 'management_investment_auto_posts' %}">← جداول النشر</a></section>
+<section class="management-panel form-panel"><form method="post" class="management-form auto-post-schedule-form" data-auto-post-schedule-form data-publishers-url="{% url 'management_investment_auto_post_publishers' %}">{% csrf_token %}
+  {% for field in form %}<div class="admin-field {% if field.field.widget.input_type == 'checkbox' %}admin-check-field{% endif %}{% if field.name == 'publish_times_text' or field.name == 'message_template' %} auto-post-wide-field{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}
+  {% for error in form.non_field_errors %}<div class="field-error auto-post-wide-field">{{ error }}</div>{% endfor %}
+  <div class="form-actions auto-post-wide-field"><button class="btn btn-primary" type="submit">حفظ الجدولة</button><a class="btn btn-quiet" href="{% url 'management_investment_auto_posts' %}">إلغاء</a></div>
+</form></section>
+{% endblock %}
+{% block extra_js %}<script src="{% static 'js/investment-auto-posts.js' %}?v=1" defer></script>{% endblock %}

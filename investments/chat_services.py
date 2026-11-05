@@ -216,9 +216,12 @@ def mark_chat_group_read(user, group, message_id):
         read_state = ChatGroupReadState.objects.filter(pk=state.pk)
     else:
         read_state = ChatMembership.objects.filter(group=group, user=user)
-    return read_state.filter(
+    updated = read_state.filter(
         Q(last_read_message_id__isnull=True) | Q(last_read_message_id__lt=message_id)
-    ).update(last_read_message_id=message_id)
+    ).update(last_read_message_id=message_id, last_read_at=timezone.now())
+    if not updated:
+        read_state.filter(last_read_message_id=message_id).update(last_read_at=timezone.now())
+    return updated
 
 
 class ChatRuleError(Exception):

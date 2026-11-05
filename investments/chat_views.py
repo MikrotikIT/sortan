@@ -42,6 +42,7 @@ from .models import (
     ChatDemoAccount,
     ChatGroup,
     ChatGroupBan,
+    ChatGroupReadState,
     ChatMembership,
     ChatMessage,
     ChatReaction,
@@ -705,7 +706,7 @@ def chat_message_viewers(request, pk, message_id):
     message = get_object_or_404(ChatMessage, pk=message_id, group=group)
     viewer_ids = get_chat_message_viewer_ids(message)
 
-    users = list(User.objects.filter(pk__in=viewer_ids, is_fake_account=False).order_by("phone"))
+    users = list(User.objects.filter(pk__in=viewer_ids, is_fake_account=False))
     applications = {
         application.user_id: application
         for application in JoinApplication.objects.filter(user_id__in=viewer_ids)
@@ -727,6 +728,7 @@ def chat_message_viewers(request, pk, message_id):
             "kind": reaction.kind,
             "label": reaction_labels.get(reaction.kind, "تفاعل"),
             "glyph": reaction_glyphs.get(reaction.kind, "💬"),
+            "created_at": reaction.created_at,
         }
         for reaction in ChatReaction.objects.filter(
             message=message,
@@ -734,12 +736,36 @@ def chat_message_viewers(request, pk, message_id):
             user__is_fake_account=False,
         )
     }
+    read_at_by_user = {}
+    read_states = (
+        ChatMembership.objects.filter(
+            group=group,
+            user_id__in=viewer_ids,
+            last_read_message_id__gte=message.pk,
+            last_read_at__isnull=False,
+        ).values_list("user_id", "last_read_at"),
+        ChatGroupReadState.objects.filter(
+            group=group,
+            user_id__in=viewer_ids,
+            last_read_message_id__gte=message.pk,
+            last_read_at__isnull=False,
+        ).values_list("user_id", "last_read_at"),
+    )
+    for read_state in read_states:
+        for user_id, read_at in read_state:
+            current = read_at_by_user.get(user_id)
+            if current is None or read_at > current:
+                read_at_by_user[user_id] = read_at
 
     viewers = []
     for user in users:
         application = applications.get(user.pk)
         full_name = application.full_name if application else user.get_full_name().strip()
         deposit_data = deposit_totals.get(user.pk, {})
+        reaction = reactions.get(user.pk)
+        viewed_at = read_at_by_user.get(user.pk)
+        if reaction and (viewed_at is None or reaction["created_at"] < viewed_at):
+            viewed_at = reaction["created_at"]
         viewers.append({
             "id": user.pk,
             "full_name": full_name or user.phone,
@@ -750,8 +776,14 @@ def chat_message_viewers(request, pk, message_id):
             "deposit_count": deposit_data.get("deposit_count", 0),
             "approved_count": deposit_data.get("approved_count", 0),
             "approved_amount": deposit_data.get("approved_amount") or 0,
-            "reaction": reactions.get(user.pk),
+            "reaction": reaction,
+            "viewed_at": timezone.localtime(viewed_at).isoformat() if viewed_at else "",
+            "viewed_at_display": timezone.localtime(viewed_at).strftime("%Y-%m-%d %H:%M") if viewed_at else "",
+            "_viewed_at_sort": viewed_at.timestamp() if viewed_at else float("-inf"),
         })
+    viewers.sort(key=lambda viewer: viewer["_viewed_at_sort"], reverse=True)
+    for viewer in viewers:
+        viewer.pop("_viewed_at_sort", None)
 
     response = JsonResponse({"ok": True, "message_id": message.pk, "view_count": len(viewer_ids), "viewers": viewers})
     response["Cache-Control"] = "private, no-store"

@@ -1,15 +1,20 @@
 from decimal import Decimal, InvalidOperation
+from datetime import datetime
 from io import BytesIO
+from string import Formatter
 import warnings
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django import forms
 from django.core.files.base import ContentFile
 from django.core.exceptions import ValidationError
+from django.db.models import OuterRef, Subquery
 from django.utils import timezone
 from django.utils.html import strip_tags
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-from .models import Film, InvestmentVoucher, JoinApplication, PlatformSettings, SupportOption, User
+from .investment_auto_posts import get_auto_post_publishers
+from .models import ChatGroup, Film, InvestmentAutoPostLink, InvestmentAutoPostSchedule, InvestmentVoucher, JoinApplication, PlatformSettings, SupportOption, User
 from .demo_film_titles import DEMO_FILM_TITLES
 from .notification_services import sanitize_notification_html
 from .services import parse_withdrawal_referral_rules
@@ -36,6 +41,171 @@ class FilmForm(forms.ModelForm):
             "minimum_investment_amount": forms.NumberInput(attrs={"min": "0.01", "step": "0.01"}),
             "link_expiry_duration": forms.NumberInput(attrs={"min": "1", "step": "1"}),
         }
+
+
+class AutoPostPublisherChoiceField(forms.ModelChoiceField):
+    def label_from_instance(self, obj):
+        name = getattr(obj, "application_full_name", "") or obj.get_full_name().strip() or "ناشر"
+        return f"{name} — {obj.phone}"
+
+
+class InvestmentAutoPostScheduleForm(forms.ModelForm):
+    publish_times_text = forms.CharField(
+        label="أوقات النشر اليومية",
+        widget=forms.Textarea(attrs={"rows": 4, "placeholder": "14:00\n17:00\n20:00", "dir": "ltr"}),
+        help_text="اكتب وقتاً واحداً في كل سطر بصيغة 24 ساعة، مثل 14:00. يمكنك إضافة أي عدد من الأوقات.",
+    )
+    sender = AutoPostPublisherChoiceField(
+        label="الناشر",
+        queryset=User.objects.none(),
+        help_text="اختر عضواً يستطيع النشر في المجموعة، أو حساباً إدارياً.",
+    )
+
+    class Meta:
+        model = InvestmentAutoPostSchedule
+        fields = (
+            "name", "enabled", "group", "sender", "timezone_name", "waiting_duration", "waiting_unit",
+            "minimum_investment_amount", "profit_percent", "link_expiry_duration", "link_expiry_unit",
+            "message_template",
+        )
+        widgets = {
+            "name": forms.TextInput(attrs={"placeholder": "مثال: نشر عروض المساء"}),
+            "timezone_name": forms.TextInput(attrs={"dir": "ltr", "placeholder": "Asia/Damascus"}),
+            "waiting_duration": forms.NumberInput(attrs={"min": "1", "step": "1"}),
+            "minimum_investment_amount": forms.NumberInput(attrs={"min": "0.01", "step": "0.01"}),
+            "profit_percent": forms.NumberInput(attrs={"min": "0", "max": "100", "step": "0.01"}),
+            "link_expiry_duration": forms.NumberInput(attrs={"min": "1", "step": "1"}),
+            "message_template": forms.Textarea(attrs={"rows": 6, "dir": "auto"}),
+        }
+        help_texts = {
+            "timezone_name": "استخدم اسم منطقة زمنية من قاعدة IANA. الافتراضي هو توقيت سوريا Asia/Damascus.",
+            "link_expiry_duration": "اتركه فارغاً ليبقى رابط الاستثمار دون انتهاء محدد.",
+            "message_template": "المتغيرات المتاحة: {link} {code} {title} {minimum} {duration} {profit} {expiry}.",
+        }
+        labels = {
+            "enabled": "تفعيل هذه الجدولة",
+            "group": "مجموعة النشر",
+            "timezone_name": "المنطقة الزمنية",
+            "waiting_duration": "مدة الاستثمار",
+            "waiting_unit": "وحدة مدة الاستثمار",
+            "minimum_investment_amount": "الحد الأدنى للاستثمار (USDT)",
+            "profit_percent": "نسبة الربح (%)",
+            "link_expiry_duration": "مدة صلاحية الرابط",
+            "link_expiry_unit": "وحدة صلاحية الرابط",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        group_id = self.data.get("group") or self.initial.get("group") or self.instance.group_id
+        group_id = getattr(group_id, "pk", group_id)
+        try:
+            group_id = int(group_id) if group_id else None
+        except (TypeError, ValueError):
+            group_id = None
+        group = ChatGroup.objects.filter(pk=group_id, is_active=True).first() if group_id else None
+        if group:
+            publisher_query = get_auto_post_publishers(group)
+            application_name = JoinApplication.objects.filter(user_id=OuterRef("pk")).values("full_name")[:1]
+            self.fields["sender"].queryset = publisher_query.annotate(
+                application_full_name=Subquery(application_name)
+            )
+        self.fields["group"].queryset = ChatGroup.objects.filter(is_active=True).order_by("display_order", "title")
+        self.initial.setdefault("timezone_name", "Asia/Damascus")
+        if not self.instance.pk:
+            self.initial.setdefault("name", "جدولة نشر استثمار")
+        times = self.initial.get("publish_times_text")
+        if times is None:
+            values = self.instance.publish_times if self.instance.pk else ["14:00", "17:00", "20:00"]
+            self.initial["publish_times_text"] = "\n".join(str(value) for value in values)
+        self.order_fields((
+            "name", "enabled", "group", "sender", "publish_times_text", "timezone_name", "waiting_duration",
+            "waiting_unit", "minimum_investment_amount", "profit_percent", "link_expiry_duration",
+            "link_expiry_unit", "message_template",
+        ))
+
+    def clean_publish_times_text(self):
+        raw_value = self.cleaned_data["publish_times_text"]
+        times = []
+        for value in raw_value.replace(",", "\n").replace(";", "\n").splitlines():
+            value = value.strip()
+            if not value:
+                continue
+            try:
+                parsed = datetime.strptime(value, "%H:%M").time()
+            except ValueError as exc:
+                raise ValidationError(f"الوقت «{value}» غير صالح؛ استخدم الصيغة 14:00.") from exc
+            normalized = parsed.strftime("%H:%M")
+            if normalized not in times:
+                times.append(normalized)
+        if not times:
+            raise ValidationError("أدخل وقت نشر واحداً على الأقل.")
+        return sorted(times)
+
+    def clean_timezone_name(self):
+        zone_name = self.cleaned_data["timezone_name"].strip()
+        try:
+            ZoneInfo(zone_name)
+        except (ZoneInfoNotFoundError, ValueError) as exc:
+            raise ValidationError("اسم المنطقة الزمنية غير معروف. استخدم مثلاً Asia/Damascus.") from exc
+        return zone_name
+
+    def clean_message_template(self):
+        template = self.cleaned_data["message_template"]
+        allowed_fields = {"link", "code", "title", "minimum", "duration", "profit", "expiry"}
+        try:
+            for _literal, field_name, _format_spec, _conversion in Formatter().parse(template):
+                if field_name and field_name not in allowed_fields:
+                    raise ValidationError(f"المتغير {{{field_name}}} غير معروف.")
+        except ValueError as exc:
+            raise ValidationError("تحقق من الأقواس في قالب الرسالة.") from exc
+        missing_fields = {"link", "code"} - {
+            field_name
+            for _literal, field_name, _format_spec, _conversion in Formatter().parse(template)
+            if field_name
+        }
+        if missing_fields:
+            raise ValidationError("يجب أن يحتوي القالب على {link} و{code} لنشر بيانات الاستثمار.")
+        return template
+
+    def clean(self):
+        cleaned = super().clean()
+        group = cleaned.get("group")
+        sender = cleaned.get("sender")
+        if group and not group.allow_links:
+            self.add_error("group", "فعّل السماح بالروابط في المجموعة لاستخدام نشر روابط الاستثمار.")
+        if group and sender:
+            from .chat_services import user_can_post
+
+            if not user_can_post(sender, group):
+                self.add_error("sender", "هذا الحساب لا يملك صلاحية الإرسال في المجموعة المختارة.")
+        return cleaned
+
+    def save(self, commit=True):
+        schedule = super().save(commit=False)
+        schedule.publish_times = self.cleaned_data["publish_times_text"]
+        if commit:
+            schedule.save()
+            self.save_m2m()
+        return schedule
+
+
+class InvestmentAutoPostLinkForm(forms.ModelForm):
+    class Meta:
+        model = InvestmentAutoPostLink
+        fields = ("title", "description", "external_url", "image_url", "image")
+        widgets = {
+            "title": forms.TextInput(attrs={"placeholder": "اسم الفيلم"}),
+            "description": forms.Textarea(attrs={"rows": 3}),
+            "external_url": forms.URLInput(attrs={"dir": "ltr", "placeholder": "https://..."}),
+            "image_url": forms.URLInput(attrs={"dir": "ltr", "placeholder": "https://..."}),
+            "image": forms.ClearableFileInput(attrs={"accept": "image/jpeg,image/png,image/webp"}),
+        }
+
+    def clean_image(self):
+        image = self.cleaned_data.get("image")
+        if image and image.size > 5 * 1024 * 1024:
+            raise ValidationError("يجب ألا يتجاوز حجم الصورة 5 ميغابايت.")
+        return image
 
 
 class PlatformSettingsForm(forms.ModelForm):

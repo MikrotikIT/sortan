@@ -19,13 +19,30 @@ from django.urls import reverse
 from django.utils.html import escape
 from django.utils import timezone
 from django.utils.dateparse import parse_date
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
-from .management_forms import CustomerBlockForm, CustomerInfoForm, CustomerPasswordForm, DemoInvestmentBatchForm, FilmForm, InternalBalanceCreditForm, JoinApplicationDecisionForm, ManualDepositForm, NotificationForm, PlatformSettingsForm, SupportOptionForm, VoucherAmountForm, VoucherIssueForm
+from .management_forms import (
+    CustomerBlockForm,
+    CustomerInfoForm,
+    CustomerPasswordForm,
+    DemoInvestmentBatchForm,
+    FilmForm,
+    InternalBalanceCreditForm,
+    InvestmentAutoPostLinkForm,
+    InvestmentAutoPostScheduleForm,
+    JoinApplicationDecisionForm,
+    ManualDepositForm,
+    NotificationForm,
+    PlatformSettingsForm,
+    SupportOptionForm,
+    VoucherAmountForm,
+    VoucherIssueForm,
+)
 from .demo_film_titles import DEMO_FILM_TITLES
 from .firebase_credentials import save_service_account_upload, service_account_status
-from .models import DemoInvestment, Deposit, Film, InternalBalanceCredit, Investment, InvestmentVoucher, JoinApplication, ServiceHeartbeat, SupportOption, User, UserNotification, Wallet, WalletSyncRun, WithdrawalRequest
+from .models import DemoInvestment, Deposit, Film, InternalBalanceCredit, Investment, InvestmentAutoPostLink, InvestmentAutoPostRun, InvestmentAutoPostSchedule, InvestmentVoucher, JoinApplication, ServiceHeartbeat, SupportOption, User, UserNotification, Wallet, WalletSyncRun, WithdrawalRequest
 from .models import ChatGroup, ChatGroupPresence
+from .investment_auto_posts import get_auto_post_publishers
 from .push_services import queue_bulk_notification_push
 from .services import approve_deposit, deposit_status_for_amount, get_platform_settings, notify_balance_received, notify_deposit_event, pay_withdrawal, reject_deposit, reject_withdrawal
 from .wallet_services import decrypt_private_key, ensure_wallet, sync_all_wallets
@@ -312,6 +329,116 @@ def film_toggle(request, pk):
     film.save(update_fields=("active",))
     messages.success(request, "تم تحديث إتاحة الفيلم للاستثمار.")
     return redirect("management_films")
+
+
+@staff_required
+def investment_auto_posts(request):
+    schedules = InvestmentAutoPostSchedule.objects.select_related("group", "sender").order_by("name", "pk")
+    recent_runs = InvestmentAutoPostRun.objects.select_related(
+        "schedule", "schedule__group", "film", "link_item"
+    ).order_by("-scheduled_at", "-pk")[:40]
+    return render(request, "management/investment_auto_posts.html", {
+        "schedules": schedules,
+        "recent_runs": recent_runs,
+        "available_link_count": InvestmentAutoPostLink.objects.filter(
+            status=InvestmentAutoPostLink.Status.AVAILABLE
+        ).count(),
+    })
+
+
+@staff_required
+def investment_auto_post_schedule_form(request, pk=None):
+    schedule = get_object_or_404(InvestmentAutoPostSchedule, pk=pk) if pk else None
+    form = InvestmentAutoPostScheduleForm(request.POST or None, instance=schedule)
+    if request.method == "POST" and form.is_valid():
+        schedule = form.save(commit=False)
+        if schedule.pk is None:
+            schedule.created_by = request.user
+        schedule.save()
+        messages.success(request, "تم حفظ جدول النشر. لن يبدأ النشر حتى تفعّله.")
+        return redirect("management_investment_auto_posts")
+    return render(request, "management/investment_auto_post_form.html", {
+        "form": form,
+        "schedule": schedule,
+        "heading": "تعديل جدولة النشر" if schedule else "إضافة جدولة نشر",
+    })
+
+
+@staff_required
+@require_POST
+def investment_auto_post_schedule_toggle(request, pk):
+    schedule = get_object_or_404(InvestmentAutoPostSchedule, pk=pk)
+    schedule.enabled = not schedule.enabled
+    schedule.save(update_fields=("enabled", "updated_at"))
+    messages.success(request, "تم تفعيل الجدولة." if schedule.enabled else "تم إيقاف الجدولة.")
+    return redirect("management_investment_auto_posts")
+
+
+@staff_required
+@require_POST
+def investment_auto_post_schedule_delete(request, pk):
+    schedule = get_object_or_404(InvestmentAutoPostSchedule, pk=pk)
+    schedule.delete()
+    messages.success(request, "تم حذف الجدولة وسجل تشغيلها.")
+    return redirect("management_investment_auto_posts")
+
+
+@staff_required
+@require_GET
+def investment_auto_post_publishers(request):
+    try:
+        group_id = int(request.GET.get("group", ""))
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "error": "اختر مجموعة صالحة."}, status=400)
+    group = ChatGroup.objects.filter(pk=group_id, is_active=True).first()
+    if group is None:
+        return JsonResponse({"ok": False, "error": "المجموعة غير متاحة."}, status=404)
+    publishers = list(get_auto_post_publishers(group))
+    names = dict(JoinApplication.objects.filter(
+        user_id__in=[publisher.pk for publisher in publishers]
+    ).values_list("user_id", "full_name"))
+    response = JsonResponse({
+        "ok": True,
+        "publishers": [
+            {
+                "id": publisher.pk,
+                "label": f"{names.get(publisher.pk) or publisher.get_full_name().strip() or 'ناشر'} — {publisher.phone}",
+            }
+            for publisher in publishers
+        ],
+    })
+    response["Cache-Control"] = "private, no-store"
+    return response
+
+
+@staff_required
+def investment_link_basket(request):
+    if request.method == "POST" and request.POST.get("action") == "delete":
+        item = get_object_or_404(InvestmentAutoPostLink, pk=request.POST.get("link_id"))
+        if item.status != InvestmentAutoPostLink.Status.AVAILABLE:
+            messages.error(request, "لا يمكن حذف رابط استُخدم في نشر فيلم.")
+        else:
+            if item.image:
+                item.image.delete(save=False)
+            item.delete()
+            messages.success(request, "تم حذف الرابط من السلة.")
+        return redirect("management_investment_link_basket")
+
+    form = InvestmentAutoPostLinkForm(request.POST or None, request.FILES or None)
+    if request.method == "POST" and form.is_valid():
+        link_item = form.save(commit=False)
+        link_item.created_by = request.user
+        link_item.save()
+        messages.success(request, f"أضيف «{link_item.title}» إلى سلة الروابط.")
+        return redirect("management_investment_link_basket")
+    items = InvestmentAutoPostLink.objects.select_related("used_film").order_by("status", "-created_at", "-pk")
+    return render(request, "management/investment_link_basket.html", {
+        "form": form,
+        "link_items": items,
+        "available_link_count": InvestmentAutoPostLink.objects.filter(
+            status=InvestmentAutoPostLink.Status.AVAILABLE
+        ).count(),
+    })
 
 
 @staff_required
