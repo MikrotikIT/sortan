@@ -1860,6 +1860,52 @@
       refreshAttachmentPreview();
     });
   });
+  compose?.addEventListener("paste", (event) => {
+    if (demoAccountId || isSubmittingChatMessage || !event.clipboardData) return;
+    const clipboardItems = [...(event.clipboardData.items || [])];
+    const imageItem = clipboardItems.find((item) => item.kind === "file" && item.type.toLowerCase().startsWith("image/"));
+    const clipboardImage = imageItem?.getAsFile()
+      || [...(event.clipboardData.files || [])].find((file) => file.type.toLowerCase().startsWith("image/"));
+    if (!clipboardImage) return;
+
+    event.preventDefault();
+    const imageInput = attachmentInputs.find((input) => input.name === "image");
+    if (!imageInput) {
+      showError("إرسال الصور غير متاح في هذه المجموعة.");
+      return;
+    }
+    if (attachmentInputs.some((input) => input.files?.length) || recordedAudioFile || audioRecorder?.state === "recording") {
+      showError("أزل المرفق الحالي أو أوقف التسجيل قبل لصق صورة أخرى.");
+      return;
+    }
+
+    const imageType = clipboardImage.type.toLowerCase();
+    const extensions = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+    const extension = extensions[imageType];
+    if (!extension) {
+      showError("الصق صورة بصيغة JPG أو PNG أو WebP.");
+      return;
+    }
+    if (clipboardImage.size > 5 * 1024 * 1024) {
+      showError("يجب ألا يتجاوز حجم الصورة 5 ميغابايت.");
+      return;
+    }
+
+    try {
+      const imageFile = new File(
+        [clipboardImage],
+        `pasted-image-${Date.now()}.${extension}`,
+        { type: imageType, lastModified: Date.now() },
+      );
+      const transfer = new DataTransfer();
+      transfer.items.add(imageFile);
+      imageInput.files = transfer.files;
+      imageInput.dispatchEvent(new Event("change", { bubbles: true }));
+    } catch (error) {
+      console.error("Could not prepare a pasted group chat image", error);
+      showError("تعذر تجهيز الصورة الملصوقة. حاول لصقها مرة أخرى.");
+    }
+  });
   audioRecordButton?.addEventListener("click", startAudioRecording);
   compose?.querySelector("[data-attachment-cancel]")?.addEventListener("click", () => {
     const session = videoUploadSession;

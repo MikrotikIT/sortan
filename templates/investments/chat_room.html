@@ -34,7 +34,7 @@
             </div>
           </details>
           {% endif %}
-          <textarea name="text" maxlength="2000" rows="1" placeholder="اكتب رسالتك…" aria-label="نص الرسالة"></textarea>
+          <textarea name="text" maxlength="2000" rows="1" placeholder="اكتب رسالتك أو الصق صورة…" aria-label="نص الرسالة"></textarea>
           <button class="btn btn-primary chat-send-button chat-send-icon-button" data-compose-send type="submit" aria-label="إرسال الرسالة" title="إرسال الرسالة"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg></button>
         </div>
       </div>
@@ -52,4 +52,4 @@
 </section>
 {{ messages_data|json_script:"chat-initial-messages" }}
 {% endblock %}
-{% block extra_js %}<script src="{% static 'js/group-chat.js' %}?v=49" defer></script>{% endblock %}
+{% block extra_js %}<script src="{% static 'js/group-chat.js' %}?v=50" defer></script>{% endblock %}
