@@ -27,8 +27,6 @@
     </div>
   </div>
 </section>
-{% elif referral_gate_blocked %}
-<div class="notice notice-info"><strong>متطلبات السحب</strong><span>تظهر متطلبات الدعوات عند بلوغ أرباحك الحد الأدنى للسحب.</span></div>
 {% endif %}
 {% if pending_request %}<div class="notice notice-info"><strong>لديك طلب قيد المراجعة</strong><span>يمكنك تقديم طلب جديد بعد معالجة الطلب الحالي.</span></div>{% elif not can_request and not referral_gate_blocked %}<div class="notice notice-warn"><strong>السحب غير متاح حالياً</strong><span>{% if available_at %}موعد إتاحة السحب التالي: {{ available_at|date:"Y-m-d H:i" }}{% else %}لا يمكنك تقديم طلب سحب حالياً.{% endif %}</span></div>{% endif %}
 {% if settings.withdrawal_minimum_enabled %}<div class="notice notice-info"><strong>الحد الأدنى للسحب</strong><span>يمكنك طلب سحب مبلغ يبدأ من {{ settings.withdrawal_minimum_amount|floatformat:2 }} USDT.</span></div>{% endif %}
